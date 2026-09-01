@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.18 (D-019). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.19 (D-020). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -60,6 +60,8 @@
   통과 전에는 Step 2 호출 안 함), pydantic schema `extra="forbid"`+`strict=True` 명시,
   backend의 `ValidationError`를 명시적 SCHEMA 거부로 변환, `raw_candidate`/`raw_validation`과
   최종 `candidate`/`validation`을 분리 보존 명시.
+- v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
+  task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -541,6 +543,12 @@ Step 2 backend 호출 자체가 일어나지 않는다 — mock 테스트는 이
 시도하지 않았으면 `None`이다. "raw output과 validated output 비교"(§16)는 이 필드들로 한다.
 `failure_category` ∈ {SCHEMA, WORKFLOW, STRUCTURE, REFERENCE, FEASIBILITY, OTHER}. 승인된
 candidate만 `compile_reference_graph`로 실행 graph화한다(D-003 경계).
+
+**prompt에 task glossary를 포함한다(D-020)**: `llm/prompts.py`의 scene facts는 task_type
+이름·target 종류뿐 아니라 각 task의 의미와 담당 platform을 설명하는 glossary를 포함한다.
+이게 없으면 P6 결과가 LLM의 임무 분해 능력이 아니라 task 이름의 영어 의미 추측 능력을 재는
+꼴이 된다. `GROUND_INSPECTION`(점검)과 `GROUND_SUPPRESSION`(진압)처럼 이름이 비슷한 쌍은
+특히 구분해 설명한다.
 
 **평가**: 최소 9개 명령(family당 3개), 시간이 있으면 18개(family당 6개)로 확장.
 

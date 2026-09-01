@@ -633,3 +633,26 @@ reference annotation을 주입해 §12 precision/recall을 측정한다. 실제 
 
 **영향** P5 재검증 대상. `tests/test_llm_pipeline.py` 13개(+6) +
 `tests/test_openai_backend.py` 5개(신규) = 196 tests 전체 통과.
+
+## D-020: prompt task glossary + P5 사소 보강 (계약 v1.19)
+
+**배경** P5 승인 후 Codex 권고. prompt의 scene facts가 task_type 이름·target 종류만
+전달하고 각 task의 의미·담당 platform 설명이 없어, `GROUND_INSPECTION`(점검)과
+`GROUND_SUPPRESSION`(진압)처럼 이름이 비슷한 task를 LLM이 영어 의미로 추측해야 했다.
+P6 실제 평가 전에 고치지 않으면 결과가 "임무 분해 능력"이 아니라 "task 이름 추측 능력"을
+잴 위험이 있음.
+
+**결정**
+
+- `llm/prompts.py`에 5종 task type의 **의미 + 담당 platform** glossary를 scene facts에
+  추가(§12). Step1/Step2/repair 프롬프트 전부에 포함.
+- (사소, 같이 처리) `OpenAIBackend`가 client를 호출마다 새로 만들던 것을 **한 번 생성해
+  재사용**하도록 수정.
+- (사소) repair 자체가 pydantic schema 오류를 내는 경로에 회귀 테스트 추가(이미 코드는
+  정상이었음, Codex가 직접 재현해 확인).
+- P6 착수 시 참고: `OpenAIBackend.resolved_models`(실제 completion.model)를 **명령별·
+  호출별로 결과에 연결해 저장**해야 한다(alias `gpt-5-mini`가 가리키는 실제 snapshot 추적,
+  §14). 평가 하네스 설계 시 반영.
+
+**영향** `tests/test_prompts.py` 신규(2), `tests/test_openai_backend.py` +1(client 재사용),
+`tests/test_llm_pipeline.py` +1(repair 자체 schema 실패). 200 tests 전체 통과.
