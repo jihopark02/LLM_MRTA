@@ -38,12 +38,18 @@ def task_ref(agent: Agent, task: Task, scene: Scene) -> LegRef:
     return scene.incidents[task.target].access_node
 
 
-def leg_time(agent: Agent, from_ref: LegRef, task: Task, scene: Scene) -> float:
-    """Seconds to move ``agent`` from ``from_ref`` to ``task``."""
+def leg_distance(agent: Agent, from_ref: LegRef, task: Task, scene: Scene) -> float:
+    """Distance ``agent`` travels from ``from_ref`` to ``task`` — Euclidean for a
+    UAV, route-graph shortest path for a UGV (contract §8)."""
     if agent.platform_kind is PlatformKind.UAV:
-        return math.dist(from_ref, task.position) / agent.speed
+        return math.dist(from_ref, task.position)
     to_node = scene.incidents[task.target].access_node
     dist = scene.route_graph.shortest_path_distance(from_ref, to_node)
     if dist is None:
         raise UnreachableError(agent.agent_id, task.task_id)
-    return dist / agent.speed
+    return dist
+
+
+def leg_time(agent: Agent, from_ref: LegRef, task: Task, scene: Scene) -> float:
+    """Seconds to move ``agent`` from ``from_ref`` to ``task``."""
+    return leg_distance(agent, from_ref, task, scene) / agent.speed
