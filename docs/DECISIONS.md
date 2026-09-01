@@ -346,3 +346,36 @@ plan-time 시뮬 대신 실제 이벤트 루프로 frontier를 굴린다.
 
 **영향** P3 재검증. makespan/utilization 관련 값이 바뀌므로 P3 게이트 테스트도 갱신. P4
 executor는 이 barrier 모델이 아니라 실제 이벤트 루프를 쓴다(D-009 영향 유지).
+
+## D-011: P4 2D executor (계약 v1.10)
+
+**배경** P4(§15) — 2D discrete-event executor로 reference mission을 end-to-end 실행.
+
+**결정** `execution/executor.py`의 `SimExecutor`:
+
+- **event loop**: `recompute_ready` → READY frontier auction(`run_epoch`) → dispatch(agent
+  가 path[0]의 predecessor가 모두 COMPLETED면 이동 시작, `travel = leg_distance/speed`) →
+  advance(가장 이른 완료 시각으로 시계 전진, task COMPLETED, agent 위치 갱신) → 반복. task
+  완료는 위치 도달 + dwell만(§3).
+- **held carry-forward**(§11): 새 epoch는 미완료 할당을 `held={task: (winner, bid)}`로
+  넘겨 재경매하지 않는다. 없으면 staggered readiness 때문에 매 epoch 빈 bundle 재경매 →
+  한 agent가 연달아 이기고 동종 agent가 유휴. `allocation/cbba.py`의
+  `CBBAState.initialize`/`run_epoch`에 `held` 파라미터 추가. reference mission workload가
+  균형(S1/S2 3, R1/R2 1, G1/G2 2)이 되고 idle 0.
+- **projected-position bidding**: RUNNING task가 있는 agent는 그 task 도착 지점을 기준으로
+  입찰(임시로 position 이동 → 경매 후 복원). RUNNING task는 경매 후 path[0]에 다시 pin.
+- **deadlock 판정**(§14): "아무도 작업 중 아니고 dispatch 불가" 직전에 `recompute_ready`를
+  한 번 더 호출하고 epoch 재시도, 그래도 진전 없으면 `deadlocked=True` + 미완료 task 반환,
+  종료(무한 루프 없음). agent.bundle/path는 완료 시 executor가 제거.
+- **§13 지표**: `ExecutionResult`에 completed, assignments, task_start/completion,
+  consensus_rounds, epochs, makespan, capability/precedence violations, uav/ugv 이동거리,
+  workload, agent_utilization(busy = travel+dwell / makespan), idle_agents, deadlocked.
+- executor는 `state.clone()` 위에서 동작 — 호출자 state 불변.
+
+**P4 게이트 결과**: reference mission 12/12 완주, capability/precedence violation 0,
+deadlock 아님, 재실행 결정성. 최소 재현 테스트(단일 agent R1, THERMAL_RECON→SUPPRESSANT_DROP
+체인 — false deadlock 없이 완주). 부분 진전 후 실제 deadlock(예: Response UAV 없음 →
+SUPPRESSANT_DROP 영구 미배치)도 종료·보고.
+
+**영향** RQ1/RQ2 필수 범위의 실행 파이프라인 완성(P1~P4). 다음은 P5(LLM Step1/Step2/repair
+mock 테스트). P7 Gazebo executor는 이 executor와 동일 route semantics를 공유해야 한다(§8).

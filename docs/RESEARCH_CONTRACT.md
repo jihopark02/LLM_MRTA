@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.9 (D-010). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.10 (D-011). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -30,6 +30,9 @@
 - v1.9 (D-010): P3 Codex 검토 반영 — §13에 plan-time topological-wave barrier 모델(READY
   이전 이동 금지, utilization busy = travel+dwell만), §11에 tie-break를 `1e-9` 허용오차로
   명시(정확 상등 아님), §11·§10에 bundle/path 관계를 CBBA postcondition으로 확정.
+- v1.10 (D-011): §11에 rolling epoch의 `held` commitment(미완료 할당은 재경매 안 함) +
+  task lifecycle(ASSIGNED→RUNNING→COMPLETED) 명시, §14에 P4 구현체 `SimExecutor`의
+  deadlock 판정 절차 명시(P4 구현).
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -420,6 +423,12 @@ READY가 되면 새 epoch를 시작한다. (precedence-aware 선점 번들링은
 이 방식에서 Response UAV가 초기에는 대기하다 `SUPPRESSANT_DROP`이 READY가 된 뒤 투입되는 것도
 정상 동작이다.
 
+**rolling epoch의 held commitment(D-011)**: 새 epoch는 아직 완료되지 않은 기존 할당을
+`held`(task → winner, bid)로 넘겨받아 재경매하지 않는다. 이게 없으면 task가 하나씩 staggered
+로 READY가 될 때마다 매 epoch를 빈 bundle로 다시 경매해서 같은 agent가 연달아 이기고, 다른
+동종 agent가 계속 유휴 상태가 된다. task lifecycle은 `ASSIGNED`(경매 낙찰) → `RUNNING`(agent가
+이동 시작) → `COMPLETED`(위치 도달 + dwell 완료, §3).
+
 **Bid/score**:
 
 ```
@@ -533,6 +542,11 @@ invariant, 기존 prompt, 기존 scenario/world, 기존 결과값, 기존 테스
 deadlock 판정 직전에 반드시 recompute를 한 번 더 하는 패턴으로 **처음부터** 작성하고, 최소
 재현 테스트(단일 agent, A→B 체인)를 P4 게이트에 넣는다 — 옛 테스트 파일을 복사하지 않고
 독립적으로 새로 작성한다.
+
+P4 구현체는 `execution/executor.py`의 `SimExecutor`다(D-011). "아무도 작업 중이 아니고
+dispatch할 것도 없다"고 판단하기 직전에 `recompute_ready()`를 호출한 뒤 epoch를 한 번 더
+시도하고, 그래도 진전이 없으면 `deadlocked=True` + 남은 task 목록을 반환하고 종료한다(무한
+루프 없음). 최소 재현·부분진전 후 deadlock·정상 완주 테스트가 P4 게이트다.
 
 ---
 
