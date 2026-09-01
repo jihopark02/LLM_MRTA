@@ -18,7 +18,7 @@ dev = [
     "ruff>=0.5",
 ]
 llm = [
-    "anthropic>=0.40",
+    "openai>=1.40",
 ]
 
 [tool.setuptools.packages.find]

@@ -1,9 +1,9 @@
 """LLM backend abstraction (RESEARCH_CONTRACT.md §12, §14 PROVENANCE).
 
 Only the *pattern* of a structured-output wrapper is reused from LLM_CBBA
-(``llm/backends.py``); that code is OpenAI-specific and is not ported. The real
-backend here targets the Anthropic SDK. Every pipeline test uses ``MockBackend``
-so the P5 gate needs no network and no API key.
+(``llm/backends.py``). The real backend targets the OpenAI SDK
+(``chat.completions.parse`` with a pydantic ``response_format``). Every pipeline
+test uses ``MockBackend`` so the P5 gate needs no network and no API key.
 """
 
 from collections.abc import Iterator
@@ -13,8 +13,8 @@ from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
-# Default model: contract does not pin one; the Anthropic skill's default.
-DEFAULT_MODEL = "claude-opus-5"
+# Overridable; the eval (§14 reproducibility) must pin one explicit model.
+DEFAULT_MODEL = "gpt-4o-mini"
 
 
 class LLMBackend(Protocol):
@@ -44,30 +44,40 @@ class MockBackend:
         return item if isinstance(item, schema) else schema.model_validate(item)
 
 
-class AnthropicBackend:
-    """Structured output via the Anthropic SDK (``client.messages.parse``)."""
+class OpenAIBackend:
+    """Structured output via the OpenAI SDK (``chat.completions.parse``).
 
-    def __init__(self, model: str = DEFAULT_MODEL, max_tokens: int = 8000) -> None:
+    ``temperature=None`` omits the parameter (some models reject any explicit
+    value); ``OPENAI_API_KEY`` (and optional ``OPENAI_BASE_URL``) come from the
+    environment.
+    """
+
+    def __init__(
+        self, model: str = DEFAULT_MODEL, temperature: float | None = 0.0
+    ) -> None:
         self.model = model
-        self.max_tokens = max_tokens
+        self.temperature = temperature
 
     def complete(self, system: str, user: str, schema: type[T]) -> T:
         try:
-            import anthropic
-        except ImportError as e:  # pragma: no cover - exercised only with the extra installed
+            from openai import OpenAI
+        except ImportError as e:  # pragma: no cover - only with the extra installed
             raise RuntimeError(
-                "AnthropicBackend needs the 'llm' optional dependency: pip install -e '.[llm]'"
+                "OpenAIBackend needs the 'llm' optional dependency: pip install -e '.[llm]'"
             ) from e
 
-        client = anthropic.Anthropic()
-        message = client.messages.parse(
+        client = OpenAI()
+        extra = {} if self.temperature is None else {"temperature": self.temperature}
+        completion = client.chat.completions.parse(
             model=self.model,
-            max_tokens=self.max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-            output_config={"format": {"type": "json_schema", "schema": schema.model_json_schema()}},
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            response_format=schema,
+            **extra,
         )
-        parsed = message.parsed
+        parsed = completion.choices[0].message.parsed
         if parsed is None:  # pragma: no cover
-            raise RuntimeError("model returned no parseable structured output")
-        return schema.model_validate(parsed)
+            raise RuntimeError("model refused or returned unparseable structured output")
+        return parsed
