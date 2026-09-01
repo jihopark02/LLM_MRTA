@@ -25,11 +25,11 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1·P2·P3 승인. P4 구현 완료(Codex 검토 대기). 계약 v1.10 (D-011).** `validator/`(P2) +
+**P1·P2·P3 승인. P4 구현 완료 + Codex 검토 반영(D-012). 계약 v1.11.** `validator/`(P2) +
 `allocation/`(P3) + `execution/`(P4: `SimExecutor` 2D discrete-event, held carry-forward,
-§14 deadlock 절차, §13 지표). `VALIDATOR_VERSION = "1.1"`, `λ = 0.999`. pytest 169개 통과
+§14 deadlock 절차, §13 지표). `VALIDATOR_VERSION = "1.1"`, `λ = 0.999`. pytest 172개 통과
 (`python3 -m pytest -q`), ruff clean. P4 게이트 통과 — reference mission 12/12 완주,
-violation 0, deadlock 최소 재현·부분진전·정상완주 테스트. RQ1/RQ2 실행 파이프라인(P1~P4)
+violation 0, 완주 후 §10 assignment invariant 통과, deadlock·STEP_LIMIT 구분. RQ1/RQ2 실행 파이프라인(P1~P4)
 완성. 다음: Codex 승인 후 **P5**(LLM Step1/Step2/repair, mock 테스트).
 
 P4 구조:
