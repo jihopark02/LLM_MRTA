@@ -25,10 +25,15 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P0 완료. 계약 v1.1 (D-002) 확정.** P1(semantic scene, Generic Agent, TaskGraph, route
-graph, reference fixture)부터 시작한다. P1 완료 게이트는 RESEARCH_CONTRACT.md §15의 "P1
-완료 게이트" 5개 항목 전부 — 특히 reference fixture가 §3 고정 형상(task 12 / edge 6 / 초기
-READY 6)과 일치하는지 검사한다.
+**P1 구현 완료. 계약 v1.1 (D-002).** `core/`(enums, Agent, Task, TaskGraph, RouteGraph),
+`scenarios/`(scene loader, 결정론적 compiler, reference fixture)까지 구현했고 §15 P1 완료
+게이트 5개 항목이 전부 테스트로 통과된다(pytest 41개, `python3 -m pytest -q`). Codex 검토
+대기 중. 검토 승인 후 **P2**(deterministic whole-graph Validator + MissionPatch
+reconciliation, §9/§10) 착수.
+
+P2 착수 시 주의: §9 invariant 14개를 전부 구현하고, **매 patch마다 최종 후보 graph 전체를
+처음부터 재검증**(§9 멀티 트랜잭션 우회 방지), patch 거부 시 원본 완전 보존(트랜잭션).
+`TaskGraph.reference_errors()`/`has_cycle()`는 P1의 경량 구조 검사일 뿐 P2 Validator가 아니다.
 
 RQ1(LLM 복합 task graph 생성)과 RQ2(이종 UAV/UGV CBBA 할당)가 필수 범위다. RQ3(선택적
 재할당)는 P8 후속이며, 구현되기 전까지는 어디에도 "동적 재할당"을 완료된 결과로 쓰지 않는다.
