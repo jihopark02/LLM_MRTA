@@ -1,0 +1,21 @@
+# Canonical reference annotation — fixed BEFORE any LLM call (RESEARCH_CONTRACT.md
+# §12, D-021).
+
+id: A2
+family: A
+profile: FULL_RESPONSE
+command: >-
+  Full response to the industrial park emergency. Do aerial reconnaissance of
+  ZONE_A, ZONE_B, ZONE_C and ZONE_D. For both FIRE_SITE_1 and FIRE_SITE_2,
+  complete the whole sequence: thermal recon, then the suppressant drop, then
+  the ground inspection, then the ground suppression.
+rationale: >-
+  Explicitly enumerates the four workflow steps and all four zones, so the
+  target graph is unambiguous and matches A1 / the P1 fixture. This phrasing
+  tests whether the model keeps the enumerated steps in order and does not
+  drop or merge any.
+allowed_graphs:
+  - recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+    incident_chains:
+      FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+      FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]

@@ -1,0 +1,19 @@
+# Canonical reference annotation — fixed BEFORE any LLM call (RESEARCH_CONTRACT.md
+# §12, D-021).
+
+id: C1
+family: C
+profile: SELECTIVE_RESPONSE
+command: >-
+  FIRE_SITE_1 is the priority - take it through the full response workflow to
+  ground suppression. FIRE_SITE_2 only needs a thermal recon for now. Also
+  survey all four zones from the air.
+rationale: >-
+  Asymmetric per-incident response: FIRE_SITE_1 gets the full four-step chain,
+  FIRE_SITE_2 gets only the workflow head (THERMAL_RECON). Plus AREA_RECON of
+  all four zones. 9 tasks, 3 edges (the FIRE_SITE_1 chain).
+allowed_graphs:
+  - recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+    incident_chains:
+      FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+      FIRE_SITE_2: [THERMAL_RECON]

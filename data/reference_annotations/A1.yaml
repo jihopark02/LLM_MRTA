@@ -1,0 +1,24 @@
+# Canonical reference annotation — fixed BEFORE any LLM call (RESEARCH_CONTRACT.md
+# §12, D-021). A `*_chain` is a contiguous prefix of the §4 workflow
+# THERMAL_RECON -> SUPPRESSANT_DROP -> GROUND_INSPECTION -> GROUND_SUPPRESSION and
+# expands to those tasks plus the sequential edges between them.
+
+id: A1
+family: A
+profile: FULL_RESPONSE
+command: >-
+  We have active fires at FIRE_SITE_1 and FIRE_SITE_2. Run a full disaster
+  response: survey every zone from the air, and take each fire all the way
+  through the response workflow from the thermal check to ground suppression.
+rationale: >-
+  "Full disaster response" on both reported incidents means the complete
+  four-step workflow per incident (THERMAL_RECON -> SUPPRESSANT_DROP ->
+  GROUND_INSPECTION -> GROUND_SUPPRESSION). "Survey every zone from the air"
+  is AREA_RECON of all four zones. No ambiguity: one allowed graph, identical
+  to the P1 reference fixture (scenarios/reference_fixture.yaml, 12 tasks / 6
+  edges).
+allowed_graphs:
+  - recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+    incident_chains:
+      FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+      FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]

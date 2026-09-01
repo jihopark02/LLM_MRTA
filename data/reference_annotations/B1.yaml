@@ -1,0 +1,21 @@
+# Canonical reference annotation — fixed BEFORE any LLM call (RESEARCH_CONTRACT.md
+# §12, D-021). A one-element chain [THERMAL_RECON] is the workflow head: one
+# task, no edges.
+
+id: B1
+family: B
+profile: AERIAL_ONLY
+command: >-
+  Aerial assessment only for now. Have the scout UAVs survey all four zones and
+  do a pre-response heat-source check over FIRE_SITE_1 and FIRE_SITE_2. Do not
+  commit any suppressant drop or ground units yet.
+rationale: >-
+  "Aerial assessment only" plus the explicit ban on suppressant drops and
+  ground units restricts the graph to the two aerial task types: AREA_RECON
+  (all four zones) and THERMAL_RECON (both incidents). THERMAL_RECON is the
+  workflow head, so there are no edges. One allowed graph: 6 tasks, 0 edges.
+allowed_graphs:
+  - recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+    incident_chains:
+      FIRE_SITE_1: [THERMAL_RECON]
+      FIRE_SITE_2: [THERMAL_RECON]

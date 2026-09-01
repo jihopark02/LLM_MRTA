@@ -1,0 +1,19 @@
+# Canonical reference annotation — fixed BEFORE any LLM call (RESEARCH_CONTRACT.md
+# §12, D-021).
+
+id: A3
+family: A
+profile: FULL_RESPONSE
+command: >-
+  Both fire sites are confirmed. Handle everything - every zone gets an aerial
+  survey and both fires get the complete response chain end to end.
+rationale: >-
+  Colloquial phrasing of the same full response. "Handle everything" plus
+  "complete response chain end to end" for both incidents means all four
+  workflow steps per incident; "every zone gets an aerial survey" is
+  AREA_RECON x 4. Same target graph as A1 / A2.
+allowed_graphs:
+  - recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+    incident_chains:
+      FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+      FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]

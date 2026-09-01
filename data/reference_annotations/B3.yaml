@@ -1,0 +1,19 @@
+# Canonical reference annotation — fixed BEFORE any LLM call (RESEARCH_CONTRACT.md
+# §12, D-021).
+
+id: B3
+family: B
+profile: AERIAL_ONLY
+command: >-
+  Reconnaissance phase only: survey every zone and perform the pre-response
+  heat-source check at each fire. No suppressant drops, no ground inspection,
+  no ground suppression until I say so.
+rationale: >-
+  Names the three forbidden downstream steps explicitly, leaving AREA_RECON
+  (all zones) and THERMAL_RECON (both fires). Same target graph as B1 / B2:
+  6 tasks, 0 edges.
+allowed_graphs:
+  - recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+    incident_chains:
+      FIRE_SITE_1: [THERMAL_RECON]
+      FIRE_SITE_2: [THERMAL_RECON]

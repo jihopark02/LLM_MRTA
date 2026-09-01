@@ -1,0 +1,19 @@
+# Canonical reference annotation — fixed BEFORE any LLM call (RESEARCH_CONTRACT.md
+# §12, D-021). `recon_zones: []` means no AREA_RECON tasks.
+
+id: C3
+family: C
+profile: SELECTIVE_RESPONSE
+command: >-
+  Skip the zone surveys entirely. Put FIRE_SITE_1 through the whole response
+  workflow to ground suppression, and give FIRE_SITE_2 a thermal recon only.
+rationale: >-
+  "Skip the zone surveys entirely" removes all AREA_RECON tasks. FIRE_SITE_1
+  gets the full four-step chain, FIRE_SITE_2 gets only THERMAL_RECON. 5 tasks,
+  3 edges - the smallest reference in the set, tests that the model does not
+  add zone recon it was told to skip.
+allowed_graphs:
+  - recon_zones: []
+    incident_chains:
+      FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+      FIRE_SITE_2: [THERMAL_RECON]

@@ -1,0 +1,19 @@
+# Canonical reference annotation — fixed BEFORE any LLM call (RESEARCH_CONTRACT.md
+# §12, D-021).
+
+id: B2
+family: B
+profile: AERIAL_ONLY
+command: >-
+  I only want eyes in the sky right now. Aerial recon across the whole park -
+  every zone - and a thermal pass over each fire site. Nothing on the ground,
+  no drops.
+rationale: >-
+  "Eyes in the sky", "nothing on the ground, no drops" -> only AREA_RECON
+  (all zones) and THERMAL_RECON (both fires). Same target graph as B1:
+  6 tasks, 0 edges.
+allowed_graphs:
+  - recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+    incident_chains:
+      FIRE_SITE_1: [THERMAL_RECON]
+      FIRE_SITE_2: [THERMAL_RECON]

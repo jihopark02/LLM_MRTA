@@ -1,0 +1,19 @@
+# Canonical reference annotation — fixed BEFORE any LLM call (RESEARCH_CONTRACT.md
+# §12, D-021).
+
+id: C2
+family: C
+profile: SELECTIVE_RESPONSE
+command: >-
+  Escalate FIRE_SITE_2 to a complete ground suppression response - run the
+  entire workflow there. FIRE_SITE_1 just needs a heat check for now. Survey
+  every zone too.
+rationale: >-
+  Mirror image of C1: FIRE_SITE_2 gets the full four-step chain, FIRE_SITE_1
+  gets only THERMAL_RECON, plus AREA_RECON of all four zones. 9 tasks, 3 edges
+  (the FIRE_SITE_2 chain).
+allowed_graphs:
+  - recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+    incident_chains:
+      FIRE_SITE_1: [THERMAL_RECON]
+      FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
