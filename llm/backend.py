@@ -69,25 +69,39 @@ class OpenAIBackend:
     ``OPENAI_API_KEY`` (and optional ``OPENAI_BASE_URL``) come from the
     environment or a repo-root ``.env``. ``temperature=None`` (the default)
     omits the parameter — reasoning models such as gpt-5-mini reject any
-    explicit value.
+    explicit value. ``client`` can be injected (a stub with a
+    ``chat.completions.parse`` method) so this is testable without the
+    ``openai`` package installed or a network call; ``resolved_models`` records
+    the API's actual ``completion.model`` per call (a model alias like
+    "gpt-5-mini" can resolve to a dated snapshot — log the resolved id for
+    reproducibility, contract §14).
     """
 
     def __init__(
-        self, model: str = DEFAULT_MODEL, temperature: float | None = None
+        self,
+        model: str = DEFAULT_MODEL,
+        temperature: float | None = None,
+        client: object | None = None,
     ) -> None:
         self.model = model
         self.temperature = temperature
+        self._client = client
+        self.resolved_models: list[str] = []
 
-    def complete(self, system: str, user: str, schema: type[T]) -> T:
+    def _get_client(self):
+        if self._client is not None:
+            return self._client
         try:
             from openai import OpenAI
         except ImportError as e:  # pragma: no cover - only with the extra installed
             raise RuntimeError(
                 "OpenAIBackend needs the 'llm' optional dependency: pip install -e '.[llm]'"
             ) from e
-
         _load_dotenv()
-        client = OpenAI()
+        return OpenAI()
+
+    def complete(self, system: str, user: str, schema: type[T]) -> T:
+        client = self._get_client()
         extra = {} if self.temperature is None else {"temperature": self.temperature}
         completion = client.chat.completions.parse(
             model=self.model,
@@ -98,6 +112,7 @@ class OpenAIBackend:
             response_format=schema,
             **extra,
         )
+        self.resolved_models.append(getattr(completion, "model", self.model))
         parsed = completion.choices[0].message.parsed
         if parsed is None:  # pragma: no cover
             raise RuntimeError("model refused or returned unparseable structured output")
