@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.12 (D-013). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.13 (D-014). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -40,6 +40,9 @@
   agent의 남은 시간)를 입찰 누적 시작값으로 명시, §14에 마지막 step 완주 시 `COMPLETED`
   판정 + precedence violation을 `task_departure` 기준으로 판정. availability-aware 후
   reference mission workload가 다시 균형(D-012의 "집중이 정상" 서술 철회).
+- v1.13 (D-014): §14에 `STEP_LIMIT` 실행의 `makespan`/`agent_utilization`은 평가 지표로
+  쓰지 않음을 명시(busy는 dispatch 시 예정치를 더하므로 미완 실행에서 util > 1 가능;
+  `agent_utilization`은 빈 dict 반환).
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -568,6 +571,12 @@ dispatch할 것도 없다"고 판단하기 직전에 `recompute_ready()`를 호�
 **precedence violation 판정(D-013)**: agent가 predecessor 완료 전에 목적지로 **출발**했는지로
 본다 — `task_completion[p] > task_departure[s]`이면 위반. 도착 시각(`task_start`)이 아니라
 출발 시각(`task_departure`)과 비교해야 "READY 전 이동 금지"의 의미가 맞다.
+
+**STEP_LIMIT 결과의 지표(D-014)**: busy time은 dispatch 시점에 예정 travel+dwell 전체를
+더하므로, 실행 중 task가 남은 채 `STEP_LIMIT`으로 끝나면 `agent_utilization`이 1을 넘을 수
+있다(미래 busy가 분자에, 완료 시각까지만 분모에). `STEP_LIMIT` 실행의 `makespan`·
+`agent_utilization`은 평가 지표로 쓰지 않는다 — `agent_utilization`은 빈 dict로 반환한다.
+`COMPLETED`/`DEADLOCK`에서는 실행 중 agent가 없으므로 정상이다.
 
 **실행 중 새 epoch의 입찰(D-012)**: 이미 RUNNING인 task는 그 agent의 residual path scoring에서
 제외한다(도착 지점으로 위치 투영 + RUNNING task는 path에서 임시 제거). 아직 시작 안 한

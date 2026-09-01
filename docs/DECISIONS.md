@@ -451,3 +451,14 @@ workload가 쏠렸으나, D-013의 availability-aware 수정 후 다시 균형�
 가용시간 누락 버그 때문이었다. makespan 232.9, capability/precedence violation 0.
 
 **영향** P4 재검증. `allocate`(P3)는 `start_delays` 미전달로 불변.
+
+## D-014: STEP_LIMIT 실행의 지표 (계약 v1.13, 비차단)
+
+**배경** P4 승인 후 Codex가 발견: busy time을 dispatch 시점에 예정 travel+dwell 전체로
+더하므로, 실행 중 task가 남은 채 `STEP_LIMIT`으로 끝나면 `agent_utilization`이 1을 넘는다
+(미래 busy가 분자, 완료 시각까지만 분모). `COMPLETED`/`DEADLOCK`에는 실행 중 agent가 없어
+정상이고 P4 게이트에 영향 없음.
+
+**결정** `STEP_LIMIT` 실행의 `makespan`/`agent_utilization`은 평가 지표로 쓰지 않는다.
+`_result`가 `STEP_LIMIT`이면 `agent_utilization`을 빈 dict로 반환한다(§14). 테스트에 명시.
+연구 결과에는 `STEP_LIMIT` 실행을 포함하지 않는다.
