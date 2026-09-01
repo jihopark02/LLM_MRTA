@@ -86,6 +86,7 @@ def _bundle_build(
     scene: Scene,
     lam: float,
     capacity: int,
+    start_delay: float,
 ) -> None:
     while len(agent.bundle) < capacity:
         best_id: str | None = None
@@ -95,7 +96,7 @@ def _bundle_build(
             if task_id in agent.bundle:
                 continue
             path = [tasks[t] for t in agent.path]
-            gain, n = marginal_score(agent, tasks[task_id], path, scene, lam)
+            gain, n = marginal_score(agent, tasks[task_id], path, scene, lam, start_delay)
             if not _bid_gt(gain, state.y[agent.agent_id][task_id]):
                 continue
             if _bid_gt(gain, best_gain):
@@ -231,12 +232,16 @@ def run_epoch(
     capacity: int | None = None,
     frontier: list[str] | None = None,
     held: dict[str, tuple[str, float]] | None = None,
+    start_delays: dict[str, float] | None = None,
     network_diameter: int = 1,
 ) -> EpochResult:
     """Run CBBA to convergence over the current READY frontier. Mutates
     agent.bundle/agent.path in place. ``held`` locks already-committed tasks
     (see CBBAState.initialize) so rolling epochs do not re-contest them.
+    ``start_delays`` maps an agent to the time until it becomes available (an
+    agent still executing a task); default 0 for every agent.
     """
+    start_delays = start_delays or {}
     if frontier is None:
         frontier = sorted(t.task_id for t in tasks.values() if t.status is TaskStatus.READY)
     frontier = sorted(frontier)
@@ -258,7 +263,10 @@ def run_epoch(
             raise ConvergenceError(f"CBBA did not converge within {max_rounds} rounds")
         before = _snapshot(agents, state)
         for aid in agent_ids:
-            _bundle_build(agents[aid], tasks, frontier, state, scene, lam, capacity)
+            _bundle_build(
+                agents[aid], tasks, frontier, state, scene, lam, capacity,
+                start_delays.get(aid, 0.0),
+            )
         _consensus_round(agents, all_ids, state, rnd)
         unassigned_rounds += sum(
             1 for j in frontier if not any(state.z[i][j] == i for i in agent_ids)

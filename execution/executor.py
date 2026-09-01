@@ -122,16 +122,19 @@ class SimExecutor:
         }
         epoch_scene = self._epoch_scene()
 
-        # Residual-path view for bidding (D-012): a RUNNING task is removed from
-        # its agent's path and the agent bids from where it will land, so its
-        # travel/dwell/reward is not double-counted.
+        # Residual-path view for bidding (D-012/D-013): a RUNNING task is removed
+        # from its agent's path, the agent bids from where it will land, and
+        # start_delay = its remaining execution time — so its travel/dwell/reward
+        # is not double-counted AND its unavailability still costs it.
         saved_ref: dict[str, tuple] = {}
+        start_delays: dict[str, float] = {}
         for aid, agent in self.agents.items():
             running = self.sim[aid].current
             if running is None:
                 continue
             if running in agent.path:
                 agent.path.remove(running)
+            start_delays[aid] = max(0.0, self.sim[aid].finish_at - self.now)
             saved_ref[aid] = (agent.position, self.access_nodes.get(aid))
             landing = task_ref(agent, self.graph[running], epoch_scene)
             if agent.platform_kind is PlatformKind.UAV:
@@ -141,7 +144,7 @@ class SimExecutor:
 
         result = run_epoch(
             tasks_dict, self.agents, self._epoch_scene(), lam=self.lam,
-            frontier=frontier, held=held,
+            frontier=frontier, held=held, start_delays=start_delays,
         )
 
         for aid, (pos, node) in saved_ref.items():
@@ -239,6 +242,10 @@ class SimExecutor:
             termination = Termination.DEADLOCK
             break
 
+        # A completion on the final allowed step still counts as COMPLETED
+        # (the loop check runs at the top of an iteration that never comes).
+        if all(t.status not in _UNFINISHED for t in self.graph.tasks):
+            termination = Termination.COMPLETED
         return self._result(termination)
 
     def _result(self, termination: Termination) -> ExecutionResult:
@@ -257,12 +264,15 @@ class SimExecutor:
                 and self.agents[aid].has_capabilities(self.graph[tid].required_capabilities)
             )
         )
+        # §13: an agent must not depart toward a task before its predecessors
+        # complete (contract "no travel before READY"), so compare against
+        # departure, not arrival.
         prec_viol = [
             f"{p} -> {s}"
             for p, s in sorted(self.graph.edges)
             if p in self.task_completion
-            and s in self.task_start
-            and self.task_completion[p] > self.task_start[s] + 1e-6
+            and s in self.task_departure
+            and self.task_completion[p] > self.task_departure[s] + 1e-6
         ]
         workload: dict[str, int] = {aid: 0 for aid in self.agents}
         for aid in self.assignments.values():

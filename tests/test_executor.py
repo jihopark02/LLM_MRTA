@@ -8,7 +8,7 @@
 - a RUNNING agent's residual-path bid does not double-count its current task
 """
 
-from dataclasses import replace
+import math
 from pathlib import Path
 
 import pytest
@@ -16,7 +16,7 @@ import pytest
 from core.enums import PlatformKind, TaskStatus, TaskType
 from core.mission_state import MissionState
 from execution.executor import SimExecutor, Termination
-from scenarios.compiler import compile_reference_graph, compile_task
+from scenarios.compiler import compile_reference_graph
 from scenarios.fixture import load_reference_fixture
 from scenarios.scene import load_scene
 from validator.patch_apply import _assignment_invariant_errors
@@ -86,20 +86,34 @@ def test_platforms_match_task_types_and_route_distance(ref_state, scene):
         assert kind[aid] is want
 
 
+def test_reference_workload_is_balanced_and_uses_response_uavs(ref_state, scene):
+    # With availability-aware bidding (D-013) the rolling executor spreads the
+    # heterogeneous work: every agent is used, scouts 3 each, responders 1 each,
+    # UGVs 2 each.
+    r = SimExecutor(ref_state, scene).run()
+    assert r.idle_agents == []
+    assert r.workload == {"S1": 3, "S2": 3, "R1": 1, "R2": 1, "G1": 2, "G2": 2}
+
+
 def test_departure_is_never_before_predecessor_completes(scene):
     # Synthetic chain across two different positions: THERMAL_RECON at the
     # incident, SUPPRESSANT_DROP done by a *different* agent starting from the
     # depot, so there is a real post-ready travel leg.
-    graph = compile_reference_graph(
-        scene, [(*TR_F1, 5), (*SD_F1, 5)], [(TR_F1, SD_F1)]
+    graph = compile_reference_graph(scene, [(*TR_F1, 5), (*SD_F1, 5)], [(TR_F1, SD_F1)])
+    state = MissionState(
+        graph, {a.agent_id: a for a in scene.fleet if a.agent_id in {"S1", "R1"}}
     )
-    state = MissionState(graph, {a.agent_id: a for a in scene.fleet if a.agent_id in {"S1", "R1"}})
     r = SimExecutor(state, scene).run()
     tr_done = r.task_completion["THERMAL_RECON__FIRE_SITE_1"]
-    sd_departure = r.task_departure["SUPPRESSANT_DROP__FIRE_SITE_1"]
+    sd_dep = r.task_departure["SUPPRESSANT_DROP__FIRE_SITE_1"]
     sd_start = r.task_start["SUPPRESSANT_DROP__FIRE_SITE_1"]
-    assert sd_departure >= tr_done - 1e-6           # did not leave early
-    assert sd_start > sd_departure + 1.0           # a real travel leg followed
+    assert sd_dep >= tr_done - 1e-6  # R1 did not leave before the task was READY
+
+    # departure -> on-site start gap is exactly R1's travel leg (UAV, Euclidean)
+    r1 = next(a for a in scene.fleet if a.agent_id == "R1")
+    sd = graph["SUPPRESSANT_DROP__FIRE_SITE_1"]
+    leg = math.dist(r1.position, sd.position) / r1.speed
+    assert sd_start - sd_dep == pytest.approx(leg)
 
 
 def test_executor_is_deterministic(scene):
@@ -115,28 +129,50 @@ def test_executor_is_deterministic(scene):
     assert a.makespan == pytest.approx(b.makespan)
 
 
-# -- residual-path bidding (D-012) ----------------------------------
+# -- residual-path bidding through the real executor (D-012/D-013) -------
 
 
-def test_running_agent_bid_excludes_its_current_task(scene):
-    from allocation.cbba import run_epoch
+def _mid_task_executor(scene, r1_remaining: float):
+    """SimExecutor with R1 mid-task on SUPPRESSANT_DROP_F1 (landing == the new
+    THERMAL_RECON_F1 position), R2 idle 70 m from the new task."""
+    graph = compile_reference_graph(
+        scene,
+        [(TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1", 9), (TaskType.THERMAL_RECON, "FIRE_SITE_1", 9)],
+        [],
+    )
+    fleet = {a.agent_id: a for a in scene.fleet if a.agent_id in {"R1", "R2"}}
+    ex = SimExecutor(MissionState(graph, fleet), scene)
+    running_tid, new_tid = "SUPPRESSANT_DROP__FIRE_SITE_1", "THERMAL_RECON__FIRE_SITE_1"
 
-    # R1 is mid-task; its landing position coincides with a new task. R2 is far.
-    # A correct residual-path bid lets R1 (already there) win; the old bug
-    # (double-counting the running task) handed it to R2.
-    new = compile_task(scene, TaskType.THERMAL_RECON, "FIRE_SITE_1", 9)
-    new.status = TaskStatus.READY
-    running = compile_task(scene, TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1", 9)
+    ex.now = 100.0
+    ex.sim["R1"].current = running_tid
+    ex.sim["R1"].finish_at = ex.now + r1_remaining
+    ex.agents["R1"].path = [running_tid]
+    ex.agents["R1"].current_task = running_tid
+    ex.graph[running_tid].status = TaskStatus.RUNNING
+    ex.graph[running_tid].assigned_agent = "R1"
+    ex.assignments[running_tid] = "R1"
+    ex.winning_bids[running_tid] = 5.0
 
-    agents = {}
-    r1 = replace(next(a for a in scene.fleet if a.agent_id == "R1"),
-                 position=running.position, bundle=[], path=[])
-    r2 = replace(next(a for a in scene.fleet if a.agent_id == "R2"),
-                 position=(running.position[0] - 70.0, running.position[1]), bundle=[], path=[])
-    agents["R1"], agents["R2"] = r1, r2
+    np = ex.graph[new_tid].position
+    ex.agents["R2"].position = (np[0] - 70.0, np[1])
+    ex.graph[new_tid].status = TaskStatus.READY
+    return ex, new_tid
 
-    result = run_epoch({new.task_id: new}, agents, scene, frontier=[new.task_id])
-    assert result.winners[new.task_id] == "R1"
+
+def test_residual_bid_near_agent_wins_when_it_finishes_soon(scene):
+    ex, new_tid = _mid_task_executor(scene, r1_remaining=2.0)
+    ex._run_epoch()
+    assert ex.assignments[new_tid] == "R1"
+    # the RUNNING task is back at the head of R1's path, not double-listed
+    assert ex.agents["R1"].path[0] == "SUPPRESSANT_DROP__FIRE_SITE_1"
+    assert ex.agents["R1"].path.count("SUPPRESSANT_DROP__FIRE_SITE_1") == 1
+
+
+def test_residual_bid_far_available_agent_wins_when_near_agent_is_busy_long(scene):
+    ex, new_tid = _mid_task_executor(scene, r1_remaining=1000.0)
+    ex._run_epoch()
+    assert ex.assignments[new_tid] == "R2"
 
 
 # -- §14 premature-deadlock minimal repro -----------------------------
@@ -185,3 +221,14 @@ def test_step_limit_is_not_a_deadlock(ref_state, scene):
     assert r.termination is Termination.STEP_LIMIT
     assert not r.deadlocked
     assert r.unfinished_tasks  # some tasks left, but it is not a deadlock
+
+
+def test_completion_on_the_final_step_reports_completed(scene):
+    # A one-task mission that finishes exactly as the step budget runs out must
+    # not be misreported as STEP_LIMIT.
+    graph = compile_reference_graph(scene, [(TR_F1[0], "FIRE_SITE_1", 5)], [])
+    state = MissionState(graph, {a.agent_id: a for a in scene.fleet if a.agent_id == "S1"})
+    r = SimExecutor(state, scene).run(max_steps=2)
+    assert r.completed == ["THERMAL_RECON__FIRE_SITE_1"]
+    assert r.unfinished_tasks == []
+    assert r.termination is Termination.COMPLETED
