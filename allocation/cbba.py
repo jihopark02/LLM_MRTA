@@ -51,12 +51,22 @@ class CBBAState:
     s: dict[str, dict[str, float]]           # timestamp vector (CBBA eq. 5)
 
     @classmethod
-    def initialize(cls, agent_ids: list[str], task_ids: list[str]) -> "CBBAState":
-        return cls(
-            y={i: dict.fromkeys(task_ids, 0.0) for i in agent_ids},
-            z={i: dict.fromkeys(task_ids) for i in agent_ids},
-            s={i: dict.fromkeys(agent_ids, 0.0) for i in agent_ids},
-        )
+    def initialize(
+        cls,
+        agent_ids: list[str],
+        task_ids: list[str],
+        held: dict[str, tuple[str, float]] | None = None,
+    ) -> "CBBAState":
+        """``held`` maps an already-committed task to (winner, bid) — every agent
+        starts believing that, so it is never re-contested (rolling epochs)."""
+        held = held or {}
+        y = {i: dict.fromkeys(task_ids, 0.0) for i in agent_ids}
+        z: dict[str, dict[str, str | None]] = {i: dict.fromkeys(task_ids) for i in agent_ids}
+        for task_id, (winner, bid) in held.items():
+            for i in agent_ids:
+                y[i][task_id] = bid
+                z[i][task_id] = winner
+        return cls(y=y, z=z, s={i: dict.fromkeys(agent_ids, 0.0) for i in agent_ids})
 
 
 @dataclass
@@ -220,20 +230,22 @@ def run_epoch(
     lam: float = DEFAULT_LAMBDA,
     capacity: int | None = None,
     frontier: list[str] | None = None,
+    held: dict[str, tuple[str, float]] | None = None,
     network_diameter: int = 1,
 ) -> EpochResult:
     """Run CBBA to convergence over the current READY frontier. Mutates
-    agent.bundle/agent.path in place.
+    agent.bundle/agent.path in place. ``held`` locks already-committed tasks
+    (see CBBAState.initialize) so rolling epochs do not re-contest them.
     """
     if frontier is None:
         frontier = sorted(t.task_id for t in tasks.values() if t.status is TaskStatus.READY)
     frontier = sorted(frontier)
     if capacity is None:
-        capacity = len(frontier)  # contract §17: no bundle-length cap in Phase 1
+        capacity = len(frontier) + max(len(a.bundle) for a in agents.values())
 
     all_ids = sorted(tasks)
     agent_ids = sorted(agents)
-    state = CBBAState.initialize(agent_ids, all_ids)
+    state = CBBAState.initialize(agent_ids, all_ids, held)
 
     max_rounds = 10 * max(len(all_ids), 1)
     unchanged = 0

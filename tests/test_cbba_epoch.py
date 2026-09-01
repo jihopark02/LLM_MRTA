@@ -105,6 +105,29 @@ def test_tie_break_is_1e_minus_9_tolerance_then_agent_id(scene):
     assert _beats(1.0 + 1e-6, "B", 1.0, "A") is True
 
 
+def test_held_tasks_are_not_re_contested(scene):
+    # A already holds task X; a new frontier task Y must not disturb that.
+    tasks = ready_tasks(
+        scene,
+        [
+            (TaskType.AREA_RECON, "ZONE_A", 5),
+            (TaskType.AREA_RECON, "ZONE_B", 5),
+        ],
+    )
+    agents = fresh_agents(scene)
+    x = "AREA_RECON__ZONE_A"
+    y = "AREA_RECON__ZONE_B"
+    agents["S2"].bundle.append(x)
+    agents["S2"].path.append(x)
+
+    result = run_epoch(
+        tasks, agents, scene, frontier=[y], held={x: ("S2", 3.14)}
+    )
+    assert x not in result.winners            # held, not re-auctioned
+    assert result.winners[y] in {"S1", "S2"}  # the new task still gets a winner
+    assert x in agents["S2"].path             # S2 keeps it
+
+
 def test_idle_agents_are_allowed(scene):
     # One task, six agents -> five stay idle; not an error (contract §5).
     tasks = ready_tasks(scene, [(TaskType.AREA_RECON, "ZONE_A", 5)])
