@@ -148,6 +148,11 @@ def _parse_task(
             )
         )
         return None
+    if not 1 <= priority <= 10:  # contract §7 / D-008
+        errors.append(
+            ValidationError(ErrorCode.E_SCHEMA, f"tasks[{i}]", f"priority {priority} not in 1..10")
+        )
+        return None
     try:
         task_type = TaskType(tt_raw)
     except ValueError:

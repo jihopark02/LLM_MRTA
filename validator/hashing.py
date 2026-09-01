@@ -11,8 +11,11 @@ import json
 from core.enums import TaskType
 from validator.candidate import TaskKey, key_str
 
-# Validator rule-set version. Bump when an invariant's meaning changes.
-VALIDATOR_VERSION = "1.0"
+# Validator rule-set version (RESEARCH_CONTRACT.md §14). Bump on any verdict-rule
+# change: invariant added/removed/redefined, schema range change, hash format change.
+#   1.0 -> 1.1 (D-008): unknown-field rejection, op field schema, assignment
+#   invariant + referential integrity, priority 1..10, hash payload includes priority.
+VALIDATOR_VERSION = "1.1"
 
 # (task_type, target, priority) — priority is a CBBA execution input (D-007),
 # so it must be part of the audit hash.

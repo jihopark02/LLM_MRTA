@@ -97,7 +97,7 @@ def test_sequential_valid_patches_accumulate(scene):
     assert len(s2.graph) == 3
     assert len(state.graph) == 1  # original never mutated
     assert r2.added_tasks == ("GROUND_INSPECTION__FIRE_SITE_1",)
-    assert len(r2.graph_hash) == 64 and r2.validator_version == "1.0"
+    assert len(r2.graph_hash) == 64 and r2.validator_version == "1.1"
 
 
 def test_orphaning_a_workflow_task_is_rejected(scene):
@@ -186,6 +186,25 @@ def test_assignment_invariant_flags_multi_owner_and_stale_bid(scene):
     details = " ".join(e.detail for e in errs)
     assert "multiple agents" in details
     assert "stale winning_bid" in details
+
+
+def test_assignment_invariant_flags_dangling_references(scene):
+    from validator.patch_apply import _assignment_invariant_errors
+
+    state = mini_state(scene, [TR_F1], [])
+    state.agents["S1"].bundle.append("GHOST_TASK")
+    state.winning_bids["ALSO_GHOST"] = 3.0
+    details = " ".join(e.detail for e in _assignment_invariant_errors(state))
+    assert "unknown task 'GHOST_TASK'" in details
+    assert "winning_bids references unknown task" in details
+
+
+def test_dangling_bundle_reference_rejects_empty_patch(scene):
+    state = mini_state(scene, [TR_F1], [])
+    state.agents["S1"].bundle.append("GHOST_TASK")
+    _, result = apply_patch(state, MissionPatch([]), scene)
+    assert not result.accepted
+    assert ErrorCode.E_SCHEMA in result.error_codes
 
 
 def test_reconcile_running_predecessor_change_is_fatal(scene):

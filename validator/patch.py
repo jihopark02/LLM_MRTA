@@ -102,6 +102,10 @@ def _op_schema_error(op: object, i: int) -> ValidationError | None:
             return ValidationError(ErrorCode.E_SCHEMA, where, "target must be str")
         if not isinstance(op.priority, int) or isinstance(op.priority, bool):
             return ValidationError(ErrorCode.E_SCHEMA, where, "priority must be int")
+        if not 1 <= op.priority <= 10:  # contract §7 / D-008
+            return ValidationError(
+                ErrorCode.E_SCHEMA, where, f"priority {op.priority} not in 1..10"
+            )
         return None
     if isinstance(op, (AddEdge, RemoveEdge)):
         if not _valid_endpoint(op.predecessor) or not _valid_endpoint(op.successor):

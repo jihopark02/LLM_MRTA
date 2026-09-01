@@ -41,6 +41,11 @@ def codes(result):
     return result.error_codes
 
 
+def test_validator_version_is_the_intended_literal():
+    # Bump this literal deliberately whenever a verdict rule changes (§14, D-008).
+    assert VALIDATOR_VERSION == "1.1"
+
+
 def test_reference_family_a_candidate_is_accepted(scene):
     result = validate_raw(reference_raw(), scene)
     assert result.accepted, result.errors

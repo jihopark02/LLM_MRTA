@@ -25,11 +25,12 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1 승인. P2 구현 완료 + Codex 검토 2회 반영(D-006, D-007). 계약 v1.6.** `validator/`에
+**P1 승인. P2 구현 완료 + Codex 검토 3회 반영(D-006/007/008). 계약 v1.7.** `validator/`에
 whole-graph Validator(§9 invariant #1~14 + `E_PATCH_CONFLICT`/`E_RUNNING_LOCKED`)와
-MissionPatch apply/reconciliation(§10)을 구현. pytest 103개 통과(`python3 -m pytest -q`),
-ruff clean, 깨끗한 venv wheel에 core/scenarios/validator 포함 확인. 다음: Codex 승인 후
-**P3**(platform-aware CBBA, rolling READY-frontier epoch, §11).
+MissionPatch apply/reconciliation(§10)을 구현. `VALIDATOR_VERSION = "1.1"`. pytest 114개
+통과(`python3 -m pytest -q`), ruff clean, wheel에 core/scenarios/validator 포함, `build/`·
+`dist/` gitignore. 다음: Codex 승인 후 **P3**(platform-aware CBBA, rolling READY-frontier
+epoch, §11).
 
 P2 구조:
 - `validator/candidate.py`: raw candidate(list) — #1/#3 파싱, #2/#5-edge/#6/#7 consistency.
@@ -45,11 +46,16 @@ P2 구조:
 - **D-007**: assignment consistency invariant(§10 7단계, 규칙 1~4)를 `_assignment_invariant_errors`가
   강제. graph_hash payload에 priority 포함. `validate_patch_ops`가 op 필드를 런타임 검증.
   candidate schema가 허용 키를 정확히 제한.
+- **D-008**: `VALIDATOR_VERSION "1.1"`(판정 규칙 변경 시 bump). priority 1..10 강제(§7).
+  assignment 참조 무결성(§10 규칙 6 — bundle/path/winning_bids가 존재하는 task만 참조).
+  rejected patch(whole-graph 전 거부)는 `graph_hash` 빈 문자열(§14).
 
 P3 착수 시: CBBA는 §11 rolling READY-frontier epoch, bid = priority×λ^completion_time 기반
-marginal path utility. 이동비용은 §8 platform-aware(`scene.agent_access_nodes` + route
+marginal path utility. priority는 1..10 고정(D-008)이므로 보상 함수는 음수·0 priority를
+고려하지 않아도 된다. 이동비용은 §8 platform-aware(`scene.agent_access_nodes` + route
 Dijkstra). `compile_reference_graph`는 신뢰된 목록만 받는다(계약 §7). frontier는 COMPLETED
-predecessor만 충족으로 취급(§10 6단계).
+predecessor만 충족으로 취급(§10 6단계). MissionState 조작 시 §10 assignment invariant(규칙
+1~6) 유지.
 
 RQ1(LLM 복합 task graph 생성)과 RQ2(이종 UAV/UGV CBBA 할당)가 필수 범위다. RQ3(선택적
 재할당)는 P8 후속이며, 구현되기 전까지는 어디에도 "동적 재할당"을 완료된 결과로 쓰지 않는다.

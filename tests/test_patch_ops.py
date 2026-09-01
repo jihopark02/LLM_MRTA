@@ -86,6 +86,12 @@ def test_add_task_with_bool_priority_is_schema_error(base):
     assert codes(validate_patch_ops(patch, base)) == [ErrorCode.E_SCHEMA]
 
 
+@pytest.mark.parametrize("bad", [0, -1, 11])
+def test_add_task_priority_out_of_range_is_schema_error(base, bad):
+    patch = MissionPatch([AddTask(TaskType.AREA_RECON, "ZONE_B", bad)])
+    assert codes(validate_patch_ops(patch, base)) == [ErrorCode.E_SCHEMA]
+
+
 def test_add_task_with_non_string_target_is_schema_error(base):
     patch = MissionPatch([AddTask(TaskType.AREA_RECON, 42, 1)])
     assert codes(validate_patch_ops(patch, base)) == [ErrorCode.E_SCHEMA]

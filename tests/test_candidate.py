@@ -1,5 +1,7 @@
 """Raw candidate parsing + consistency (RESEARCH_CONTRACT.md §12; invariants #1-3, #5-7)."""
 
+import pytest
+
 from core.enums import TaskType
 from validator.candidate import CandidateEdge, CandidateTask, MissionCandidate
 from validator.errors import ErrorCode
@@ -45,6 +47,22 @@ def test_bool_priority_rejected_as_schema():
         {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A", "priority": True}], "edges": []}
     )
     assert ErrorCode.E_SCHEMA in codes(errors)
+
+
+@pytest.mark.parametrize("bad", [0, -10, 11, 10**9])
+def test_priority_out_of_1_to_10_is_schema_error(bad):
+    _, errors = MissionCandidate.from_raw(
+        {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A", "priority": bad}], "edges": []}
+    )
+    assert codes(errors) == [ErrorCode.E_SCHEMA]
+
+
+def test_priority_1_and_10_are_accepted():
+    for p in (1, 10):
+        _, errors = MissionCandidate.from_raw(
+            {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A", "priority": p}], "edges": []}
+        )
+        assert errors == []
 
 
 def test_unknown_task_type_is_type_not_allowed():

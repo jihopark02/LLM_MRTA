@@ -245,11 +245,25 @@ _ACTIVE = frozenset({TaskStatus.ASSIGNED, TaskStatus.RUNNING})
 
 
 def _assignment_invariant_errors(state: MissionState) -> list[ValidationError]:
-    """§10 step 7 assignment consistency invariant (D-007, rules 1-4)."""
+    """§10 step 7 assignment consistency invariant (D-007 rules 1-4, D-008 rule 6)."""
     errors: list[ValidationError] = []
 
     def err(subject: str, detail: str) -> None:
         errors.append(ValidationError(ErrorCode.E_SCHEMA, subject, detail))
+
+    graph_ids = {t.task_id for t in state.graph.tasks}
+
+    # Rule 6: referential integrity of the fleet + allocation records.
+    for key, agent in state.agents.items():
+        if key != agent.agent_id:
+            err(key, f"agents dict key != agent_id {agent.agent_id!r}")
+    for agent in state.agents.values():
+        for task_id in set(agent.bundle) | set(agent.path):
+            if task_id not in graph_ids:
+                err(agent.agent_id, f"bundle/path references unknown task {task_id!r}")
+    for task_id in state.winning_bids:
+        if task_id not in graph_ids:
+            err(task_id, "winning_bids references unknown task")
 
     # task_id -> agents that hold it in bundle or path
     holders: dict[str, list[str]] = {}
