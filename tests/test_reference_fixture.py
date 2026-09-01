@@ -70,6 +70,6 @@ def test_eligible_bidder_counts_are_at_least_two(loaded):
         TaskType.THERMAL_RECON: 4,
         TaskType.SUPPRESSANT_DROP: 2,
         TaskType.GROUND_INSPECTION: 2,
-        TaskType.HAZARD_MARKER_DEPLOY: 2,
+        TaskType.GROUND_SUPPRESSION: 2,
     }
     assert all(c >= 2 for c in counts.values())

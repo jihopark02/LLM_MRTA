@@ -19,7 +19,7 @@ AR_B = (TaskType.AREA_RECON, "ZONE_B")
 TR_F1 = (TaskType.THERMAL_RECON, "FIRE_SITE_1")
 SD_F1 = (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1")
 GI_F1 = (TaskType.GROUND_INSPECTION, "FIRE_SITE_1")
-HM_F1 = (TaskType.HAZARD_MARKER_DEPLOY, "FIRE_SITE_1")
+HM_F1 = (TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1")
 
 
 def tid(key):
@@ -97,7 +97,7 @@ def test_sequential_valid_patches_accumulate(scene):
     assert len(s2.graph) == 3
     assert len(state.graph) == 1  # original never mutated
     assert r2.added_tasks == ("GROUND_INSPECTION__FIRE_SITE_1",)
-    assert len(r2.graph_hash) == 64 and r2.validator_version == "1.1"
+    assert len(r2.graph_hash) == 64 and r2.validator_version == "1.2"
 
 
 def test_orphaning_a_workflow_task_is_rejected(scene):

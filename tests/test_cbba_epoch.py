@@ -59,12 +59,12 @@ def test_suppressant_drop_only_won_by_response_uavs(scene):
     assert result.winners["SUPPRESSANT_DROP__FIRE_SITE_1"] in {"R1", "R2"}
 
 
-def test_ground_task_only_won_by_safety_ugvs(scene):
+def test_ground_task_only_won_by_ground_response_ugvs(scene):
     tasks = ready_tasks(
         scene,
         [
             (TaskType.GROUND_INSPECTION, "FIRE_SITE_1", 8),
-            (TaskType.HAZARD_MARKER_DEPLOY, "FIRE_SITE_2", 5),
+            (TaskType.GROUND_SUPPRESSION, "FIRE_SITE_2", 5),
         ],
     )
     result = run_epoch(tasks, fresh_agents(scene), scene)

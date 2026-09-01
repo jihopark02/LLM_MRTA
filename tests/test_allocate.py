@@ -44,7 +44,7 @@ def test_platforms_match_task_types(state, scene):
     kind = {a.agent_id: a.platform_kind for a in scene.fleet}
     for task_id, agent_id in r.assignments.items():
         tt = state.graph[task_id].task_type
-        if tt in (TaskType.GROUND_INSPECTION, TaskType.HAZARD_MARKER_DEPLOY):
+        if tt in (TaskType.GROUND_INSPECTION, TaskType.GROUND_SUPPRESSION):
             assert kind[agent_id] is PlatformKind.UGV
         else:
             assert kind[agent_id] is PlatformKind.UAV

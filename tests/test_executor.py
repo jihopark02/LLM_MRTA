@@ -80,7 +80,7 @@ def test_platforms_match_task_types_and_route_distance(ref_state, scene):
         tt = ref_state.graph[tid].task_type
         want = (
             PlatformKind.UGV
-            if tt in (TaskType.GROUND_INSPECTION, TaskType.HAZARD_MARKER_DEPLOY)
+            if tt in (TaskType.GROUND_INSPECTION, TaskType.GROUND_SUPPRESSION)
             else PlatformKind.UAV
         )
         assert kind[aid] is want

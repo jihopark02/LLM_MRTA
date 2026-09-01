@@ -30,11 +30,11 @@ def test_thermal_recon_resolves_to_incident_position(scene):
 
 
 def test_ugv_task_resolves_to_incident_access_node_position(scene):
-    t = compile_task(scene, TaskType.HAZARD_MARKER_DEPLOY, "FIRE_SITE_2", priority=5)
+    t = compile_task(scene, TaskType.GROUND_SUPPRESSION, "FIRE_SITE_2", priority=5)
     node = scene.incidents["FIRE_SITE_2"].access_node
     assert t.position == scene.route_graph.position(node)
     assert t.required_capabilities == frozenset(
-        {Capability.GROUND_MOBILITY, Capability.MARKER_DISPENSER}
+        {Capability.GROUND_MOBILITY, Capability.SUPPRESSANT_APPLICATOR}
     )
 
 

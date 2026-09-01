@@ -24,7 +24,7 @@ _CHAIN_HEADS = frozenset({TaskType.AREA_RECON, TaskType.THERMAL_RECON})
 WORKFLOW_PREDECESSOR: dict[TaskType, TaskType] = {
     TaskType.SUPPRESSANT_DROP: TaskType.THERMAL_RECON,
     TaskType.GROUND_INSPECTION: TaskType.SUPPRESSANT_DROP,
-    TaskType.HAZARD_MARKER_DEPLOY: TaskType.GROUND_INSPECTION,
+    TaskType.GROUND_SUPPRESSION: TaskType.GROUND_INSPECTION,
 }
 _Edge = tuple[TaskKey, TaskKey]
 

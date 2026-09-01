@@ -43,7 +43,7 @@ def codes(result):
 
 def test_validator_version_is_the_intended_literal():
     # Bump this literal deliberately whenever a verdict rule changes (§14, D-008).
-    assert VALIDATOR_VERSION == "1.1"
+    assert VALIDATOR_VERSION == "1.2"
 
 
 def test_reference_family_a_candidate_is_accepted(scene):
@@ -164,7 +164,7 @@ def test_unreachable_ugv_task_is_flagged(tmp_path):
         "route_graph: {nodes: {DEPOT: [0, 0], ISO: [9, 9]}, lanes: []}\n"
         "fleet:\n"
         "  - {agent_id: G1, platform_kind: UGV,"
-        " capabilities: [GROUND_MOBILITY, MARKER_DISPENSER], access_node: DEPOT, speed: 3}\n"
+        " capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: DEPOT, speed: 3}\n"
         "  - {agent_id: R1, platform_kind: UAV,"
         " capabilities: [THERMAL_SENSOR, SUPPRESSANT_PAYLOAD], position: [0, 0], speed: 7}\n"
     )

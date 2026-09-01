@@ -38,7 +38,7 @@ def test_agent_has_capabilities_requires_full_subset():
     a = make_agent(capabilities=frozenset({Capability.GROUND_MOBILITY}))
     assert a.has_capabilities(frozenset({Capability.GROUND_MOBILITY}))
     assert not a.has_capabilities(
-        frozenset({Capability.GROUND_MOBILITY, Capability.MARKER_DISPENSER})
+        frozenset({Capability.GROUND_MOBILITY, Capability.SUPPRESSANT_APPLICATOR})
     )
     assert a.has_capabilities(frozenset())
 

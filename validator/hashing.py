@@ -15,7 +15,9 @@ from validator.candidate import TaskKey, key_str
 # change: invariant added/removed/redefined, schema range change, hash format change.
 #   1.0 -> 1.1 (D-008): unknown-field rejection, op field schema, assignment
 #   invariant + referential integrity, priority 1..10, hash payload includes priority.
-VALIDATOR_VERSION = "1.1"
+#   1.1 -> 1.2 (D-016): TaskType HAZARD_MARKER_DEPLOY -> GROUND_SUPPRESSION
+#   (allowed set + workflow invariant meaning changed).
+VALIDATOR_VERSION = "1.2"
 
 # (task_type, target, priority) — priority is a CBBA execution input (D-007),
 # so it must be part of the audit hash.

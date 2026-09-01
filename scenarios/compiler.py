@@ -43,7 +43,8 @@ class TaskSpec:
 
 
 # Fixed default table (contract §4 completion semantics, §5 eligible bidders).
-# Durations are dwell times in seconds; tunable, not a contract-fixed value.
+# Durations are symbolic dwell times in seconds — one fixed value per task_type,
+# not a physical flight/suppression time (contract §4, D-016).
 TASK_TABLE: dict[TaskType, TaskSpec] = {
     TaskType.AREA_RECON: TaskSpec(
         frozenset({Capability.AERIAL_RECON}), UAV, 40.0, "zone"
@@ -57,10 +58,10 @@ TASK_TABLE: dict[TaskType, TaskSpec] = {
     TaskType.GROUND_INSPECTION: TaskSpec(
         frozenset({Capability.GROUND_MOBILITY}), UGV, 35.0, "incident"
     ),
-    TaskType.HAZARD_MARKER_DEPLOY: TaskSpec(
-        frozenset({Capability.GROUND_MOBILITY, Capability.MARKER_DISPENSER}),
+    TaskType.GROUND_SUPPRESSION: TaskSpec(
+        frozenset({Capability.GROUND_MOBILITY, Capability.SUPPRESSANT_APPLICATOR}),
         UGV,
-        20.0,
+        45.0,  # symbolic; the culminating ground action (D-016)
         "incident",
     ),
 }
@@ -84,7 +85,7 @@ def _resolve_position(scene: Scene, spec: TaskSpec, task_type: TaskType, target:
     if target not in scene.incidents:
         raise ValueError(f"{task_type.value}: unknown incident target {target}")
     incident = scene.incidents[target]
-    if task_type in (TaskType.GROUND_INSPECTION, TaskType.HAZARD_MARKER_DEPLOY):
+    if task_type in (TaskType.GROUND_INSPECTION, TaskType.GROUND_SUPPRESSION):
         # UGV moves to the incident's ground access point (contract §4).
         return scene.route_graph.position(incident.access_node)
     return incident.position

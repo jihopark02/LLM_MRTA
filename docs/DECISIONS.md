@@ -503,8 +503,16 @@ CBBA 축 유지.
 - §3 fixture 형상, §4 vocabulary·workflow, §5 agent·bidder, §7 required_capabilities 예시,
   §9 #12 scope, §15 P1 게이트 5번을 GROUND_SUPPRESSION 기준으로 개정.
 
-**골든값**: P3(`allocate`)·P4(`SimExecutor`) 결과를 새 priority·duration으로 처음부터
-재산출한다. 기존 균형 workload를 유지하려고 값을 역조정하지 않는다 — 유효한 새 결과를 기록.
+**골든값 재산출 결과** (GROUND_SUPPRESSION duration = 45.0 symbolic, priority F1 9 / F2 7):
+
+- **P3 `allocate`**: allocation_success, capability/precedence violation 0. makespan ≈ 359.8
+  (barrier 상한, 이전 334.8 → +25 = duration 20→45 차이). workload S1/S2 3, R1/R2 1, G1/G2 2,
+  idle 0. consensus rounds [8, 4, 4, 4]. uav_flight ≈ 999.5, ugv_route ≈ 346.3.
+- **P4 `SimExecutor`**: termination COMPLETED, 12/12, capability/precedence violation 0. makespan
+  ≈ 257.9 (이전 232.9). workload S1/S2 3, R1/R2 1, G1/G2 2, idle 0. epochs 7,
+  consensus rounds [8, 4, 3, 3, 3, 3, 3].
+- assignment 구조는 어휘 변경 전과 동일(GROUND_SUPPRESSION이 각 incident의 GROUND_INSPECTION
+  담당 UGV에 배정: F1→G2, F2→G1). 균형 workload는 값 역조정 없이 그대로 나온 결과다.
 
 **작업 순서**: 계약 커밋 → enum/capability/compiler/scene/fixture/Validator → VALIDATOR_VERSION
 1.2 → 테스트·현재 문서 참조 수정 → P1~P4 전체 실행 → 새 P3/P4 결과 기록 → README/CLAUDE →

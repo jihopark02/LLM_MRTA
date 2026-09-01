@@ -55,7 +55,7 @@ def test_ugv_task_ref_is_incident_access_node(scene):
     from allocation.travel import task_ref
 
     g1 = agent(scene, "G1")
-    task = compile_task(scene, TaskType.HAZARD_MARKER_DEPLOY, "FIRE_SITE_2", 5)
+    task = compile_task(scene, TaskType.GROUND_SUPPRESSION, "FIRE_SITE_2", 5)
     assert task_ref(g1, task, scene) == "R_D"
 
 
@@ -64,7 +64,7 @@ def test_chained_ugv_legs_advance_the_node(scene):
 
     g1 = agent(scene, "G1")
     gi = compile_task(scene, TaskType.GROUND_INSPECTION, "FIRE_SITE_1", 8)
-    hm = compile_task(scene, TaskType.HAZARD_MARKER_DEPLOY, "FIRE_SITE_1", 6)
+    hm = compile_task(scene, TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1", 6)
 
     ref = start_ref(g1, scene)
     leg1 = leg_time(g1, ref, gi, scene)
