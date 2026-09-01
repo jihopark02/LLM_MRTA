@@ -64,11 +64,11 @@ def test_chained_ugv_legs_advance_the_node(scene):
 
     g1 = agent(scene, "G1")
     gi = compile_task(scene, TaskType.GROUND_INSPECTION, "FIRE_SITE_1", 8)
-    hm = compile_task(scene, TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1", 6)
+    gs = compile_task(scene, TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1", 6)
 
     ref = start_ref(g1, scene)
     leg1 = leg_time(g1, ref, gi, scene)
     ref = task_ref(g1, gi, scene)
-    leg2 = leg_time(g1, ref, hm, scene)  # from R_B to R_B == 0
+    leg2 = leg_time(g1, ref, gs, scene)  # from R_B to R_B == 0
     assert leg1 > 0
     assert leg2 == pytest.approx(0.0)

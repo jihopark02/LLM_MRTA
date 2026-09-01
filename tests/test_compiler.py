@@ -38,6 +38,13 @@ def test_ugv_task_resolves_to_incident_access_node_position(scene):
     )
 
 
+def test_ground_suppression_fixed_spec(scene):
+    # D-016: GROUND_SUPPRESSION is UGV-only with a fixed symbolic dwell of 45 s.
+    t = compile_task(scene, TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1", priority=9)
+    assert t.eligible_platforms == frozenset({PlatformKind.UGV})
+    assert t.duration == 45.0
+
+
 def test_compile_is_deterministic(scene):
     a = compile_task(scene, TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1", priority=9)
     b = compile_task(scene, TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1", priority=9)

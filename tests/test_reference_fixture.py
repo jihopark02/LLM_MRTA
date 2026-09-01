@@ -73,3 +73,25 @@ def test_eligible_bidder_counts_are_at_least_two(loaded):
         TaskType.GROUND_SUPPRESSION: 2,
     }
     assert all(c >= 2 for c in counts.values())
+
+
+def test_ground_suppression_priority_follows_incident_priority(loaded):
+    # D-016: GROUND_SUPPRESSION priority == its incident priority, not 6/5.
+    g = loaded.graph
+    assert g["GROUND_SUPPRESSION__FIRE_SITE_1"].priority == 9
+    assert g["GROUND_SUPPRESSION__FIRE_SITE_2"].priority == 7
+
+
+def test_retired_task_type_is_rejected():
+    from validator.candidate import MissionCandidate
+    from validator.errors import ErrorCode
+
+    _, errors = MissionCandidate.from_raw(
+        {
+            "tasks": [
+                {"task_type": "HAZARD_MARKER_DEPLOY", "target": "FIRE_SITE_1", "priority": 6}
+            ],
+            "edges": [],
+        }
+    )
+    assert [e.code for e in errors] == [ErrorCode.E_TYPE_NOT_ALLOWED]

@@ -19,7 +19,7 @@ from validator.patch import (
 TR_F1 = (TaskType.THERMAL_RECON, "FIRE_SITE_1")
 SD_F1 = (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1")
 GI_F1 = (TaskType.GROUND_INSPECTION, "FIRE_SITE_1")
-HM_F1 = (TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1")
+GS_F1 = (TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1")
 
 
 @pytest.fixture(scope="module")
@@ -47,12 +47,12 @@ def test_clean_rewire_patch_passes_op_validation(base):
 
 
 def test_add_and_remove_same_edge_conflicts(base):
-    patch = MissionPatch([AddEdge(TR_F1, HM_F1), RemoveEdge(TR_F1, HM_F1)])
+    patch = MissionPatch([AddEdge(TR_F1, GS_F1), RemoveEdge(TR_F1, GS_F1)])
     assert codes(validate_patch_ops(patch, base)) == [ErrorCode.E_PATCH_CONFLICT]
 
 
 def test_duplicate_add_edge_conflicts(base):
-    patch = MissionPatch([AddEdge(TR_F1, HM_F1), AddEdge(TR_F1, HM_F1)])
+    patch = MissionPatch([AddEdge(TR_F1, GS_F1), AddEdge(TR_F1, GS_F1)])
     assert codes(validate_patch_ops(patch, base)) == [ErrorCode.E_PATCH_CONFLICT]
 
 
