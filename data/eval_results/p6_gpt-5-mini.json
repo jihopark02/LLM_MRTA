@@ -1,0 +1,640 @@
+{
+  "axes": {
+    "final": {
+      "edge": {
+        "micro": {
+          "fn": 0,
+          "fp": 0,
+          "tp": 27
+        },
+        "precision_mean": 1.0,
+        "recall_mean": 1.0
+      },
+      "exact_match": 9,
+      "scored": 9,
+      "task": {
+        "micro": {
+          "fn": 0,
+          "fp": 0,
+          "tp": 77
+        },
+        "precision_mean": 1.0,
+        "recall_mean": 1.0
+      }
+    },
+    "raw": {
+      "edge": {
+        "micro": {
+          "fn": 0,
+          "fp": 0,
+          "tp": 27
+        },
+        "precision_mean": 1.0,
+        "recall_mean": 1.0
+      },
+      "exact_match": 9,
+      "scored": 9,
+      "task": {
+        "micro": {
+          "fn": 0,
+          "fp": 0,
+          "tp": 77
+        },
+        "precision_mean": 1.0,
+        "recall_mean": 1.0
+      }
+    }
+  },
+  "by_family": {
+    "A": {
+      "approved": 3,
+      "final": {
+        "edge": {
+          "micro": {
+            "fn": 0,
+            "fp": 0,
+            "tp": 18
+          },
+          "precision_mean": 1.0,
+          "recall_mean": 1.0
+        },
+        "exact_match": 3,
+        "scored": 3,
+        "task": {
+          "micro": {
+            "fn": 0,
+            "fp": 0,
+            "tp": 36
+          },
+          "precision_mean": 1.0,
+          "recall_mean": 1.0
+        }
+      },
+      "n": 3,
+      "raw_whole_graph_valid": 3
+    },
+    "B": {
+      "approved": 3,
+      "final": {
+        "edge": {
+          "micro": {
+            "fn": 0,
+            "fp": 0,
+            "tp": 0
+          },
+          "precision_mean": 1.0,
+          "recall_mean": 1.0
+        },
+        "exact_match": 3,
+        "scored": 3,
+        "task": {
+          "micro": {
+            "fn": 0,
+            "fp": 0,
+            "tp": 18
+          },
+          "precision_mean": 1.0,
+          "recall_mean": 1.0
+        }
+      },
+      "n": 3,
+      "raw_whole_graph_valid": 3
+    },
+    "C": {
+      "approved": 3,
+      "final": {
+        "edge": {
+          "micro": {
+            "fn": 0,
+            "fp": 0,
+            "tp": 9
+          },
+          "precision_mean": 1.0,
+          "recall_mean": 1.0
+        },
+        "exact_match": 3,
+        "scored": 3,
+        "task": {
+          "micro": {
+            "fn": 0,
+            "fp": 0,
+            "tp": 23
+          },
+          "precision_mean": 1.0,
+          "recall_mean": 1.0
+        }
+      },
+      "n": 3,
+      "raw_whole_graph_valid": 3
+    }
+  },
+  "cases": [
+    {
+      "approved": true,
+      "attempts": 1,
+      "command": "We have active fires at FIRE_SITE_1 and FIRE_SITE_2. Run a full disaster response: survey every zone from the air, and take each fire all the way through the response workflow from the thermal check to ground suppression.",
+      "failure_category": null,
+      "family": "A",
+      "final_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 12
+        }
+      },
+      "id": "A1",
+      "latency_s": 28.51512398199702,
+      "profile": "FULL_RESPONSE",
+      "raw_schema_valid": true,
+      "raw_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 12
+        }
+      },
+      "raw_whole_graph_valid": true,
+      "repaired": false,
+      "repaired_whole_graph_valid": null,
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ]
+    },
+    {
+      "approved": true,
+      "attempts": 1,
+      "command": "Full response to the industrial park emergency. Do aerial reconnaissance of ZONE_A, ZONE_B, ZONE_C and ZONE_D. For both FIRE_SITE_1 and FIRE_SITE_2, complete the whole sequence: thermal recon, then the suppressant drop, then the ground inspection, then the ground suppression.",
+      "failure_category": null,
+      "family": "A",
+      "final_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 12
+        }
+      },
+      "id": "A2",
+      "latency_s": 15.490649524996115,
+      "profile": "FULL_RESPONSE",
+      "raw_schema_valid": true,
+      "raw_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 12
+        }
+      },
+      "raw_whole_graph_valid": true,
+      "repaired": false,
+      "repaired_whole_graph_valid": null,
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ]
+    },
+    {
+      "approved": true,
+      "attempts": 1,
+      "command": "Both fire sites are confirmed. Handle everything - every zone gets an aerial survey and both fires get the complete response chain end to end.",
+      "failure_category": null,
+      "family": "A",
+      "final_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 12
+        }
+      },
+      "id": "A3",
+      "latency_s": 17.4990535820034,
+      "profile": "FULL_RESPONSE",
+      "raw_schema_valid": true,
+      "raw_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 12
+        }
+      },
+      "raw_whole_graph_valid": true,
+      "repaired": false,
+      "repaired_whole_graph_valid": null,
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ]
+    },
+    {
+      "approved": true,
+      "attempts": 1,
+      "command": "Aerial assessment only for now. Have the scout UAVs survey all four zones and do a pre-response heat-source check over FIRE_SITE_1 and FIRE_SITE_2. Do not commit any suppressant drop or ground units yet.",
+      "failure_category": null,
+      "family": "B",
+      "final_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 0
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        }
+      },
+      "id": "B1",
+      "latency_s": 15.872244723999756,
+      "profile": "AERIAL_ONLY",
+      "raw_schema_valid": true,
+      "raw_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 0
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        }
+      },
+      "raw_whole_graph_valid": true,
+      "repaired": false,
+      "repaired_whole_graph_valid": null,
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ]
+    },
+    {
+      "approved": true,
+      "attempts": 1,
+      "command": "I only want eyes in the sky right now. Aerial recon across the whole park - every zone - and a thermal pass over each fire site. Nothing on the ground, no drops.",
+      "failure_category": null,
+      "family": "B",
+      "final_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 0
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        }
+      },
+      "id": "B2",
+      "latency_s": 11.2638867200003,
+      "profile": "AERIAL_ONLY",
+      "raw_schema_valid": true,
+      "raw_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 0
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        }
+      },
+      "raw_whole_graph_valid": true,
+      "repaired": false,
+      "repaired_whole_graph_valid": null,
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ]
+    },
+    {
+      "approved": true,
+      "attempts": 1,
+      "command": "Reconnaissance phase only: survey every zone and perform the pre-response heat-source check at each fire. No suppressant drops, no ground inspection, no ground suppression until I say so.",
+      "failure_category": null,
+      "family": "B",
+      "final_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 0
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        }
+      },
+      "id": "B3",
+      "latency_s": 10.95531457800098,
+      "profile": "AERIAL_ONLY",
+      "raw_schema_valid": true,
+      "raw_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 0
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        }
+      },
+      "raw_whole_graph_valid": true,
+      "repaired": false,
+      "repaired_whole_graph_valid": null,
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ]
+    },
+    {
+      "approved": true,
+      "attempts": 1,
+      "command": "FIRE_SITE_1 is the priority - take it through the full response workflow to ground suppression. FIRE_SITE_2 only needs a thermal recon for now. Also survey all four zones from the air.",
+      "failure_category": null,
+      "family": "C",
+      "final_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 3
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 9
+        }
+      },
+      "id": "C1",
+      "latency_s": 16.281743936000566,
+      "profile": "SELECTIVE_RESPONSE",
+      "raw_schema_valid": true,
+      "raw_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 3
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 9
+        }
+      },
+      "raw_whole_graph_valid": true,
+      "repaired": false,
+      "repaired_whole_graph_valid": null,
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ]
+    },
+    {
+      "approved": true,
+      "attempts": 1,
+      "command": "Escalate FIRE_SITE_2 to a complete ground suppression response - run the entire workflow there. FIRE_SITE_1 just needs a heat check for now. Survey every zone too.",
+      "failure_category": null,
+      "family": "C",
+      "final_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 3
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 9
+        }
+      },
+      "id": "C2",
+      "latency_s": 19.090568425999663,
+      "profile": "SELECTIVE_RESPONSE",
+      "raw_schema_valid": true,
+      "raw_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 3
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 9
+        }
+      },
+      "raw_whole_graph_valid": true,
+      "repaired": false,
+      "repaired_whole_graph_valid": null,
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ]
+    },
+    {
+      "approved": true,
+      "attempts": 1,
+      "command": "Skip the zone surveys entirely. Put FIRE_SITE_1 through the whole response workflow to ground suppression, and give FIRE_SITE_2 a thermal recon only.",
+      "failure_category": null,
+      "family": "C",
+      "final_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 3
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 5
+        }
+      },
+      "id": "C3",
+      "latency_s": 13.404279490998306,
+      "profile": "SELECTIVE_RESPONSE",
+      "raw_schema_valid": true,
+      "raw_score": {
+        "edge": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 3
+        },
+        "exact_match": true,
+        "ref_index": 0,
+        "task": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 5
+        }
+      },
+      "raw_whole_graph_valid": true,
+      "repaired": false,
+      "repaired_whole_graph_valid": null,
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ]
+    }
+  ],
+  "counts": {
+    "approved": 9,
+    "n": 9,
+    "raw_whole_graph_valid": 9,
+    "repaired_whole_graph_valid": 0,
+    "schema_valid": 9
+  },
+  "failure_histogram": {},
+  "latency_stats": {
+    "max": 28.51512398199702,
+    "mean": 16.485873884888456,
+    "min": 10.95531457800098
+  },
+  "meta": {
+    "backend_kind": "OpenAIBackend",
+    "finished_at": "2026-09-01T16:30:34+00:00",
+    "model": "gpt-5-mini",
+    "scene_hash": "0e8f098cd95aba26f1384fc6ad5c89ad047ec84912cf595936a7b56d75672c6d",
+    "started_at": "2026-09-01T16:28:05+00:00",
+    "validator_version": "1.2"
+  }
+}

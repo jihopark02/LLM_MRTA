@@ -253,3 +253,17 @@ def test_harness_survives_a_raising_backend(scene, annotations):
     run = run_all(scene, Boom(), annotations=annotations[:2])
     assert all(c.failure_category.startswith("HARNESS_ERROR") for c in run.cases)
     assert run.counts()["approved"] == 0
+
+
+# -- figure ------------------------------------------------------
+
+
+def test_plots_write_png_and_pdf(scene, annotations, tmp_path):
+    pytest.importorskip("matplotlib")
+    from evaluation.plots import save
+
+    backend = MockBackend(_perfect_script(annotations, scene))
+    run = run_all(scene, backend, annotations=annotations)
+    out = save(run, tmp_path / "fig")
+    assert [p.suffix for p in out] == [".png", ".pdf"]
+    assert all(p.exists() and p.stat().st_size > 0 for p in out)

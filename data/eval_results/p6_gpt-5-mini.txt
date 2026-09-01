@@ -1,0 +1,40 @@
+P6 LLM mission-decomposition evaluation (RESEARCH_CONTRACT.md §12)
+==================================================================
+backend        OpenAIBackend (gpt-5-mini)
+scene_hash     0e8f098cd95aba26f1384fc6ad5c89ad047ec84912cf595936a7b56d75672c6d
+validator      1.2
+run            2026-09-01T16:28:05+00:00 .. 2026-09-01T16:30:34+00:00
+
+counts (X/9)
+  schema-valid                 9/9
+  raw whole-graph-valid        9/9
+  whole-graph-valid after repair 0/9
+  approved                     9/9
+
+graph metrics (against best-matching allowed reference)
+  raw    scored 9/9   exact-match 9/9
+         task  P/R (macro) 1.00/1.00   micro tp/fp/fn 77/0/0
+         edge  P/R (macro) 1.00/1.00   micro tp/fp/fn 27/0/0
+  final  scored 9/9   exact-match 9/9
+         task  P/R (macro) 1.00/1.00   micro tp/fp/fn 77/0/0
+         edge  P/R (macro) 1.00/1.00   micro tp/fp/fn 27/0/0
+
+by family (final)
+  A: approved 3/3   raw-valid 3/3   exact 3/3   task P/R 1.00/1.00   edge P/R 1.00/1.00
+  B: approved 3/3   raw-valid 3/3   exact 3/3   task P/R 1.00/1.00   edge P/R 1.00/1.00
+  C: approved 3/3   raw-valid 3/3   exact 3/3   task P/R 1.00/1.00   edge P/R 1.00/1.00
+
+failure categories: none
+latency (s): min 11.0  mean 16.5  max 28.5
+
+per case
+  id   fam appr  att rep raw-sv raw-wgv cat              t-P/R(final) e-P/R(final) lat
+  A1   A   True  1   False True   True                     1.00/1.00    1.00/1.00    28.5
+  A2   A   True  1   False True   True                     1.00/1.00    1.00/1.00    15.5
+  A3   A   True  1   False True   True                     1.00/1.00    1.00/1.00    17.5
+  B1   B   True  1   False True   True                     1.00/1.00    1.00/1.00    15.9
+  B2   B   True  1   False True   True                     1.00/1.00    1.00/1.00    11.3
+  B3   B   True  1   False True   True                     1.00/1.00    1.00/1.00    11.0
+  C1   C   True  1   False True   True                     1.00/1.00    1.00/1.00    16.3
+  C2   C   True  1   False True   True                     1.00/1.00    1.00/1.00    19.1
+  C3   C   True  1   False True   True                     1.00/1.00    1.00/1.00    13.4

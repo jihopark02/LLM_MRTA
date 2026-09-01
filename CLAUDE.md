@@ -19,15 +19,15 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-020, 계약 v1.19)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-021, 계약 v1.20)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1~P5 승인 완료. 계약 v1.19 (D-020).** `validator/`(P2) + `allocation/`(P3) +
-`execution/`(P4) + `llm/`(P5). `VALIDATOR_VERSION = "1.2"`, `λ = 0.999`. pytest 200개 통과,
-ruff clean.
+**P1~P5 승인 완료 + P6 구현 완료 (Codex 검토 대기). 계약 v1.20 (D-021).**
+`validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`(P6).
+`VALIDATOR_VERSION = "1.2"`, `λ = 0.999`. pytest 214개 통과, ruff clean.
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
@@ -47,9 +47,24 @@ P5 구조:
   다른 예외는 전파. `raw_candidate`/`raw_validation`과 최종 `candidate`/`validation`을
   분리 보존(D-019). reference fallback 없음.
 
-다음: **P6**(최소 9개 입력 평가 + 시각화). `OpenAIBackend`로 실제 평가, MockBackend는
-파이프라인 self-test. reference annotation 사전 고정. `resolved_models`를 명령별·호출별로
-결과에 연결해 저장(D-020).
+P6 구조 (D-021):
+- `data/reference_annotations/{A1..C3}.yaml`: 9개 canonical reference (LLM 호출 전
+  커밋 `c3ed0f3`). family A=FULL_RESPONSE, B=AERIAL_ONLY, C=SELECTIVE_RESPONSE.
+- `evaluation/annotations.py`: 로더. chain은 §4 workflow 연속 prefix로 검증, 각
+  allowed_graph를 로드 시 Validator로 self-check.
+- `evaluation/metrics.py`: `task_key=(task_type,target)`(priority 제외), edge_key.
+  `allowed_graphs` 중 (task F1, edge F1) 최대와 대조.
+- `evaluation/harness.py` `run_all`: 9개 실행, X/9 집계, raw·final 둘 다 채점,
+  family 분해, 재현성 triple(scene_hash/validator_version/resolved_models),
+  raising backend에도 생존(HARNESS_ERROR).
+- `evaluation/report.py`(표+JSON), `evaluation/plots.py`(3-panel 그림, `viz` extra).
+- 실행: `python -m evaluation [--mock] [--out PREFIX] [--plot]`.
+
+P6 실측 (gpt-5-mini-2025-08-07, 2026-09-01): 9/9 approved, task·edge P/R 1.00/1.00,
+exact match 9/9, repair 0회, latency mean 16.5s. `docs/P6_RESULTS.md`,
+`data/eval_results/`.
+
+다음: Codex의 P6 검토 → 지적사항 반영. 이후 P7(platform adapter) / P8.
 
 P4 구조:
 - `execution/executor.py` `SimExecutor.run()` — clone 위 event loop: recompute → `run_epoch`

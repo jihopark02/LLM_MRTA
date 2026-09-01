@@ -49,7 +49,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="evaluation")
     parser.add_argument("--mock", action="store_true", help="perfect MockBackend, no network")
     parser.add_argument("--model", default="gpt-5-mini", help="OpenAI model (real run)")
-    parser.add_argument("--out", help="path prefix for <out>.json and <out>.txt")
+    parser.add_argument("--out", help="path prefix for <out>.json/.txt (and .png/.pdf with --plot)")
+    parser.add_argument("--plot", action="store_true", help="also write <out>.png / <out>.pdf")
     args = parser.parse_args(argv)
 
     scene = load_scene(_SCENE)
@@ -71,7 +72,14 @@ def main(argv: list[str] | None = None) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.with_suffix(".json").write_text(to_json(run))
         out.with_suffix(".txt").write_text(report + "\n")
-        print(f"\nwrote {out.with_suffix('.json')} and {out.with_suffix('.txt')}")
+        written = [out.with_suffix(".json"), out.with_suffix(".txt")]
+        if args.plot:
+            from evaluation.plots import save
+
+            written += save(run, out)
+        print("\nwrote " + ", ".join(str(p) for p in written))
+    elif args.plot:
+        parser.error("--plot requires --out")
     return 0
 
 
