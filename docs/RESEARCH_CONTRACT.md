@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.15 (D-016). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.16 (D-017). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -50,6 +50,9 @@
   UGV"(ID G1/G2 유지). §2·§3·§4·§5·§7·§9 #12·§15 P1 게이트 개정. `VALIDATOR_VERSION`
   1.1 → 1.2. reference fixture의 GROUND_SUPPRESSION priority = incident priority(F1 9 / F2 7).
   P3/P4 골든값 재산출.
+- v1.16 (D-017): §12에 LLM 파이프라인 구현 명시 — `generate_mission`, pydantic 구조화
+  출력, `LLMBackend` Protocol(`AnthropicBackend` 기본 `claude-opus-5` / `MockBackend`),
+  `GenerationResult` 지표, `failure_category` 집합, schema 오류는 즉시 명시적 거부.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -500,6 +503,15 @@ CBBA를 새로운 알고리즘 기여로 표현하지 않는다.
 ```
 
 repair 후에도 실패하면 해당 mission을 명시적 실패로 집계한다.
+
+**구현(D-017)**: `llm/pipeline.py`의 `generate_mission(command, scene, backend)`. Step 1/2/
+repair는 pydantic 구조화 출력(`llm/schemas.py`)이고, backend는 `LLMBackend` Protocol이다 —
+`AnthropicBackend`(기본 모델 `claude-opus-5`, Anthropic SDK)와 `MockBackend`(스크립트 응답).
+P5 게이트 테스트는 전부 `MockBackend`로 돌아 네트워크·API 키가 필요없다. `GenerationResult`는
+§12 지표(`schema_valid`, `raw_whole_graph_valid`, `repaired_whole_graph_valid`, `attempts`,
+`repaired`, `failure_category` ∈ {SCHEMA, WORKFLOW, STRUCTURE, REFERENCE, FEASIBILITY, OTHER})를
+담는다. schema 오류(허용 키·타입·범위)는 whole-graph 단계 이전에 즉시 명시적 거부한다.
+승인된 candidate만 `compile_reference_graph`로 실행 graph화한다(D-003 경계).
 
 **평가**: 최소 9개 명령(family당 3개), 시간이 있으면 18개(family당 6개)로 확장.
 

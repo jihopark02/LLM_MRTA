@@ -518,3 +518,45 @@ CBBA 축 유지.
 1.2 → 테스트·현재 문서 참조 수정 → P1~P4 전체 실행 → 새 P3/P4 결과 기록 → README/CLAUDE →
 현재 파일(코드·계약·테스트) 옛 어휘 잔존 검색(0이어야 함; DECISIONS D-001~D-015 과거 기록은
 제외).
+
+## D-017: P5 LLM 파이프라인 (계약 v1.16)
+
+**배경** P5(§12) — 자연어 명령을 검증된 task graph로 바꾸는 파이프라인. 검증·컴파일
+구성요소(P2 `MissionCandidate`/`validate_candidate`, `compile_reference_graph`)는 이미 있어,
+P5는 LLM 호출 추상화 + orchestration이다.
+
+**결정**
+
+- `llm/schemas.py`: pydantic 구조화 출력 — `Step1Output`(tasks: task_type/target/priority),
+  `Step2Output`(edges: "TYPE:target" 끝점), `RepairOutput`(tasks+edges). LLM은 좌표·
+  capability·duration·task_id를 생성하지 않는다(§7).
+- `llm/backend.py`: `LLMBackend` Protocol(`complete(system, user, schema) -> BaseModel`).
+  `AnthropicBackend` — Anthropic SDK `client.messages.parse`, 기본 모델 `claude-opus-5`
+  (계약이 모델을 pin하지 않음; Anthropic 스킬 기본값). `anthropic` import는 지연 로딩, `llm`
+  optional dependency. `MockBackend(scripted)` — 스크립트 응답을 순서대로 반환, 스킬 부족 시
+  AssertionError.
+- `llm/prompts.py`: scene 어휘(zones/incidents/task types/workflow)를 주입한 Step1/Step2/
+  repair 시스템 프롬프트.
+- `llm/pipeline.py` `generate_mission(command, scene, backend) -> GenerationResult`:
+  Step1 → `from_raw` schema 검증(오류 시 **즉시** 명시적 거부, SCHEMA) → Step2 →
+  `validate_candidate`(whole-graph) → 통과면 승인 + `compile_reference_graph`로 실행 graph.
+  실패면 구조화 오류를 넣어 repair 1회 → 재검증 → 승인 또는 명시적 거부. reference로 조용히
+  fallback하지 않는다.
+- `GenerationResult`: `approved`, `attempts`(1|2), `repaired`, `schema_valid`,
+  `raw_whole_graph_valid`, `repaired_whole_graph_valid`, `failure_category`
+  ∈ {SCHEMA, WORKFLOW, STRUCTURE, REFERENCE, FEASIBILITY, OTHER}, `errors`, `candidate`,
+  `validation`, `graph`. §12 지표(schema-valid count / raw·repair 후 whole-graph-valid /
+  failure category)를 이 필드들로 집계한다.
+- `pydantic>=2`를 주 의존성으로 추가, `anthropic>=0.40`을 `llm` extra로, `llm*`를 package
+  discovery에 추가.
+
+**PROVENANCE** LLM_CBBA `llm/backends.py`의 백엔드 추상화 **패턴만** 참고(OpenAI 코드·
+파일 캐시·dotenv·`mission_generator.py`는 미포팅). PROVENANCE.md에 기록.
+
+**게이트** `tests/test_llm_pipeline.py` 7개 — 첫 시도 승인(부분 graph + full workflow),
+workflow 오류 repair 후 승인, repair 후에도 실패 → 명시적 거부(graph None), 알 수 없는
+task type → SCHEMA 거부, cross-incident 거부, backend 소진 시 AssertionError. 총 185 tests.
+
+**영향** 다음은 P6(최소 9개 입력 평가 + 결과 시각화). MockBackend에 사람이 사전 고정한
+reference annotation을 주입해 §12 precision/recall을 측정한다. 실제 LLM 평가는 API 키가
+있을 때 `AnthropicBackend`로 별도 수행.

@@ -56,8 +56,20 @@
 - `mission/loader.py`의 environment/reference 분리 원칙(fleet+landmark 어휘만 담는 파일과,
   그 위에 task 인스턴스를 얹는 별도 파일을 분리) — 재현 가능한 오프라인 테스트를 위한 검증된
   설계 패턴.
-- `llm/backends.py`의 structured-output 호출 래퍼 — 백엔드 추상화 자체는 도메인 무관.
 - 도메인 독립 테스트 유틸리티(mock LLM 응답 주입 패턴 등).
+
+### 2026-09-01 — LLM backend abstraction: 패턴만 참고 (P5)
+
+- 원본: `research/llm/backends.py` (LLM_CBBA, git 이력 없음)
+- 종류: 패턴만 (코드 미포팅)
+- 이유: "structured-output 호출을 백엔드 추상화 뒤에 두고, offline/mock replay로
+  재현 가능한 테스트를 만든다"는 설계 패턴은 도메인 무관하다.
+- 수정한 부분(=새로 작성): 원본은 OpenAI + pydantic + 파일 캐시. 이 저장소는
+  `LLMBackend` Protocol + `AnthropicBackend`(Anthropic SDK, `client.messages.parse`,
+  기본 `claude-opus-5`) + `MockBackend`(스크립트 응답 리스트). 파일 캐시·dotenv 로더는
+  안 가져옴 — P5 게이트는 MockBackend로 충분.
+- 가져오지 않은 부분: `mission_generator.py` 전체(도메인 프롬프트·타입), `.env` 로더,
+  `results/llm_cache.json` 캐시.
 
 ## 명시적으로 가져오지 않는 것
 
