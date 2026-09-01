@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.19 (D-020). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.20 (D-021). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,6 +62,10 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
+- v1.20 (D-021): §12에 P6 평가 하네스 설계 고정 — reference annotation 파일 형식/위치
+  (`data/reference_annotations/<id>.yaml`, LLM 첫 호출 전 커밋), `task_key=(task_type,target)`
+  기준 비교, `allowed_graphs` 중 (task F1, edge F1) 최대인 것과 대조, raw·final 후보 둘 다
+  측정, `X/9` 집계 + family 분해 + 재현성 필드(scene_hash/validator_version/resolved_models).
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -544,6 +548,9 @@ Step 2 backend 호출 자체가 일어나지 않는다 — mock 테스트는 이
 `failure_category` ∈ {SCHEMA, WORKFLOW, STRUCTURE, REFERENCE, FEASIBILITY, OTHER}. 승인된
 candidate만 `compile_reference_graph`로 실행 graph화한다(D-003 경계).
 
+**P6 평가 하네스(D-021)**: §12의 "P6 하네스 구현" 참고. 9개 명령의 목록·family·profile은
+`docs/DECISIONS.md` D-021에 고정한다.
+
 **prompt에 task glossary를 포함한다(D-020)**: `llm/prompts.py`의 scene facts는 task_type
 이름·target 종류뿐 아니라 각 task의 의미와 담당 platform을 설명하는 glossary를 포함한다.
 이게 없으면 P6 결과가 LLM의 임무 분해 능력이 아니라 task 이름의 영어 의미 추측 능력을 재는
@@ -568,6 +575,27 @@ count, task precision/recall, edge precision/recall, exact graph match, failure 
 latency. `unnecessary_task_rate`는 별도 지표로 안 쓴다 — 정답에 없는 task는 task precision의
 false positive로 처리한다. 소표본 결과는 백분율만 말고 원시 개수를 함께 제시한다(예:
 "7/9 valid", "family A: 2/3").
+
+**P6 하네스 구현(D-021)**:
+
+- **reference annotation**: `data/reference_annotations/<id>.yaml` — `id`, `family`(A/B/C),
+  `profile`(FULL_RESPONSE/AERIAL_ONLY/SELECTIVE_RESPONSE), `command`, `rationale`(reference를
+  이렇게 고정한 근거), `allowed_graphs`(허용 정답 복수). 각 graph는 shorthand
+  `recon_zones: [...]` + `incident_chains: {FIRE_SITE_x: [<§4 workflow의 연속 prefix>]}` 또는
+  명시적 `tasks`/`edges`로 적는다. **LLM을 처음 호출하기 전에 커밋한다** — git 이력이 순서를
+  증명한다.
+- **task_key/edge_key 비교**: `task_key = (task_type, target)`(priority 제외 — priority는
+  §7에서 incident로부터 결정). 예측 graph를 `allowed_graphs` 중 (task F1, edge F1) 최대인
+  것 하나와 대조해 task/edge precision·recall·exact match를 낸다. 정답이 없는 예측 task는
+  task precision의 FP, 정답에 있는데 없는 예측은 recall의 FN.
+- **raw와 final 둘 다 측정**: `raw_candidate`(repair 이전)와 최종 `candidate` 각각에 대해
+  지표를 낸다. schema 실패로 candidate가 없으면 그 지표는 N/A(집계에서 분모 제외).
+- **집계**: schema-valid·raw/repair 후 whole-graph-valid·approved를 `X/9`로, task·edge
+  precision/recall은 candidate가 있는 case의 평균 + 원시 분자/분모, exact match count,
+  failure category 히스토그램, latency(초) 통계, family별 분해.
+- **재현성**(§14): 결과에 `scene_hash`, `validator_version`, 명령별 `resolved_models`(실제
+  `completion.model`), backend 종류를 기록한다.
+- 실제 LLM 평가는 `OpenAIBackend`, 하네스 self-test는 `MockBackend`(스크립트 응답).
 
 ---
 

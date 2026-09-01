@@ -656,3 +656,52 @@ P6 실제 평가 전에 고치지 않으면 결과가 "임무 분해 능력"이 
 
 **영향** `tests/test_prompts.py` 신규(2), `tests/test_openai_backend.py` +1(client 재사용),
 `tests/test_llm_pipeline.py` +1(repair 자체 schema 실패). 200 tests 전체 통과.
+
+## D-021: P6 평가 하네스 설계 + 9개 명령 고정 (계약 v1.20)
+
+**배경** P5 승인 후 P6(최소 9개 입력 평가 + 시각화) 착수. 계약 §12는 평가 지표 목록과
+"LLM 출력을 보기 전에 사람이 canonical reference annotation을 고정한다"는 요구만 있고,
+파일 형식·명령 문구·비교 규칙·집계 방식이 미정이었다. 하네스 코드를 짜기 전에, 그리고
+LLM을 처음 호출하기 전에 이걸 고정해야 순서가 git 이력으로 증명된다.
+
+**결정** 계약 v1.20:
+
+- **reference annotation 파일**: `data/reference_annotations/<id>.yaml`. 필드 `id`, `family`
+  (A/B/C), `profile`(FULL_RESPONSE/AERIAL_ONLY/SELECTIVE_RESPONSE), `command`(평가에 그대로
+  들어갈 NL 문구), `rationale`(정답을 이렇게 고정한 근거), `allowed_graphs`(허용 정답 목록;
+  대부분 1개). 각 graph는 shorthand `recon_zones: [ZONE_...]` +
+  `incident_chains: {FIRE_SITE_x: [<§4 workflow의 연속 prefix>]}`로 적고, 로더가 chain을
+  task 목록 + 순차 edge로 전개한다(prefix가 아니면 로드 에러).
+- **비교 규칙**: `task_key = (task_type, target)` — priority 제외(§7에서 incident로부터 결정,
+  task_key 동일성엔 무관). `edge_key = (pred_task_key, succ_task_key)`. 예측 graph를
+  `allowed_graphs` 각각과 대조해 (task F1, edge F1) 사전식 최대인 graph 하나를 골라 그에 대한
+  precision/recall/exact match를 보고한다.
+- **raw·final 둘 다 측정**: `GenerationResult.raw_candidate`와 최종 `candidate` 각각.
+  candidate가 없으면(SCHEMA 실패) 그 축의 precision/recall은 N/A(평균 분모에서 제외).
+- **집계**(`X/9` 원시 개수): schema-valid, raw whole-graph-valid, repair 후 whole-graph-valid,
+  approved. task/edge precision·recall은 candidate 있는 case 평균 + micro 분자/분모. exact
+  graph match count. failure_category 히스토그램. latency(벽시계 초) min/mean/max. family
+  (A/B/C)별 분해.
+- **재현성**(§14): 결과 JSON에 `scene_hash`, `validator_version`, backend 종류, 명령별
+  `resolved_models`(OpenAIBackend면 실제 `completion.model` 목록).
+- 실제 평가는 `OpenAIBackend(model="gpt-5-mini")`. 하네스 self-test는 `MockBackend`.
+
+**9개 명령**(LLM 호출 전 고정 — 파일이 이 커밋에 포함됨):
+
+| id | family | profile | 요지 |
+|----|--------|---------|------|
+| A1 | A | FULL_RESPONSE | 양쪽 화재 전체 4단계 chain + 전 zone 항공 정찰 |
+| A2 | A | FULL_RESPONSE | 같은 내용, 단계 이름을 명시적으로 나열 |
+| A3 | A | FULL_RESPONSE | 같은 내용, 구어체 "다 처리해" |
+| B1 | B | AERIAL_ONLY | 전 zone 항공 정찰 + 양쪽 화재 thermal recon, 진압·지상 금지 |
+| B2 | B | AERIAL_ONLY | 같은 내용, "하늘에서 눈만" |
+| B3 | B | AERIAL_ONLY | 같은 내용, "정찰 단계만" |
+| C1 | C | SELECTIVE_RESPONSE | F1 전체 chain + F2 thermal recon만 + 전 zone 정찰 |
+| C2 | C | SELECTIVE_RESPONSE | F2 전체 chain + F1 thermal recon만 + 전 zone 정찰 |
+| C3 | C | SELECTIVE_RESPONSE | F1 전체 chain + F2 thermal recon만, zone 정찰 생략 |
+
+family A의 canonical reference는 P1 `scenarios/reference_fixture.yaml`(12 task/6 edge)와 동일.
+
+**영향** 신규 `data/reference_annotations/{A1..C3}.yaml`(9), `evaluation/` 패키지
+(`annotations.py`, `metrics.py`, `harness.py`, `report.py`), `tests/test_evaluation.py`.
+`pyproject.toml` packages.find에 `evaluation*` 추가.
