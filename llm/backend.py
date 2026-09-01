@@ -6,15 +6,34 @@ Only the *pattern* of a structured-output wrapper is reused from LLM_CBBA
 test uses ``MockBackend`` so the P5 gate needs no network and no API key.
 """
 
+import os
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
-# Overridable; the eval (§14 reproducibility) must pin one explicit model.
-DEFAULT_MODEL = "gpt-4o-mini"
+# Overridable; the eval (§14 reproducibility) pins this and records it with the
+# results. gpt-5-mini is a reasoning model -> no explicit temperature.
+DEFAULT_MODEL = "gpt-5-mini"
+
+_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
+
+
+def _load_dotenv() -> None:
+    """Fill os.environ from a repo-root `.env` (KEY=value lines) without ever
+    overriding a variable the real environment already set. `.env` is gitignored.
+    """
+    if not _ENV_FILE.is_file():
+        return
+    for line in _ENV_FILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip("'").strip('"'))
 
 
 class LLMBackend(Protocol):
@@ -47,13 +66,14 @@ class MockBackend:
 class OpenAIBackend:
     """Structured output via the OpenAI SDK (``chat.completions.parse``).
 
-    ``temperature=None`` omits the parameter (some models reject any explicit
-    value); ``OPENAI_API_KEY`` (and optional ``OPENAI_BASE_URL``) come from the
-    environment.
+    ``OPENAI_API_KEY`` (and optional ``OPENAI_BASE_URL``) come from the
+    environment or a repo-root ``.env``. ``temperature=None`` (the default)
+    omits the parameter — reasoning models such as gpt-5-mini reject any
+    explicit value.
     """
 
     def __init__(
-        self, model: str = DEFAULT_MODEL, temperature: float | None = 0.0
+        self, model: str = DEFAULT_MODEL, temperature: float | None = None
     ) -> None:
         self.model = model
         self.temperature = temperature
@@ -66,6 +86,7 @@ class OpenAIBackend:
                 "OpenAIBackend needs the 'llm' optional dependency: pip install -e '.[llm]'"
             ) from e
 
+        _load_dotenv()
         client = OpenAI()
         extra = {} if self.temperature is None else {"temperature": self.temperature}
         completion = client.chat.completions.parse(

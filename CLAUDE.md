@@ -35,8 +35,8 @@ workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_S
 P5 구조:
 - `llm/schemas.py`: `Step1Output`/`Step2Output`/`RepairOutput` (pydantic).
 - `llm/backend.py`: `LLMBackend` Protocol, `MockBackend`(게이트용), `OpenAIBackend`
-  (`chat.completions.parse`, `OPENAI_API_KEY`, `openai` 지연 import — `llm` extra, D-018).
-  실제 평가 모델은 실험 전에 pin(§14).
+  (`chat.completions.parse`, `OPENAI_API_KEY` — env 또는 repo-root `.env`, `openai` 지연
+  import = `llm` extra). 평가 모델 `gpt-5-mini` 고정(reasoning model → `temperature` 미전달), §14.
 - `llm/prompts.py`: scene 어휘 주입 Step1/Step2/repair 프롬프트.
 - `llm/pipeline.py` `generate_mission`: Step1 → `from_raw` schema(오류 즉시 거부) → Step2 →
   `validate_candidate` → repair 1회 → 재검증 → 승인(+compiled graph) / 명시적 거부. reference

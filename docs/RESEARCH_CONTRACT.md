@@ -54,8 +54,8 @@
   출력, `LLMBackend` Protocol, `GenerationResult` 지표, `failure_category` 집합, schema
   오류는 즉시 명시적 거부.
 - v1.17 (D-018): 실제 LLM backend를 OpenAI로 확정 — `OpenAIBackend`(`chat.completions.parse`,
-  `OPENAI_API_KEY`). 모델은 실험 전에 하나로 pin해 결과와 함께 기록(§14). `llm` extra는
-  `openai`.
+  `OPENAI_API_KEY`, 선택적 repo-root `.env`). 평가 모델은 `gpt-5-mini`로 pin(reasoning
+  model → `temperature` 미전달)하고 결과 표에 기록(§14). `llm` extra는 `openai`.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -509,9 +509,10 @@ repair 후에도 실패하면 해당 mission을 명시적 실패로 집계한다
 
 **구현(D-017, D-018)**: `llm/pipeline.py`의 `generate_mission(command, scene, backend)`.
 Step 1/2/repair는 pydantic 구조화 출력(`llm/schemas.py`)이고, backend는 `LLMBackend`
-Protocol이다 — `OpenAIBackend`(`chat.completions.parse`, 모델은 실험 전에 pin, `OPENAI_API_KEY`)와
-`MockBackend`(스크립트 응답). P5 게이트 테스트는 전부 `MockBackend`로 돌아 네트워크·API 키가
-필요없다. 실제 LLM 평가(P6) 모델은 §14 재현성을 위해 하나로 고정해 결과와 함께 기록한다. `GenerationResult`는
+Protocol이다 — `OpenAIBackend`(`chat.completions.parse`, `OPENAI_API_KEY`, 평가 모델
+`gpt-5-mini` 고정)와 `MockBackend`(스크립트 응답). P5 게이트 테스트는 전부 `MockBackend`로
+돌아 네트워크·API 키가 필요없다. 실제 LLM 평가(P6)는 §14 재현성을 위해 모델을 결과와 함께
+기록한다. `GenerationResult`는
 §12 지표(`schema_valid`, `raw_whole_graph_valid`, `repaired_whole_graph_valid`, `attempts`,
 `repaired`, `failure_category` ∈ {SCHEMA, WORKFLOW, STRUCTURE, REFERENCE, FEASIBILITY, OTHER})를
 담는다. schema 오류(허용 키·타입·범위)는 whole-graph 단계 이전에 즉시 명시적 거부한다.

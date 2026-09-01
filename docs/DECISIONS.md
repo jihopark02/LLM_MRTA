@@ -573,7 +573,7 @@ reference annotation을 주입해 §12 precision/recall을 측정한다. 실제 
   `client.chat.completions.parse(response_format=<pydantic schema>)`, `OPENAI_API_KEY`·
   선택적 `OPENAI_BASE_URL` 환경변수, `temperature` 기본 0.0·`None`이면 생략).
 - `pyproject.toml` `llm` extra: `anthropic` → `openai>=1.40`.
-- `DEFAULT_MODEL = "gpt-4o-mini"` — override 가능한 기본값. P6 실험은 모델을 **하나로
+- `DEFAULT_MODEL = "gpt-5-mini"` — override 가능한 기본값. P6 실험은 모델을 **하나로
   고정**해 §14 재현성 기록에 포함한다(모델 문자열도 결과 표에).
 - `LLMBackend` Protocol과 `MockBackend`, `llm/pipeline.py`, `llm/schemas.py`,
   `llm/prompts.py`는 변경 없음 — backend만 교체.
