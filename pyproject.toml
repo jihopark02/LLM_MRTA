@@ -9,6 +9,7 @@ description = "LLM-Based Disaster Mission Decomposition and CBBA Task Allocation
 requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",
+    "pydantic>=2",
 ]
 
 [project.optional-dependencies]
@@ -16,10 +17,13 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.5",
 ]
+llm = [
+    "anthropic>=0.40",
+]
 
 [tool.setuptools.packages.find]
-# Extend as llm / evaluation become packages.
-include = ["core*", "scenarios*", "validator*", "allocation*", "execution*"]
+# Extend as evaluation becomes a package.
+include = ["core*", "scenarios*", "validator*", "allocation*", "execution*", "llm*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
