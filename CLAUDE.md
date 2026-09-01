@@ -25,12 +25,16 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1·P2·P3 승인. P4 승인 완료(Codex). 계약 v1.13 (D-014).** `validator/`(P2) +
-`allocation/`(P3) + `execution/`(P4: `SimExecutor` 2D discrete-event, held carry-forward,
-§14 deadlock 절차, §13 지표). `VALIDATOR_VERSION = "1.1"`, `λ = 0.999`. pytest 175개 통과
-(`python3 -m pytest -q`), ruff clean. P4 게이트 통과 — reference mission 12/12 완주,
-violation 0, 완주 후 §10 assignment invariant 통과, deadlock·STEP_LIMIT 구분. RQ1/RQ2 실행 파이프라인(P1~P4)
-완성. 다음: **P5**(LLM Step1/Step2/repair, mock 테스트).
+**P1~P4 승인. 계약 v1.15 (D-016).** `validator/`(P2) + `allocation/`(P3) + `execution/`(P4).
+`VALIDATOR_VERSION = "1.2"`, `λ = 0.999`. pytest 175개 통과, ruff clean.
+
+**D-016 — task 어휘 변경 반영**: `HAZARD_MARKER_DEPLOY` → `GROUND_SUPPRESSION`(symbolic 진압,
+UGV), `MARKER_DISPENSER` → `SUPPRESSANT_APPLICATOR`, "Safety UGV" → "Ground Response UGV"
+(ID G1/G2 유지). workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION →
+GROUND_SUPPRESSION`. P1~P4 전부 재실행 통과. 새 골든값: P3 makespan ~359.8, P4 ~257.9,
+둘 다 violation 0 / workload 균형 / idle 0 (D-016 참조).
+
+다음: **P5**(LLM Step1/Step2/repair, mock 테스트).
 
 P4 구조:
 - `execution/executor.py` `SimExecutor.run()` — clone 위 event loop: recompute → `run_epoch`
