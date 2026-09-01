@@ -14,14 +14,16 @@ Unmanned Systems
 
 **P1~P6 구현 완료** — `validator/`(P2) + `allocation/`(P3) + `execution/`(P4:
 `SimExecutor`) + `llm/`(P5: Step1/Step2/repair 파이프라인 §12) + `evaluation/`(P6:
-9개 입력 평가 하네스 + 지표 + 시각화). 테스트 214개 통과(`python3 -m pytest -q`).
+9개 입력 평가 하네스 + 감사 JSON + 시각화). 테스트 221개 통과(`python3 -m pytest -q`).
 
-P6 실측(gpt-5-mini, 2026-09-01): 9/9 approved, task·edge precision/recall 1.00/1.00,
-exact graph match 9/9, repair 0회. 상세는 [`docs/P6_RESULTS.md`](docs/P6_RESULTS.md),
-원자료 `data/eval_results/`. 재현: `python -m evaluation --out data/eval_results/p6 --plot`.
+P6 실측(gpt-5-mini, 2026-09-01, validator 1.3): 9/9 approved, task precision/recall
+1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
+[`docs/P6_RESULTS.md`](docs/P6_RESULTS.md), 원자료 `data/eval_results/`.
+재현: `python -m evaluation --out data/eval_results/p6 --plot`.
 
-task 어휘: `GROUND_SUPPRESSION`(symbolic UGV 진압) workflow (D-016). 계약 버전 v1.20 /
-최신 결정 D-021. 단계 게이트 정의는
+priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
+LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
+workflow (D-016). 계약 버전 v1.21 / 최신 결정 D-022. 단계 게이트 정의는
 [`docs/RESEARCH_CONTRACT.md`](docs/RESEARCH_CONTRACT.md) §15 참고.
 
 새로운 LLM 모델이나 CBBA 알고리즘을 제안하는 연구가 아니다. 검증된 구성요소를 통합하고
