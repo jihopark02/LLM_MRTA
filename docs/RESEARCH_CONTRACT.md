@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.7 (D-008). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.8 (D-009). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -25,6 +25,8 @@
 - v1.7 (D-008): §7 `priority` 범위를 1..10으로 고정(`E_SCHEMA`). §10 assignment invariant에
   참조 무결성(규칙 6) 추가. §14에 `validator_version` bump 규칙과 rejected patch `graph_hash`
   범위 명시(P2 Codex 3차 지적).
+- v1.8 (D-009): §11에 `λ = 0.999` 고정, 보상은 스케일 없는 `priority`, tie-break는 정확히
+  같은 bid에서 `agent_id`→`task_id` 사전순, `bundle` 무제한을 명시(P3 구현).
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -423,8 +425,11 @@ bid = max_insertion[ PathUtility(path_with_candidate) − PathUtility(current_pa
 ```
 
 `projected_completion_time`은 현재 agent 위치, 플랫폼별 이동시간(§8), 선행 task들의 dwell
-duration, 후보 task duration을 누적한 값이다. `λ`는 실험 전에 고정하고 모든 조건에서 동일하게
-쓴다. 동점 처리는 `agent_id`, `task_id` 사전순으로 결정론적으로 고정한다.
+duration, 후보 task duration을 누적한 값이다. `λ = 0.999`로 고정한다(D-009, 이전 저장소
+`DEFAULT_LAMBDA` 재사용) — 모든 조건에서 동일하게 쓴다. `priority(task_j)`는 §7의 정수
+1..10을 스케일 없이 그대로 쓴다(이전 저장소의 `10·priority`가 아님). 동점 처리는 정확히
+같은 bid일 때 `agent_id` 사전순으로 작은 쪽이 이기고, 그 다음 `task_id` 사전순이다.
+`bundle` 길이에는 상한을 두지 않는다(§17).
 
 이 보상형태(우선순위×이동시간 할인)는 새로 고안한 게 아니라 이전 저장소 CBBA의 검증된 보상
 구조를 재사용한 것이다 — §14 PROVENANCE 참고. bundle/consensus/tie-break 핵심 로직만

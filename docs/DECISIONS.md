@@ -273,3 +273,37 @@ E_RUNNING_LOCKED = 단위테스트로 충족된다. `validator/patch_apply.py`�
 
 **영향** P2 재검증. P3 착수 전 priority 범위가 계약에 고정됨 — CBBA 보상 함수는 1..10만
 가정하면 된다.
+
+## D-009: P3 platform-aware CBBA 구체화 (계약 v1.8)
+
+**배경** P3(§11 CBBA + §8 platform-aware travel) 구현. §11이 abstract하게만 두었던
+상수·형태를 확정한다.
+
+**결정**
+
+- **이식**: LLM_CBBA `research/allocation/{cbba,scoring}.py`의 CBBA 코어(bundle 구성 +
+  Table I action rule + s-vector + suffix release)와 시간할인 보상 구조를 포팅. sha256로
+  PROVENANCE.md에 pin.
+- **λ = 0.999** 고정(이전 저장소 `DEFAULT_LAMBDA` 재사용). 모든 조건 동일.
+- **보상 = `priority`** (스케일 없음). §11 공식이 `Σ priority·λ^t`이므로 이전 저장소의
+  `10·priority`는 안 씀. argmax는 불변이나 `winning_bids` 크기가 달라짐.
+- **이동비용은 새로 작성**(포팅 아님, §8): UAV Euclidean, UGV는 `RouteGraph` Dijkstra
+  (`scene.agent_access_nodes` 시작 + incident `access_node`). `allocation/travel.py`.
+- **tie-break**: `_beats()` — 정확히 같은 bid이면 `agent_id` 사전순 작은 쪽 승. 없으면 동일
+  agent 두 대가 tie를 못 깨고 무한 leave. `_action_rule`의 4개 bid 비교에 적용.
+- **bundle 무제한**: `capacity` 기본값 = frontier 크기(§17 — Phase 1 bundle 길이 제약 없음).
+- **rolling frontier**: `allocation/allocate.py`가 clone 위에서 epoch 반복 —
+  `recompute_ready` → frontier auction → plan-time 시뮬(agent 위치·task 완료시각 전진) →
+  frontier task를 COMPLETED로 표시 → 반복. 이건 평가용 계획 시뮬레이션이며, 실제 실행은
+  P4 executor가 담당한다.
+- **§13 지표**: `AllocationResult`에 allocation_success, unassigned, capability/precedence
+  violation, uav_flight_distance/ugv_route_distance, estimated_makespan, workload,
+  agent_utilization, idle_agents, epoch별 consensus rounds.
+
+**P3 게이트 결과**: reference fixture 12 task 전부 할당, capability/precedence violation 0,
+UGV 이동거리가 route-graph Dijkstra 합과 일치(Euclidean과 불일치), 재실행 결정성. 4 epoch
+(AREA_RECON×4+THERMAL_RECON×2 → SUPPRESSANT_DROP×2 → GROUND_INSPECTION×2 →
+HAZARD_MARKER_DEPLOY×2), 모든 agent 활용(idle 0), Response UAV가 두 drop 모두 수행.
+
+**영향** 다음은 P4(2D executor, end-to-end). executor는 `run_epoch`를 재사용하고 `allocate`의
+plan-time 시뮬 대신 실제 이벤트 루프로 frontier를 굴린다.
