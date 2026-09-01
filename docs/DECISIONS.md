@@ -238,3 +238,38 @@ E_RUNNING_LOCKED = 단위테스트로 충족된다. `validator/patch_apply.py`�
 
 **영향** P2 재검증 대상. D-006의 private reconciliation 단위테스트 방식은 P8 어휘 확장 시
 반드시 public `apply_patch()` end-to-end 테스트로 교체(Codex 조건부 수용).
+
+## D-008: P2 Codex 3차 검토 반영 (계약 v1.7)
+
+**배경** D-007 반영 후 3차 검토에서 추가 확인:
+
+1. `build/lib/**` 20개 파일이 3af6e29에 커밋됨(wheel 검증 산출물을 `git add -A`가 포함).
+   소스와 갈라지면 패키징 오염. → build hygiene, 계약 무관.
+2. D-007이 판정 규칙을 바꿨는데(unknown field 거부, op field schema, assignment invariant
+   강화, hash 형식) `VALIDATOR_VERSION`이 "1.0" 그대로. 같은 버전에서 동일 입력의 판정이
+   달라질 수 있어 §14 재현성과 충돌.
+3. `_assignment_invariant_errors`가 `state.graph.tasks`만 순회 →
+   `S1.bundle = ["GHOST_TASK"]`, `winning_bids = {"GHOST_TASK": 3.0}` 같은 dangling
+   참조가 빈 patch를 통과. D-007 규칙 1~4는 "graph에 존재하는 task" 방향만 검사, 역방향
+   참조 무결성 누락.
+4. priority가 임의 정수 허용(`-10`, `0`, `10**100` 전부 accepted). 코드 버그는 아니나
+   P3 CBBA 보상 함수에서 음수 priority가 음수 bid·미할당 유발 가능.
+5. (저) rejected `PatchResult.graph_hash`가 빈 문자열 — §14 "최소 graph_hash 기록"과
+   형식상 충돌. malformed op는 최종 graph가 없으므로 정리 필요.
+
+**결정** 계약 v1.7:
+
+- **VALIDATOR_VERSION "1.0" → "1.1"**. §14에 bump 규칙 명시(판정 규칙 변경 시 필수, 같은
+  버전에서 동일 입력의 accepted/error_codes 불변). 테스트는 버전 literal을 확인.
+- **priority 1..10 고정**(§7). candidate schema와 patch op schema가 범위를 `E_SCHEMA`로
+  강제. 현재 시나리오가 3/7/9를 쓰므로 1..10이 자연스럽다.
+- **assignment 참조 무결성**(§10 규칙 6): 모든 bundle/path/winning_bids 참조가 graph에
+  존재하는 task를 가리키고, `state.agents` dict key가 `Agent.agent_id`와 일치. 위반 시
+  `E_SCHEMA`.
+- **rejected patch graph_hash 범위**(§14): whole-graph 단계 이전 거부는 `graph_hash` 빈
+  문자열, `scene_hash`+`validator_version`+`error_codes`가 감사 기록. `patch_hash`(raw op
+  해시) 도입은 P5 전 정리 대상.
+- build hygiene: 추적 중인 `build/` 제거, `.gitignore`에 `build/` `dist/` 추가.
+
+**영향** P2 재검증. P3 착수 전 priority 범위가 계약에 고정됨 — CBBA 보상 함수는 1..10만
+가정하면 된다.

@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.6 (D-007). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.7 (D-008). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -22,6 +22,9 @@
 - v1.6 (D-007): §10에 assignment consistency invariant(§10 7단계) 명시. §7에 schema
   검증이 허용 키를 정확히 제한함을 명시(`E_SCHEMA`). graph_hash payload에 `priority` 포함,
   MissionPatch operation의 필드 schema를 런타임 검증(둘 다 P2 Codex 2차 지적).
+- v1.7 (D-008): §7 `priority` 범위를 1..10으로 고정(`E_SCHEMA`). §10 assignment invariant에
+  참조 무결성(규칙 6) 추가. §14에 `validator_version` bump 규칙과 rejected patch `graph_hash`
+  범위 명시(P2 Codex 3차 지적).
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -219,7 +222,7 @@ class Task:
     task_type: TaskType
     target: str                                   # area_id 또는 incident_id
     position: tuple[float, float]
-    priority: int
+    priority: int                                 # 1..10 (D-008), 클수록 우선
     required_capabilities: frozenset[Capability]   # 복수 — 예: marker task는 GROUND_MOBILITY+MARKER_DISPENSER 둘 다 필요할 수 있음
     eligible_platforms: frozenset[PlatformKind]
     duration: float
@@ -233,7 +236,8 @@ class Task:
 resolve한다. LLM이 좌표를 직접 생성하면 semantic scene과 이중 진실 원천이 생긴다.
 schema 검증(§9 #1)은 이를 강제한다 — top-level 키는 정확히 `{tasks, edges}`, task entry
 키는 정확히 `{task_type, target, priority}`여야 하며, 그 외 키(`assigned_agent` 등)가 있으면
-`E_SCHEMA`로 거부한다.
+`E_SCHEMA`로 거부한다. `priority`는 정수 **1..10**이어야 하며 범위를 벗어나면 `E_SCHEMA`로
+거부한다(D-008 — CBBA 보상 함수가 0·음수 priority에서 음수 bid·미할당을 유발하지 않도록).
 
 `Task.status`는 YAML에 독립적으로 기록하지 않고 graph의 predecessor 상태로부터 계산한다
 (§9의 whole-graph recompute).
@@ -384,6 +388,9 @@ task를 도입하기 전에는 end-to-end로 도달하지 않는다. #13의 term
 5. `bundle`/`path`의 세부 관계(순서, bundle⊆path 여부, `current_task`)는 P3 CBBA 표현과
    함께 확정한다 — P2는 위 1~4만 강제한다.
 
+6. **참조 무결성(D-008)**: 모든 `bundle`/`path` task_id와 모든 `winning_bids` key는 graph에
+   존재하는 task를 가리킨다. `state.agents`의 dict key는 해당 `Agent.agent_id`와 일치한다.
+
 이 invariant를 어긴 상태를 만드는 patch는 `E_SCHEMA`로 거부한다(별도 stale-assignment
 오류코드는 두지 않는다).
 
@@ -478,6 +485,15 @@ violation은 정상 실행에서 항상 0이어야 한다.
 버전, semantic scene hash, task vocabulary, configuration, 입력 graph canonicalization.
 Validator 실행 결과에는 최소한 `graph_hash`, `scene_hash`, `validator_version`, `accepted`,
 `error_codes`를 기록한다.
+
+**`validator_version` bump 규칙(D-008)**: 판정 규칙이 바뀌면(invariant 추가·제거·의미 변경,
+schema 허용 범위 변경, hash payload 형식 변경) 반드시 올린다. 같은 버전 아래에서 동일 입력의
+`accepted`/`error_codes`가 달라지면 안 된다. 테스트는 의도한 버전 literal을 확인한다.
+
+**rejected patch의 `graph_hash` 범위(D-008)**: `E_SCHEMA`/`E_PATCH_CONFLICT`로 whole-graph
+단계 이전에 거부된 patch는 최종 graph가 존재하지 않으므로 `graph_hash`가 빈 문자열이다. 이
+경우 `scene_hash` + `validator_version` + `error_codes`가 감사 기록이다. raw operation을
+해시하는 `patch_hash` 도입은 P5 전 정리 대상으로 남긴다.
 
 이전 저장소에서 재사용하는 것은 전부 `docs/PROVENANCE.md`에 원본 경로·source commit·재사용
 이유를 기록한다. 재사용 후보: TaskGraph 연산 패턴, 상태 전이(READY/PENDING recompute) 패턴,
