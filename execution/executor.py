@@ -13,6 +13,7 @@ nothing can progress; the single-agent A->B chain is a P4 gate test.
 """
 
 from dataclasses import dataclass, field, replace
+from enum import Enum
 
 from allocation.cbba import DEFAULT_LAMBDA, run_epoch
 from allocation.travel import leg_distance, task_ref
@@ -26,11 +27,19 @@ _UNFINISHED = frozenset(
 )
 
 
+class Termination(str, Enum):
+    COMPLETED = "COMPLETED"
+    DEADLOCK = "DEADLOCK"
+    STEP_LIMIT = "STEP_LIMIT"
+
+
 @dataclass
 class ExecutionResult:
+    termination: Termination
     completed: list[str]
     assignments: dict[str, str]
     winning_bids: dict[str, float]
+    task_departure: dict[str, float]
     task_start: dict[str, float]
     task_completion: dict[str, float]
     consensus_rounds: list[int]
@@ -43,8 +52,11 @@ class ExecutionResult:
     workload: dict[str, int]
     agent_utilization: dict[str, float]
     idle_agents: list[str]
-    deadlocked: bool = False
-    deadlock_tasks: list[str] = field(default_factory=list)
+    unfinished_tasks: list[str] = field(default_factory=list)
+
+    @property
+    def deadlocked(self) -> bool:
+        return self.termination is Termination.DEADLOCK
 
 
 @dataclass
@@ -68,9 +80,13 @@ class SimExecutor:
         self.access_nodes = dict(scene.agent_access_nodes)
         self.sim: dict[str, _Sim] = {aid: _Sim() for aid in self.agents}
 
+        for agent in self.agents.values():
+            agent.current_task = None
+
         self.now = 0.0
         self.assignments: dict[str, str] = {}
         self.winning_bids: dict[str, float] = {}
+        self.task_departure: dict[str, float] = {}
         self.task_start: dict[str, float] = {}
         self.task_completion: dict[str, float] = {}
         self.consensus_rounds: list[int] = []
@@ -106,13 +122,17 @@ class SimExecutor:
         }
         epoch_scene = self._epoch_scene()
 
-        # Bid from where each agent will be once its running task finishes.
-        projected: dict[str, tuple] = {}
+        # Residual-path view for bidding (D-012): a RUNNING task is removed from
+        # its agent's path and the agent bids from where it will land, so its
+        # travel/dwell/reward is not double-counted.
+        saved_ref: dict[str, tuple] = {}
         for aid, agent in self.agents.items():
             running = self.sim[aid].current
             if running is None:
                 continue
-            projected[aid] = (agent.position, self.access_nodes.get(aid))
+            if running in agent.path:
+                agent.path.remove(running)
+            saved_ref[aid] = (agent.position, self.access_nodes.get(aid))
             landing = task_ref(agent, self.graph[running], epoch_scene)
             if agent.platform_kind is PlatformKind.UAV:
                 agent.position = landing
@@ -124,10 +144,12 @@ class SimExecutor:
             frontier=frontier, held=held,
         )
 
-        for aid, (pos, node) in projected.items():
+        for aid, (pos, node) in saved_ref.items():
             self.agents[aid].position = pos
             if node is not None:
                 self.access_nodes[aid] = node
+        for aid in saved_ref:  # re-merge the RUNNING task at the path head
+            self.agents[aid].path.insert(0, self.sim[aid].current)
 
         self.consensus_rounds.append(result.rounds)
         if not result.winners:
@@ -137,13 +159,6 @@ class SimExecutor:
             self.winning_bids[tid] = result.winning_bids[tid]
             self.graph[tid].status = TaskStatus.ASSIGNED
             self.graph[tid].assigned_agent = aid
-
-        # A running task must stay at the head of its agent's path.
-        for aid, agent in self.agents.items():
-            running = self.sim[aid].current
-            if running is not None and agent.path and agent.path[0] != running:
-                agent.path.remove(running)
-                agent.path.insert(0, running)
         return True
 
     # -- dispatch / advance ----------------------------------------
@@ -161,6 +176,8 @@ class SimExecutor:
             dist = leg_distance(agent, self._ref(agent_id), task, self._epoch_scene())
             travel = dist / agent.speed
             s.current = task_id
+            agent.current_task = task_id
+            self.task_departure[task_id] = self.now
             self.task_start[task_id] = self.now + travel
             s.finish_at = self.now + travel + task.duration
             s.busy += travel + task.duration
@@ -183,6 +200,8 @@ class SimExecutor:
             task = self.graph[task_id]
             agent = self.agents[agent_id]
             task.status = TaskStatus.COMPLETED
+            task.assigned_agent = None  # §10 invariant: COMPLETED carries no assignment
+            agent.current_task = None
             self.task_completion[task_id] = self.now
             landing = task_ref(agent, task, self._epoch_scene())
             if agent.platform_kind is PlatformKind.UAV:
@@ -200,8 +219,10 @@ class SimExecutor:
         self.graph.recompute_ready()
         self._run_epoch()
 
+        termination = Termination.STEP_LIMIT
         for _ in range(max_steps):
             if all(t.status not in _UNFINISHED for t in self.graph.tasks):
+                termination = Termination.COMPLETED
                 break
             if self._dispatch():
                 continue
@@ -215,11 +236,12 @@ class SimExecutor:
             self.graph.recompute_ready()
             if self._run_epoch():
                 continue
+            termination = Termination.DEADLOCK
             break
 
-        return self._result()
+        return self._result(termination)
 
-    def _result(self) -> ExecutionResult:
+    def _result(self, termination: Termination) -> ExecutionResult:
         unfinished = sorted(t.task_id for t in self.graph.tasks if t.status in _UNFINISHED)
         completed = sorted(
             t.task_id for t in self.graph.tasks if t.status is TaskStatus.COMPLETED
@@ -247,9 +269,11 @@ class SimExecutor:
             workload[aid] += 1
 
         return ExecutionResult(
+            termination=termination,
             completed=completed,
             assignments=self.assignments,
             winning_bids=self.winning_bids,
+            task_departure=self.task_departure,
             task_start=self.task_start,
             task_completion=self.task_completion,
             consensus_rounds=self.consensus_rounds,
@@ -265,6 +289,5 @@ class SimExecutor:
                 for aid in self.agents
             },
             idle_agents=sorted(aid for aid, n in workload.items() if n == 0),
-            deadlocked=bool(unfinished),
-            deadlock_tasks=unfinished,
+            unfinished_tasks=unfinished,
         )
