@@ -278,6 +278,16 @@ class SimExecutor:
         for aid in self.assignments.values():
             workload[aid] += 1
 
+        # busy is booked at dispatch, so a STEP_LIMIT run with in-flight tasks
+        # would report utilization > 1 — not a usable figure (§14, D-014).
+        if termination is Termination.STEP_LIMIT:
+            utilization: dict[str, float] = {}
+        else:
+            utilization = {
+                aid: (self.sim[aid].busy / makespan if makespan > 0 else 0.0)
+                for aid in self.agents
+            }
+
         return ExecutionResult(
             termination=termination,
             completed=completed,
@@ -294,10 +304,7 @@ class SimExecutor:
             uav_flight_distance=self.uav_flight,
             ugv_route_distance=self.ugv_route,
             workload=workload,
-            agent_utilization={
-                aid: (self.sim[aid].busy / makespan if makespan > 0 else 0.0)
-                for aid in self.agents
-            },
+            agent_utilization=utilization,
             idle_agents=sorted(aid for aid, n in workload.items() if n == 0),
             unfinished_tasks=unfinished,
         )

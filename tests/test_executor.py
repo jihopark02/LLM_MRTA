@@ -221,6 +221,7 @@ def test_step_limit_is_not_a_deadlock(ref_state, scene):
     assert r.termination is Termination.STEP_LIMIT
     assert not r.deadlocked
     assert r.unfinished_tasks  # some tasks left, but it is not a deadlock
+    assert r.agent_utilization == {}  # not a usable figure for STEP_LIMIT (D-014)
 
 
 def test_completion_on_the_final_step_reports_completed(scene):
