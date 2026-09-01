@@ -32,7 +32,6 @@ _FAMILY_HUE = {"A": "#2a78d6", "B": "#eb6834", "C": "#1baf7a"}
 _INK = "#0b0b0b"
 _MUTED = "#52514e"
 _GRID = "#e6e5e2"
-_N = 9
 
 
 def _style_axes(ax) -> None:
@@ -45,22 +44,26 @@ def _style_axes(ax) -> None:
 
 def _panel_outcomes(ax, d: dict) -> None:
     c = d["counts"]
+    rep = d["repair"]
+    n = c["n"]
     stages = [
         ("schema-valid", c["schema_valid"]),
         ("raw graph-valid", c["raw_whole_graph_valid"]),
-        ("valid after repair", c["repaired_whole_graph_valid"]),
+        ("first-pass approved", rep["first_pass_approved"]),
+        ("repair attempted", rep["attempted"]),
         ("approved", c["approved"]),
     ]
     labels = [s for s, _ in stages][::-1]
     values = [v for _, v in stages][::-1]
     y = range(len(labels))
     ax.barh(list(y), values, height=0.6, color=_BLUE)
-    ax.set_xlim(0, _N)
+    ax.set_xlim(0, n)
     ax.set_yticks(list(y), labels)
-    ax.set_xlabel(f"cases (of {_N})", color=_MUTED)
+    ax.set_xlabel(f"cases (of {n})", color=_MUTED)
     ax.set_title("Pipeline outcomes", color=_INK, loc="left", fontweight="bold")
     for yi, v in zip(y, values, strict=True):
-        ax.text(v + 0.15, yi, f"{v}/{_N}", va="center", color=_INK, fontsize=9)
+        ax.text(v + 0.15 if v < n else v - 0.15, yi, f"{v}/{n}",
+                va="center", ha="left" if v < n else "right", color=_INK, fontsize=9)
     ax.xaxis.grid(True, color=_GRID, lw=0.8)
     ax.set_axisbelow(True)
     _style_axes(ax)
@@ -78,8 +81,13 @@ def _panel_pr(ax, d: dict) -> None:
     width = 0.2
     for i, (name, color, get) in enumerate(metrics):
         xs = [j + (i - 1.5) * width for j in range(len(fams))]
-        vals = [get(fam[f]["final"]) for f in fams]
+        # a null mean is N/A (no scorable edge set, e.g. family B) — draw nothing
+        vals = [get(fam[f]["final"]) or 0.0 for f in fams]
         ax.bar(xs, vals, width=width * 0.9, color=color, label=name)
+        for x, f in zip(xs, fams, strict=True):
+            if get(fam[f]["final"]) is None:
+                ax.text(x, 0.02, "N/A", rotation=90, va="bottom", ha="center",
+                        fontsize=7, color=_MUTED)
     ax.set_xticks(range(len(fams)), [f"family {f}\n(n={fam[f]['n']})" for f in fams])
     ax.set_ylim(0, 1.08)
     ax.set_ylabel("precision / recall (macro)", color=_MUTED)

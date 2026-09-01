@@ -1,7 +1,8 @@
 """Raw mission candidate representation (RESEARCH_CONTRACT.md §12, D-003, D-005).
 
-The LLM pipeline (P5) emits a task list (task_type / target / priority) plus an
-edge list. The whole-graph Validator inspects THIS raw representation — a plain
+The LLM pipeline (P5) emits a task list (task_type / target) plus an edge list;
+priority is scene-derived by the compiler, not part of the candidate (D-022).
+The whole-graph Validator inspects THIS raw representation — a plain
 list, duplicates preserved — before anything is compiled into a TaskGraph,
 because a set/graph loses the duplicate information that E_DUPLICATE_ID /
 E_DUPLICATE_EDGE need.
@@ -28,7 +29,6 @@ def key_str(key: TaskKey) -> str:
 class CandidateTask:
     task_type: TaskType
     target: str
-    priority: int
 
     @property
     def key(self) -> TaskKey:
@@ -126,7 +126,7 @@ def _parse_task(
     if not isinstance(entry, dict):
         errors.append(ValidationError(ErrorCode.E_SCHEMA, f"tasks[{i}]", "not an object"))
         return None
-    extra = set(entry) - {"task_type", "target", "priority"}
+    extra = set(entry) - {"task_type", "target"}
     if extra:
         errors.append(
             ValidationError(ErrorCode.E_SCHEMA, f"tasks[{i}]", f"unexpected keys {sorted(extra)}")
@@ -134,23 +134,11 @@ def _parse_task(
         return None
     tt_raw = entry.get("task_type")
     target = entry.get("target")
-    priority = entry.get("priority")
-    well_typed = (
-        isinstance(tt_raw, str)
-        and isinstance(target, str)
-        and isinstance(priority, int)
-        and not isinstance(priority, bool)
-    )
-    if not well_typed:
+    if not (isinstance(tt_raw, str) and isinstance(target, str)):
         errors.append(
             ValidationError(
-                ErrorCode.E_SCHEMA, f"tasks[{i}]", "need task_type:str, target:str, priority:int"
+                ErrorCode.E_SCHEMA, f"tasks[{i}]", "need task_type:str, target:str"
             )
-        )
-        return None
-    if not 1 <= priority <= 10:  # contract §7 / D-008
-        errors.append(
-            ValidationError(ErrorCode.E_SCHEMA, f"tasks[{i}]", f"priority {priority} not in 1..10")
         )
         return None
     try:
@@ -160,7 +148,7 @@ def _parse_task(
             ValidationError(ErrorCode.E_TYPE_NOT_ALLOWED, f"tasks[{i}]", repr(tt_raw))
         )
         return None
-    return CandidateTask(task_type, target, priority)
+    return CandidateTask(task_type, target)
 
 
 def _parse_edge(

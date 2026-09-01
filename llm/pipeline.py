@@ -74,7 +74,7 @@ def _category(errors) -> str:
 
 
 def _compile(candidate: MissionCandidate, scene: Scene) -> TaskGraph:
-    task_specs = [(t.task_type, t.target, t.priority) for t in candidate.tasks]
+    task_specs = [(t.task_type, t.target) for t in candidate.tasks]
     edges = [(e.predecessor, e.successor) for e in candidate.edges]
     return compile_reference_graph(scene, task_specs, edges)
 

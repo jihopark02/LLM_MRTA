@@ -17,10 +17,12 @@ from validator.candidate import TaskKey, key_str
 #   invariant + referential integrity, priority 1..10, hash payload includes priority.
 #   1.1 -> 1.2 (D-016): TaskType HAZARD_MARKER_DEPLOY -> GROUND_SUPPRESSION
 #   (allowed set + workflow invariant meaning changed).
-VALIDATOR_VERSION = "1.2"
+#   1.2 -> 1.3 (D-022): candidate task entry schema {task_type, target, priority}
+#   -> {task_type, target}; priority is compiler-derived, still in the hash payload.
+VALIDATOR_VERSION = "1.3"
 
 # (task_type, target, priority) — priority is a CBBA execution input (D-007),
-# so it must be part of the audit hash.
+# scene-derived (D-022), and part of the audit hash.
 HashNode = tuple[TaskType, str, int]
 
 

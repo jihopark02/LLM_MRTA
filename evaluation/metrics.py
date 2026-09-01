@@ -23,6 +23,12 @@ class PRF:
     fn: int
 
     @property
+    def defined(self) -> bool:
+        """False when there is nothing to score (0 predicted, 0 reference) —
+        e.g. edge P/R for a family-B graph. Report it as N/A, not 100%."""
+        return (self.tp + self.fp + self.fn) > 0
+
+    @property
     def precision(self) -> float:
         d = self.tp + self.fp
         return 1.0 if d == 0 else self.tp / d

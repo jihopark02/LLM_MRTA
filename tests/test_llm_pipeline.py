@@ -20,8 +20,8 @@ def scene():
     return load_scene(SCENE)
 
 
-def t(tt, target, prio):
-    return LLMTask(task_type=tt, target=target, priority=prio)
+def t(tt, target):
+    return LLMTask(task_type=tt, target=target)
 
 
 def e(pred, succ):
@@ -32,7 +32,7 @@ def e(pred, succ):
 
 
 def test_valid_mission_is_approved_and_compiled(scene):
-    step1 = Step1Output(tasks=[t("AREA_RECON", "ZONE_A", 3), t("THERMAL_RECON", "FIRE_SITE_1", 9)])
+    step1 = Step1Output(tasks=[t("AREA_RECON", "ZONE_A"), t("THERMAL_RECON", "FIRE_SITE_1")])
     step2 = Step2Output(edges=[])
     backend = MockBackend([step1, step2])
 
@@ -49,10 +49,10 @@ def test_valid_mission_is_approved_and_compiled(scene):
 
 def test_full_incident_workflow_is_approved(scene):
     chain = [
-        t("THERMAL_RECON", "FIRE_SITE_1", 9),
-        t("SUPPRESSANT_DROP", "FIRE_SITE_1", 9),
-        t("GROUND_INSPECTION", "FIRE_SITE_1", 9),
-        t("GROUND_SUPPRESSION", "FIRE_SITE_1", 9),
+        t("THERMAL_RECON", "FIRE_SITE_1"),
+        t("SUPPRESSANT_DROP", "FIRE_SITE_1"),
+        t("GROUND_INSPECTION", "FIRE_SITE_1"),
+        t("GROUND_SUPPRESSION", "FIRE_SITE_1"),
     ]
     edges = [
         e("THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_1"),
@@ -70,7 +70,7 @@ def test_full_incident_workflow_is_approved(scene):
 def test_unknown_task_type_never_reaches_step2(scene):
     # task_type is a bare str in the schema (pydantic can't know the enum) —
     # MissionCandidate.from_raw is what rejects an unknown type.
-    step1 = Step1Output(tasks=[t("WATER_LOAD", "ZONE_A", 3)])
+    step1 = Step1Output(tasks=[t("WATER_LOAD", "ZONE_A")])
     backend = MockBackend([step1])  # only ONE scripted response: Step 2 must not be asked
 
     r = generate_mission("Load water.", scene, backend)
@@ -82,7 +82,7 @@ def test_unknown_task_type_never_reaches_step2(scene):
 
 
 def test_duplicate_task_in_step1_never_reaches_step2(scene):
-    step1 = Step1Output(tasks=[t("AREA_RECON", "ZONE_A", 3), t("AREA_RECON", "ZONE_A", 5)])
+    step1 = Step1Output(tasks=[t("AREA_RECON", "ZONE_A"), t("AREA_RECON", "ZONE_A")])
     backend = MockBackend([step1])
     r = generate_mission("...", scene, backend)
     assert not r.approved and r.failure_category == "SCHEMA"
@@ -93,31 +93,30 @@ def test_duplicate_task_in_step1_never_reaches_step2(scene):
 
 
 def test_extra_field_on_task_is_rejected_without_calling_step2(scene):
-    bad = {
-        "tasks": [
-            {"task_type": "AREA_RECON", "target": "ZONE_A", "priority": 3, "position": [1, 2]}
-        ]
-    }
+    bad = {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A", "position": [1, 2]}]}
     backend = MockBackend([bad])
     r = generate_mission("...", scene, backend)
     assert not r.approved and r.failure_category == "SCHEMA"
     assert [c[2] for c in backend.calls] == ["Step1Output"]  # Step 2 never called
 
 
-def test_string_priority_is_rejected(scene):
-    bad = {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A", "priority": "3"}]}
-    r = generate_mission("...", scene, MockBackend([bad]))
-    assert not r.approved and r.failure_category == "SCHEMA"
+def test_priority_key_from_the_model_is_rejected(scene):
+    # D-022: the model must not emit priority — it is scene-derived. Any value
+    # (int, string, bool) is an unexpected field.
+    for value in (3, "3", True):
+        bad = {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A", "priority": value}]}
+        r = generate_mission("...", scene, MockBackend([bad]))
+        assert not r.approved and r.failure_category == "SCHEMA"
 
 
-def test_bool_priority_is_rejected(scene):
-    bad = {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A", "priority": True}]}
+def test_non_string_target_is_rejected(scene):
+    bad = {"tasks": [{"task_type": "AREA_RECON", "target": 123}]}
     r = generate_mission("...", scene, MockBackend([bad]))
     assert not r.approved and r.failure_category == "SCHEMA"
 
 
 def test_extra_field_on_edge_is_rejected(scene):
-    step1 = Step1Output(tasks=[t("AREA_RECON", "ZONE_A", 3), t("AREA_RECON", "ZONE_B", 3)])
+    step1 = Step1Output(tasks=[t("AREA_RECON", "ZONE_A"), t("AREA_RECON", "ZONE_B")])
     bad_step2 = {
         "edges": [
             {"predecessor": "AREA_RECON:ZONE_A", "successor": "AREA_RECON:ZONE_B", "reason": "x"}
@@ -128,7 +127,7 @@ def test_extra_field_on_edge_is_rejected(scene):
 
 
 def test_extra_top_level_field_is_rejected(scene):
-    bad = {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A", "priority": 3}], "notes": "x"}
+    bad = {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A"}], "notes": "x"}
     r = generate_mission("...", scene, MockBackend([bad]))
     assert not r.approved and r.failure_category == "SCHEMA"
 
@@ -138,10 +137,10 @@ def test_extra_top_level_field_is_rejected(scene):
 
 def test_workflow_error_is_repaired_then_approved(scene):
     # Step 1 forgets THERMAL_RECON -> SUPPRESSANT_DROP fails #10 (E_WORKFLOW).
-    step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1", 9)])
+    step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1")])
     step2 = Step2Output(edges=[])
     repair = RepairOutput(
-        tasks=[t("THERMAL_RECON", "FIRE_SITE_1", 9), t("SUPPRESSANT_DROP", "FIRE_SITE_1", 9)],
+        tasks=[t("THERMAL_RECON", "FIRE_SITE_1"), t("SUPPRESSANT_DROP", "FIRE_SITE_1")],
         edges=[e("THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_1")],
     )
     backend = MockBackend([step1, step2, repair])
@@ -171,10 +170,10 @@ def test_workflow_error_is_repaired_then_approved(scene):
 
 
 def test_repair_output_itself_failing_schema_is_explicit_schema_rejection(scene):
-    step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1", 9)])
+    step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1")])
     step2 = Step2Output(edges=[])
     bad_repair = {  # repair's own output violates the schema (extra field)
-        "tasks": [{"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1", "priority": 9}],
+        "tasks": [{"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1"}],
         "edges": [],
         "notes": "fixed it",
     }
@@ -192,9 +191,9 @@ def test_repair_output_itself_failing_schema_is_explicit_schema_rejection(scene)
 
 
 def test_repair_that_still_fails_is_explicitly_rejected(scene):
-    step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1", 9)])
+    step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1")])
     step2 = Step2Output(edges=[])
-    repair = RepairOutput(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1", 9)], edges=[])  # still broken
+    repair = RepairOutput(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1")], edges=[])  # still broken
     backend = MockBackend([step1, step2, repair])
 
     r = generate_mission("Drop on FIRE_SITE_1.", scene, backend)
@@ -209,7 +208,7 @@ def test_repair_that_still_fails_is_explicitly_rejected(scene):
 
 def test_cross_incident_edge_is_rejected_when_repair_fails(scene):
     step1 = Step1Output(
-        tasks=[t("THERMAL_RECON", "FIRE_SITE_1", 9), t("SUPPRESSANT_DROP", "FIRE_SITE_2", 7)]
+        tasks=[t("THERMAL_RECON", "FIRE_SITE_1"), t("SUPPRESSANT_DROP", "FIRE_SITE_2")]
     )
     step2 = Step2Output(
         edges=[e("THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_2")]
@@ -220,6 +219,6 @@ def test_cross_incident_edge_is_rejected_when_repair_fails(scene):
 
 
 def test_backend_running_dry_is_an_error(scene):
-    backend = MockBackend([Step1Output(tasks=[t("AREA_RECON", "ZONE_A", 3)])])  # missing Step 2
+    backend = MockBackend([Step1Output(tasks=[t("AREA_RECON", "ZONE_A")])])  # missing Step 2
     with pytest.raises(AssertionError, match="ran out of scripted"):
         generate_mission("...", scene, backend)

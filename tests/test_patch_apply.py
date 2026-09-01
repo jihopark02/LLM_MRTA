@@ -32,7 +32,7 @@ def scene():
 
 def mini_state(scene, specs, edges=()):
     graph = compile_reference_graph(
-        scene, [(tt, tgt, 5) for tt, tgt in specs], [tuple(e) for e in edges]
+        scene, list(specs), [tuple(e) for e in edges]
     )
     return MissionState(graph=graph, agents={a.agent_id: a for a in scene.fleet})
 
@@ -96,7 +96,7 @@ def test_sequential_valid_patches_accumulate(scene):
     assert len(s2.graph) == 3
     assert len(state.graph) == 1  # original never mutated
     assert r2.added_tasks == ("GROUND_INSPECTION__FIRE_SITE_1",)
-    assert len(r2.graph_hash) == 64 and r2.validator_version == "1.2"
+    assert len(r2.graph_hash) == 64 and r2.validator_version == "1.3"
 
 
 def test_orphaning_a_workflow_task_is_rejected(scene):
@@ -133,14 +133,14 @@ def test_13_does_not_block_outgoing_change_by_itself(scene):
 
 
 def test_predecessor_diff_detects_added_and_removed(scene):
-    base = compile_reference_graph(scene, [(*TR_F1, 5), (*SD_F1, 5)], [(TR_F1, SD_F1)])
+    base = compile_reference_graph(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
     final = base.clone()
     final.remove_edge(tid(TR_F1), tid(SD_F1))
     assert _predecessor_diff(base, final) == {tid(SD_F1)}
 
 
 def test_reconcile_releases_assigned_task(scene):
-    graph = compile_reference_graph(scene, [(*TR_F1, 5), (*SD_F1, 5)], [(TR_F1, SD_F1)])
+    graph = compile_reference_graph(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
     state = MissionState(graph, {a.agent_id: a for a in scene.fleet})
     sd = state.graph[tid(SD_F1)]
     sd.status = TaskStatus.ASSIGNED
@@ -207,7 +207,7 @@ def test_dangling_bundle_reference_rejects_empty_patch(scene):
 
 
 def test_reconcile_running_predecessor_change_is_fatal(scene):
-    graph = compile_reference_graph(scene, [(*TR_F1, 5), (*SD_F1, 5)], [(TR_F1, SD_F1)])
+    graph = compile_reference_graph(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
     state = MissionState(graph, {a.agent_id: a for a in scene.fleet})
     state.graph[tid(SD_F1)].status = TaskStatus.RUNNING
 

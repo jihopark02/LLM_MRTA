@@ -2,8 +2,8 @@
 
 The scene vocabulary (zones, incidents, task types, workflow rule) is injected so
 the model works from the same ground truth the deterministic Validator uses. The
-model emits only task_type / target / priority and edges — never coordinates,
-capabilities, durations, or task_ids (§7).
+model emits only task_type / target and edges — never coordinates, priority,
+capabilities, durations, or task_ids (§7 / D-022).
 """
 
 from core.enums import TaskType
@@ -64,11 +64,11 @@ def _scene_facts(scene: Scene) -> str:
 
 
 _STEP1_SYSTEM = """You decompose a disaster-response command into a task list.
-Output ONLY a JSON object {"tasks": [{"task_type", "target", "priority"}, ...]}.
+Output ONLY a JSON object {"tasks": [{"task_type", "target"}, ...]}.
 - task_type is one of the listed types.
 - target is a zone id (for AREA_RECON) or an incident id (for the others).
-- priority is an integer 1..10; use the incident's priority for incident tasks.
-Do not invent coordinates, capabilities, durations, or ids. Do not add edges here.
+Do not invent coordinates, priority, capabilities, durations, or ids. Priority is
+assigned later from the scene. Do not add edges here.
 {facts}"""
 
 _STEP2_SYSTEM = """You add dependency edges to an existing task list.
@@ -80,9 +80,9 @@ workflow chain; never connect tasks of different incidents.
 
 _REPAIR_SYSTEM = """A previous task graph failed deterministic validation.
 Given the command, the graph, and the structured error codes, output a corrected
-FULL graph: {"tasks": [...], "edges": [...]} in the same shapes as before.
-Fix only what the errors point to; keep everything else. Do not invent coordinates,
-capabilities, durations, or ids.
+FULL graph: {"tasks": [{"task_type", "target"}, ...], "edges": [...]} in the same
+shapes as before. Fix only what the errors point to; keep everything else. Do not
+invent coordinates, priority, capabilities, durations, or ids.
 {facts}"""
 
 

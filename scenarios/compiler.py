@@ -1,9 +1,10 @@
 """Deterministic task compiler (RESEARCH_CONTRACT.md §7).
 
-The LLM emits only ``task_type`` + ``target`` + ``priority``. This module
-resolves everything else — ``task_id``, ``position``, ``required_capabilities``,
+The LLM emits only ``task_type`` + ``target``. This module resolves everything
+else — ``task_id``, ``position``, ``priority``, ``required_capabilities``,
 ``eligible_platforms``, ``duration`` — from the semantic scene and a fixed
-default table, so there is a single source of truth for coordinates.
+default table, so there is a single source of truth for coordinates and
+priority (D-022).
 
 **Input boundary.** ``compile_reference_graph`` is for *trusted* task lists: the
 hand-authored P1 reference fixture, and (P5) LLM output that has ALREADY passed
@@ -25,6 +26,8 @@ from scenarios.scene import Scene
 __all__ = [
     "TASK_TABLE",
     "TaskSpec",
+    "AREA_RECON_PRIORITY",
+    "derive_priority",
     "compile_task",
     "compile_reference_graph",
     "task_id_for",
@@ -32,6 +35,12 @@ __all__ = [
 
 UAV = frozenset({PlatformKind.UAV})
 UGV = frozenset({PlatformKind.UGV})
+
+# AREA_RECON targets a zone, which carries no incident severity, so every zone
+# survey gets the same priority — set below both incident priorities (7, 9) so
+# CBBA puts an in-progress incident response ahead of routine zone recon
+# (contract §7, D-022).
+AREA_RECON_PRIORITY = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +86,17 @@ def task_id_for(task_type: TaskType, target: str) -> str:
     return f"{task_type.value}__{target}"
 
 
+def derive_priority(scene: Scene, task_type: TaskType, target: str) -> int:
+    """Priority is scene-derived, never LLM-supplied (contract §7, D-022):
+    an incident task inherits its incident's priority; a zone survey gets the
+    fixed AREA_RECON_PRIORITY."""
+    if TASK_TABLE[task_type].target_kind == "incident":
+        if target not in scene.incidents:
+            raise ValueError(f"{task_type.value}: unknown incident target {target}")
+        return scene.incidents[target].priority
+    return AREA_RECON_PRIORITY
+
+
 def _resolve_position(scene: Scene, spec: TaskSpec, task_type: TaskType, target: str):
     if spec.target_kind == "zone":
         if target not in scene.zones:
@@ -110,21 +130,23 @@ def compile_task(scene: Scene, task_type: TaskType, target: str, priority: int) 
 
 def compile_reference_graph(
     scene: Scene,
-    task_specs: list[tuple[TaskType, str, int]],
+    task_specs: list[tuple[TaskType, str]],
     edges: list[tuple[tuple[TaskType, str], tuple[TaskType, str]]],
 ) -> TaskGraph:
     """Build an executable TaskGraph from a *trusted* task list.
 
-    ``task_specs`` are (type, target, priority) tuples; ``edges`` are
-    (predecessor, successor) pairs of (type, target) endpoints. Status is set to
-    PENDING then recomputed to the READY frontier.
+    ``task_specs`` are (type, target) tuples — priority is scene-derived
+    (``derive_priority``, D-022); ``edges`` are (predecessor, successor) pairs
+    of (type, target) endpoints. Status is set to PENDING then recomputed to
+    the READY frontier.
 
     Raises ValueError on a broken trusted list — duplicate edge, or an edge
     endpoint that is not one of the compiled tasks — so a bad fixture fails
     loudly instead of silently losing an edge.
     """
     graph = TaskGraph()
-    for task_type, target, priority in task_specs:
+    for task_type, target in task_specs:
+        priority = derive_priority(scene, task_type, target)
         graph.add_task(compile_task(scene, task_type, target, priority))
 
     seen: set[tuple[str, str]] = set()

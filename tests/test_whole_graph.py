@@ -23,10 +23,7 @@ def scene():
 def reference_raw() -> dict:
     fx = yaml.safe_load((SCEN / "reference_fixture.yaml").read_text())
     return {
-        "tasks": [
-            {"task_type": t["type"], "target": t["target"], "priority": t["priority"]}
-            for t in fx["tasks"]
-        ],
+        "tasks": [{"task_type": t["type"], "target": t["target"]} for t in fx["tasks"]],
         "edges": [list(e) for e in fx["edges"]],
     }
 
@@ -43,7 +40,7 @@ def codes(result):
 
 def test_validator_version_is_the_intended_literal():
     # Bump this literal deliberately whenever a verdict rule changes (§14, D-008).
-    assert VALIDATOR_VERSION == "1.2"
+    assert VALIDATOR_VERSION == "1.3"
 
 
 def test_reference_family_a_candidate_is_accepted(scene):
@@ -62,16 +59,18 @@ def test_same_candidate_same_hash_and_verdict(scene):
     assert a.accepted == b.accepted
 
 
-def test_graph_hash_ignores_task_order_but_not_priority(scene):
+def test_graph_hash_ignores_task_order(scene):
     raw = reference_raw()
     reordered = {"tasks": list(reversed(raw["tasks"])), "edges": raw["edges"]}
     assert validate_raw(raw, scene).graph_hash == validate_raw(reordered, scene).graph_hash
 
-    bumped = {
-        "tasks": [{**t, "priority": t["priority"] + 1} for t in raw["tasks"]],
-        "edges": raw["edges"],
-    }
-    assert validate_raw(raw, scene).graph_hash != validate_raw(bumped, scene).graph_hash
+
+def test_graph_hash_reflects_derived_priority(scene):
+    # Same structure, different incident target -> different derived priority
+    # (F1=9, F2=7) -> different audit hash.
+    f1 = {"tasks": [{"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"}], "edges": []}
+    f2 = {"tasks": [{"task_type": "THERMAL_RECON", "target": "FIRE_SITE_2"}], "edges": []}
+    assert validate_raw(f1, scene).graph_hash != validate_raw(f2, scene).graph_hash
 
 
 def test_unexpected_top_level_or_task_key_is_schema_error(scene):
@@ -80,7 +79,6 @@ def test_unexpected_top_level_or_task_key_is_schema_error(scene):
     task_with_extra = {
         "task_type": "AREA_RECON",
         "target": "ZONE_A",
-        "priority": 1,
         "assigned_agent": "S1",
     }
     _, e2 = MissionCandidate.from_raw({"tasks": [task_with_extra], "edges": []})
@@ -88,15 +86,15 @@ def test_unexpected_top_level_or_task_key_is_schema_error(scene):
 
 
 def test_unknown_target_is_flagged(scene):
-    raw = {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_Z", "priority": 1}], "edges": []}
+    raw = {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_Z"}], "edges": []}
     assert ErrorCode.E_UNKNOWN_REF in codes(validate_raw(raw, scene))
 
 
 def test_cycle_is_flagged(scene):
     raw = {
         "tasks": [
-            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1", "priority": 9},
-            {"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1", "priority": 9},
+            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"},
+            {"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1"},
         ],
         "edges": [
             ["THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_1"],
@@ -109,7 +107,7 @@ def test_cycle_is_flagged(scene):
 def test_missing_workflow_predecessor_is_flagged(scene):
     # SUPPRESSANT_DROP without its THERMAL_RECON predecessor (§4 conditional chain).
     raw = {
-        "tasks": [{"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1", "priority": 9}],
+        "tasks": [{"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1"}],
         "edges": [],
     }
     assert ErrorCode.E_WORKFLOW in codes(validate_raw(raw, scene))
@@ -119,8 +117,8 @@ def test_partial_aerial_only_graph_is_accepted(scene):
     # THERMAL_RECON alone is a valid partial graph (Family B): chain head, no predecessor.
     raw = {
         "tasks": [
-            {"task_type": "AREA_RECON", "target": "ZONE_A", "priority": 3},
-            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1", "priority": 9},
+            {"task_type": "AREA_RECON", "target": "ZONE_A"},
+            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"},
         ],
         "edges": [],
     }
@@ -130,8 +128,8 @@ def test_partial_aerial_only_graph_is_accepted(scene):
 def test_chain_head_with_predecessor_is_flagged(scene):
     raw = {
         "tasks": [
-            {"task_type": "AREA_RECON", "target": "ZONE_A", "priority": 3},
-            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1", "priority": 9},
+            {"task_type": "AREA_RECON", "target": "ZONE_A"},
+            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"},
         ],
         "edges": [["AREA_RECON:ZONE_A", "THERMAL_RECON:FIRE_SITE_1"]],
     }
@@ -141,8 +139,8 @@ def test_chain_head_with_predecessor_is_flagged(scene):
 def test_cross_incident_edge_is_flagged(scene):
     raw = {
         "tasks": [
-            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1", "priority": 9},
-            {"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_2", "priority": 7},
+            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"},
+            {"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_2"},
         ],
         "edges": [["THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_2"]],
     }
@@ -170,7 +168,7 @@ def test_unreachable_ugv_task_is_flagged(tmp_path):
     )
     scene = load_scene(bad)
     raw = {
-        "tasks": [{"task_type": "GROUND_INSPECTION", "target": "F1", "priority": 1}],
+        "tasks": [{"task_type": "GROUND_INSPECTION", "target": "F1"}],
         "edges": [],
     }
     cand, errs = MissionCandidate.from_raw(raw)
@@ -195,7 +193,7 @@ def test_infeasible_when_no_agent_has_capability(tmp_path):
     )
     scene = load_scene(bad)
     raw = {
-        "tasks": [{"task_type": "SUPPRESSANT_DROP", "target": "F1", "priority": 1}],
+        "tasks": [{"task_type": "SUPPRESSANT_DROP", "target": "F1"}],
         "edges": [],
     }
     cand, _ = MissionCandidate.from_raw(raw)

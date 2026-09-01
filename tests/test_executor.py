@@ -40,7 +40,7 @@ def ref_state(scene):
 
 def _state(scene, specs, edges, agent_ids):
     graph = compile_reference_graph(
-        scene, [(tt, tgt, 5) for tt, tgt in specs], [tuple(e) for e in edges]
+        scene, list(specs), [tuple(e) for e in edges]
     )
     fleet = {a.agent_id: a for a in scene.fleet if a.agent_id in agent_ids}
     return MissionState(graph, fleet)
@@ -99,7 +99,7 @@ def test_departure_is_never_before_predecessor_completes(scene):
     # Synthetic chain across two different positions: THERMAL_RECON at the
     # incident, SUPPRESSANT_DROP done by a *different* agent starting from the
     # depot, so there is a real post-ready travel leg.
-    graph = compile_reference_graph(scene, [(*TR_F1, 5), (*SD_F1, 5)], [(TR_F1, SD_F1)])
+    graph = compile_reference_graph(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
     state = MissionState(
         graph, {a.agent_id: a for a in scene.fleet if a.agent_id in {"S1", "R1"}}
     )
@@ -137,7 +137,7 @@ def _mid_task_executor(scene, r1_remaining: float):
     THERMAL_RECON_F1 position), R2 idle 70 m from the new task."""
     graph = compile_reference_graph(
         scene,
-        [(TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1", 9), (TaskType.THERMAL_RECON, "FIRE_SITE_1", 9)],
+        [(TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1"), (TaskType.THERMAL_RECON, "FIRE_SITE_1")],
         [],
     )
     fleet = {a.agent_id: a for a in scene.fleet if a.agent_id in {"R1", "R2"}}
@@ -227,7 +227,7 @@ def test_step_limit_is_not_a_deadlock(ref_state, scene):
 def test_completion_on_the_final_step_reports_completed(scene):
     # A one-task mission that finishes exactly as the step budget runs out must
     # not be misreported as STEP_LIMIT.
-    graph = compile_reference_graph(scene, [(TR_F1[0], "FIRE_SITE_1", 5)], [])
+    graph = compile_reference_graph(scene, [(TR_F1[0], "FIRE_SITE_1")], [])
     state = MissionState(graph, {a.agent_id: a for a in scene.fleet if a.agent_id == "S1"})
     r = SimExecutor(state, scene).run(max_steps=2)
     assert r.completed == ["THERMAL_RECON__FIRE_SITE_1"]

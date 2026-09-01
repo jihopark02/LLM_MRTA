@@ -29,6 +29,9 @@ from scenarios.scene import Scene
 from validator.candidate import CandidateEdge, CandidateTask, MissionCandidate, TaskKey
 from validator.validate import validate_candidate
 
+# priority is scene-derived (D-022) and not part of task_key or the candidate,
+# so annotations never carry it.
+
 _DIR = Path(__file__).resolve().parents[1] / "data" / "reference_annotations"
 CASE_IDS: tuple[str, ...] = ("A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3")
 _FAMILIES = {"A", "B", "C"}
@@ -41,10 +44,6 @@ WORKFLOW_CHAIN: tuple[TaskType, ...] = (
     TaskType.GROUND_INSPECTION,
     TaskType.GROUND_SUPPRESSION,
 )
-# Zone recon has no incident to inherit a priority from; task_key ignores
-# priority so the exact value is irrelevant to scoring — it only has to be a
-# valid 1..10 for the Validator self-check.
-_AREA_RECON_PRIORITY = 5
 
 _Edge = tuple[TaskKey, TaskKey]
 
@@ -81,7 +80,7 @@ def _expand(spec: dict, scene: Scene) -> tuple[RefGraph, MissionCandidate]:
     for zone in spec.get("recon_zones") or []:
         if zone not in scene.zones:
             raise ValueError(f"recon_zones: {zone!r} is not a scene zone")
-        tasks.append(CandidateTask(TaskType.AREA_RECON, zone, _AREA_RECON_PRIORITY))
+        tasks.append(CandidateTask(TaskType.AREA_RECON, zone))
 
     for incident, chain in (spec.get("incident_chains") or {}).items():
         if incident not in scene.incidents:
@@ -92,16 +91,15 @@ def _expand(spec: dict, scene: Scene) -> tuple[RefGraph, MissionCandidate]:
                 f"incident_chains[{incident}] {list(chain)} is not a contiguous prefix "
                 f"of {[t.value for t in WORKFLOW_CHAIN]}"
             )
-        priority = scene.incidents[incident].priority
         for step in steps:
-            tasks.append(CandidateTask(step, incident, priority))
+            tasks.append(CandidateTask(step, incident))
         for pred, succ in zip(steps, steps[1:], strict=False):
             edges.append(CandidateEdge((pred, incident), (succ, incident)))
 
     for entry in spec.get("tasks") or []:
-        tasks.append(
-            CandidateTask(TaskType(entry["task_type"]), entry["target"], int(entry["priority"]))
-        )
+        if set(entry) != {"task_type", "target"} or not isinstance(entry["target"], str):
+            raise ValueError(f"explicit task entry must be {{task_type, target}}: {entry}")
+        tasks.append(CandidateTask(TaskType(entry["task_type"]), entry["target"]))
     for pred, succ in spec.get("edges") or []:
         edges.append(CandidateEdge(_key(pred), _key(succ)))
 

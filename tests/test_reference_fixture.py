@@ -75,11 +75,17 @@ def test_eligible_bidder_counts_are_at_least_two(loaded):
     assert all(c >= 2 for c in counts.values())
 
 
-def test_ground_suppression_priority_follows_incident_priority(loaded):
-    # D-016: GROUND_SUPPRESSION priority == its incident priority, not 6/5.
+def test_priority_is_scene_derived(loaded):
+    # D-022: every incident task inherits its incident priority; AREA_RECON gets
+    # the fixed constant. Nothing in the fixture YAML sets priority.
+    from scenarios.compiler import AREA_RECON_PRIORITY
+
     g = loaded.graph
-    assert g["GROUND_SUPPRESSION__FIRE_SITE_1"].priority == 9
-    assert g["GROUND_SUPPRESSION__FIRE_SITE_2"].priority == 7
+    for iid, want in (("FIRE_SITE_1", 9), ("FIRE_SITE_2", 7)):
+        for tt in ("THERMAL_RECON", "SUPPRESSANT_DROP", "GROUND_INSPECTION", "GROUND_SUPPRESSION"):
+            assert g[f"{tt}__{iid}"].priority == want
+    for zid in ("ZONE_A", "ZONE_B", "ZONE_C", "ZONE_D"):
+        assert g[f"AREA_RECON__{zid}"].priority == AREA_RECON_PRIORITY
 
 
 def test_retired_task_type_is_rejected():
@@ -88,9 +94,7 @@ def test_retired_task_type_is_rejected():
 
     _, errors = MissionCandidate.from_raw(
         {
-            "tasks": [
-                {"task_type": "HAZARD_MARKER_DEPLOY", "target": "FIRE_SITE_1", "priority": 6}
-            ],
+            "tasks": [{"task_type": "HAZARD_MARKER_DEPLOY", "target": "FIRE_SITE_1"}],
             "edges": [],
         }
     )

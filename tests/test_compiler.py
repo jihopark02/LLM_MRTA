@@ -5,7 +5,13 @@ from pathlib import Path
 import pytest
 
 from core.enums import Capability, PlatformKind, TaskStatus, TaskType
-from scenarios.compiler import compile_reference_graph, compile_task, task_id_for
+from scenarios.compiler import (
+    AREA_RECON_PRIORITY,
+    compile_reference_graph,
+    compile_task,
+    derive_priority,
+    task_id_for,
+)
 from scenarios.scene import load_scene
 
 SCENE_PATH = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
@@ -65,28 +71,45 @@ def test_compile_task_does_not_launder_bad_priority(scene, bad):
         compile_task(scene, TaskType.AREA_RECON, "ZONE_A", priority=bad)
 
 
-def test_reference_fixture_with_out_of_range_priority_is_rejected(scene, tmp_path):
-    fx = tmp_path / "bad_fixture.yaml"
-    fx.write_text(
-        "fixture_id: bad\nscene: industrial_park\n"
-        "tasks:\n  - {type: AREA_RECON, target: ZONE_A, priority: 42}\nedges: []\n"
-    )
-    from scenarios.fixture import load_reference_fixture
-
-    with pytest.raises(ValueError, match="priority"):
-        load_reference_fixture(fx)
-
-
 def test_task_id_helper_matches_compiled_id(scene):
     t = compile_task(scene, TaskType.GROUND_INSPECTION, "FIRE_SITE_1", priority=8)
     assert t.task_id == task_id_for(TaskType.GROUND_INSPECTION, "FIRE_SITE_1")
 
 
+# -- derive_priority: scene-derived, never LLM-supplied (D-022) ------------
+
+
+def test_derive_priority_incident_task_inherits_incident_priority(scene):
+    assert derive_priority(scene, TaskType.THERMAL_RECON, "FIRE_SITE_1") == 9
+    assert derive_priority(scene, TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1") == 9
+    assert derive_priority(scene, TaskType.GROUND_INSPECTION, "FIRE_SITE_2") == 7
+
+
+def test_derive_priority_area_recon_is_the_fixed_constant(scene):
+    assert derive_priority(scene, TaskType.AREA_RECON, "ZONE_A") == AREA_RECON_PRIORITY
+    assert AREA_RECON_PRIORITY < 7  # below both incident priorities
+
+
+def test_derive_priority_unknown_incident_raises(scene):
+    with pytest.raises(ValueError, match="unknown incident"):
+        derive_priority(scene, TaskType.THERMAL_RECON, "FIRE_SITE_9")
+
+
+def test_reference_graph_derives_priority_from_scene(scene):
+    g = compile_reference_graph(
+        scene,
+        [(TaskType.THERMAL_RECON, "FIRE_SITE_1"), (TaskType.AREA_RECON, "ZONE_C")],
+        [],
+    )
+    assert g["THERMAL_RECON__FIRE_SITE_1"].priority == 9
+    assert g["AREA_RECON__ZONE_C"].priority == AREA_RECON_PRIORITY
+
+
 # -- compile_reference_graph: trusted-list strictness ----------------------
 
 _TWO_TASKS = [
-    (TaskType.THERMAL_RECON, "FIRE_SITE_1", 9),
-    (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1", 9),
+    (TaskType.THERMAL_RECON, "FIRE_SITE_1"),
+    (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1"),
 ]
 _GOOD_EDGE = ((TaskType.THERMAL_RECON, "FIRE_SITE_1"), (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1"))
 

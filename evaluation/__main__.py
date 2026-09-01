@@ -22,7 +22,7 @@ from scenarios.scene import load_scene
 _SCENE = Path(__file__).resolve().parents[1] / "scenarios" / "industrial_park.yaml"
 
 
-def _mock_backend(scene, annotations):
+def _mock_backend(annotations):
     from llm.backend import MockBackend
     from llm.schemas import LLMEdge, LLMTask, Step1Output, Step2Output
 
@@ -30,11 +30,7 @@ def _mock_backend(scene, annotations):
     for ann in annotations:
         g = ann.allowed_graphs[0]
         tasks = [
-            LLMTask(
-                task_type=tt.value,
-                target=target,
-                priority=scene.incidents[target].priority if target in scene.incidents else 5,
-            )
+            LLMTask(task_type=tt.value, target=target)
             for tt, target in sorted(g.tasks, key=lambda k: (k[0].value, k[1]))
         ]
         edges = [
@@ -57,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     annotations = load_all(scene)
 
     if args.mock:
-        backend = _mock_backend(scene, annotations)
+        backend = _mock_backend(annotations)
     else:
         from llm.backend import OpenAIBackend
 
