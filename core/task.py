@@ -33,3 +33,11 @@ class Task:
             raise ValueError(
                 f"{self.task_id}: duration must be finite and positive, got {self.duration!r}"
             )
+        if (
+            not isinstance(self.priority, int)
+            or isinstance(self.priority, bool)
+            or not 1 <= self.priority <= 10
+        ):
+            raise ValueError(
+                f"{self.task_id}: priority must be an int in 1..10, got {self.priority!r}"
+            )

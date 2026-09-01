@@ -92,12 +92,14 @@ def _resolve_position(scene: Scene, spec: TaskSpec, task_type: TaskType, target:
 
 def compile_task(scene: Scene, task_type: TaskType, target: str, priority: int) -> Task:
     spec = TASK_TABLE[task_type]
+    # priority is passed through unchanged — Task.__post_init__ enforces int 1..10
+    # (contract §7). Coercing here would let a bad fixture value slip past.
     return Task(
         task_id=task_id_for(task_type, target),
         task_type=task_type,
         target=target,
         position=_resolve_position(scene, spec, task_type, target),
-        priority=int(priority),
+        priority=priority,
         required_capabilities=spec.required_capabilities,
         eligible_platforms=spec.eligible_platforms,
         duration=spec.duration,

@@ -45,7 +45,7 @@ def load_reference_fixture(
     scene = load_scene(_SCENES_DIR / f"{raw['scene']}.yaml")
 
     task_specs = [
-        (TaskType(t["type"]), t["target"], int(t["priority"])) for t in raw["tasks"]
+        (TaskType(t["type"]), t["target"], t["priority"]) for t in raw["tasks"]
     ]
     edges = [
         (_parse_endpoint(pred), _parse_endpoint(succ)) for pred, succ in raw["edges"]

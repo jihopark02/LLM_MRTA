@@ -51,6 +51,25 @@ def test_unknown_target_is_rejected(scene):
         compile_task(scene, TaskType.THERMAL_RECON, "FIRE_SITE_9", priority=1)
 
 
+@pytest.mark.parametrize("bad", [0, 11, -3, True, 5.8, "7"])
+def test_compile_task_does_not_launder_bad_priority(scene, bad):
+    # int(priority) coercion removed (D-008) — Task.__post_init__ rejects it.
+    with pytest.raises(ValueError, match="priority"):
+        compile_task(scene, TaskType.AREA_RECON, "ZONE_A", priority=bad)
+
+
+def test_reference_fixture_with_out_of_range_priority_is_rejected(scene, tmp_path):
+    fx = tmp_path / "bad_fixture.yaml"
+    fx.write_text(
+        "fixture_id: bad\nscene: industrial_park\n"
+        "tasks:\n  - {type: AREA_RECON, target: ZONE_A, priority: 42}\nedges: []\n"
+    )
+    from scenarios.fixture import load_reference_fixture
+
+    with pytest.raises(ValueError, match="priority"):
+        load_reference_fixture(fx)
+
+
 def test_task_id_helper_matches_compiled_id(scene):
     t = compile_task(scene, TaskType.GROUND_INSPECTION, "FIRE_SITE_1", priority=8)
     assert t.task_id == task_id_for(TaskType.GROUND_INSPECTION, "FIRE_SITE_1")
