@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.5 (D-006). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.6 (D-007). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -19,6 +19,9 @@
 - v1.5 (D-006): §10에 reconciliation release 경로(ASSIGNED release / E_RUNNING_LOCKED /
   terminal outgoing 재배선)가 RQ3(P8) 전에는 end-to-end로 도달하지 않음을 명시(고정 5종
   어휘 + §9 #10의 결과). P2는 이를 단위테스트로 검증한다.
+- v1.6 (D-007): §10에 assignment consistency invariant(§10 7단계) 명시. §7에 schema
+  검증이 허용 키를 정확히 제한함을 명시(`E_SCHEMA`). graph_hash payload에 `priority` 포함,
+  MissionPatch operation의 필드 schema를 런타임 검증(둘 다 P2 Codex 2차 지적).
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -228,6 +231,9 @@ class Task:
 직접 생성하지 않는다.** LLM 출력은 `task_type` + `target`(landmark/incident 참조) +
 `priority`만 포함한다. 나머지는 결정론적 compiler가 semantic scene과 기본 매핑 테이블에서
 resolve한다. LLM이 좌표를 직접 생성하면 semantic scene과 이중 진실 원천이 생긴다.
+schema 검증(§9 #1)은 이를 강제한다 — top-level 키는 정확히 `{tasks, edges}`, task entry
+키는 정확히 `{task_type, target, priority}`여야 하며, 그 외 키(`assigned_agent` 등)가 있으면
+`E_SCHEMA`로 거부한다.
 
 `Task.status`는 YAML에 독립적으로 기록하지 않고 graph의 predecessor 상태로부터 계산한다
 (§9의 whole-graph recompute).
@@ -366,6 +372,20 @@ transaction에서 새로 생긴 것으로 한정하면, 다른 종류의 patch�
 E_RUNNING_LOCKED, terminal outgoing 재배선은 구현·단위테스트하되, RQ3(P8)가 recheck 계열
 task를 도입하기 전에는 end-to-end로 도달하지 않는다. #13의 terminal incoming 불변은 P2에서
 도달 가능하다.
+
+**assignment consistency invariant(§10 7단계, D-007)**: MissionState가 commit될 때마다 검사한다.
+
+1. `task.assigned_agent`가 설정돼 있으면 그 값은 fleet에 존재하는 agent다.
+2. task가 `ASSIGNED` 또는 `RUNNING` ⟺ `assigned_agent`가 설정됨.
+3. `ASSIGNED`/`RUNNING` task는 정확히 한 agent의 `bundle ∪ path`에 나타나고, 그 agent가
+   `assigned_agent`다.
+4. `PENDING`/`READY`/`COMPLETED`/`CANCELLED` task는 어떤 agent의 `bundle`/`path`에도 없고
+   `winning_bids`에도 없다.
+5. `bundle`/`path`의 세부 관계(순서, bundle⊆path 여부, `current_task`)는 P3 CBBA 표현과
+   함께 확정한다 — P2는 위 1~4만 강제한다.
+
+이 invariant를 어긴 상태를 만드는 patch는 `E_SCHEMA`로 거부한다(별도 stale-assignment
+오류코드는 두지 않는다).
 
 **PatchResult**: `accepted`, `added_tasks`, `added_edges`, `removed_edges`,
 `directly_released_tasks`, `status_changes`, `rejection_errors`를 기록한다.

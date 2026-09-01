@@ -204,3 +204,37 @@ winning-bid 제거, E_RUNNING_LOCKED, terminal outgoing 재배선 허용)을 P2�
 **영향** P2 gate의 "MissionPatch reconciliation" 항목은 (a) op-list 검증 + canonical 적용 +
 whole-graph 재검증 + 트랜잭션 = end-to-end 테스트, (b) predecessor-diff + release +
 E_RUNNING_LOCKED = 단위테스트로 충족된다. `validator/patch_apply.py`에 도달성 note를 남김.
+
+## D-007: P2 Codex 2차 검토 반영 (계약 v1.6)
+
+**배경** P2 구현 후 2차 Codex 검토에서 테스트가 못 잡은 결함 3 + 보강 2:
+
+1. `pyproject.toml` package discovery에 `validator*`가 없어 설치 패키지에서 누락(테스트는
+   루트 pythonpath라 은폐).
+2. `validate_patch_ops`가 operation의 **클래스 종류만** 확인하고 필드는 안 봄:
+   `AddTask("NOT_A_TYPE", ...)` → E_SCHEMA 아닌 KeyError crash, `priority=True` → 승인,
+   숫자 target → 후속 E_UNKNOWN_REF. 런타임 입력 경계가 fail-closed가 아님.
+3. `graph_hash`가 node를 `(task_type, target)`로만 해시 — priority가 다른 두 임무가 같은
+   graph_hash. priority는 P3 CBBA 실행 입력이므로 서로 다른 임무를 같은 graph로 감사 기록.
+4. `_assignment_invariant_errors`가 `assigned_agent is not None`만 검사 — 존재하지 않는
+   agent, owner 불일치, 중복 bundle, stale bundle/bid를 빈 patch가 통과.
+5. `MissionCandidate.from_raw`가 알 수 없는 키를 조용히 버림 — LLM이 `assigned_agent`를
+   출력해도 통과. 계약 §7("LLM은 task_type/target/priority만") 미강제.
+
+**결정** 계약을 v1.6으로 갱신:
+
+- §10에 **assignment consistency invariant**(§10 7단계) 5개 규칙 명시 — assigned_agent가
+  fleet에 존재, ASSIGNED/RUNNING ⟺ assigned_agent 설정, ASSIGNED/RUNNING은 정확히 한
+  agent의 bundle∪path에 있고 그게 owner, 비활성 task는 bundle/path/winning_bids에 없음.
+  bundle/path 세부 관계(순서, bundle⊆path, current_task)는 P3에서 확정. 위반 시 `E_SCHEMA`.
+- §7에 schema 검증이 허용 키를 정확히 제한함을 명시(top-level `{tasks, edges}`, task entry
+  `{task_type, target, priority}`, 그 외 키는 `E_SCHEMA`).
+- graph_hash payload의 node는 `(task_type, target, priority)`. candidate/patch 양쪽이 같은
+  canonical 함수를 쓰고, task 순서 불변·priority 변화 시 해시 변화 회귀 테스트 추가.
+- `validate_patch_ops`가 operation 필드를 런타임 검증(TaskType 실체, target str,
+  priority int∧¬bool, edge endpoint (TaskType,str), operations가 list). 검증 안 된 op의
+  `.key`/`.edge`에 접근 금지.
+- `pyproject.toml` include에 `validator*` 추가, 프로젝트 밖 설치 import 확인.
+
+**영향** P2 재검증 대상. D-006의 private reconciliation 단위테스트 방식은 P8 어휘 확장 시
+반드시 public `apply_patch()` end-to-end 테스트로 교체(Codex 조건부 수용).
