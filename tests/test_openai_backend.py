@@ -64,6 +64,26 @@ def test_resolved_model_is_recorded_for_reproducibility():
     assert backend.resolved_models == ["gpt-5-mini-2025-08-07", "gpt-5-mini-2025-08-07"]
 
 
+def test_client_is_built_once_and_reused(monkeypatch):
+    import openai
+
+    created = []
+    original_init = openai.OpenAI.__init__
+
+    def counting_init(self, *a, **kw):
+        created.append(self)
+        return original_init(self, *a, **kw)
+
+    monkeypatch.setattr(openai.OpenAI, "__init__", counting_init)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    backend = OpenAIBackend()
+    with_client = backend._get_client()
+    with_client_again = backend._get_client()
+    assert with_client is with_client_again
+    assert len(created) == 1  # not rebuilt on the second call
+
+
 def test_refusal_raises():
     client, _ = _fake_client(parsed=None)
     backend = OpenAIBackend(client=client)

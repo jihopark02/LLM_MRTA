@@ -89,16 +89,16 @@ class OpenAIBackend:
         self.resolved_models: list[str] = []
 
     def _get_client(self):
-        if self._client is not None:
-            return self._client
-        try:
-            from openai import OpenAI
-        except ImportError as e:  # pragma: no cover - only with the extra installed
-            raise RuntimeError(
-                "OpenAIBackend needs the 'llm' optional dependency: pip install -e '.[llm]'"
-            ) from e
-        _load_dotenv()
-        return OpenAI()
+        if self._client is None:
+            try:
+                from openai import OpenAI
+            except ImportError as e:  # pragma: no cover - only with the extra installed
+                raise RuntimeError(
+                    "OpenAIBackend needs the 'llm' optional dependency: pip install -e '.[llm]'"
+                ) from e
+            _load_dotenv()
+            self._client = OpenAI()  # built once, reused for every call
+        return self._client
 
     def complete(self, system: str, user: str, schema: type[T]) -> T:
         client = self._get_client()

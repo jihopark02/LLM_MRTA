@@ -170,6 +170,27 @@ def test_workflow_error_is_repaired_then_approved(scene):
 # -- explicit rejection, no silent fallback -----------------------
 
 
+def test_repair_output_itself_failing_schema_is_explicit_schema_rejection(scene):
+    step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1", 9)])
+    step2 = Step2Output(edges=[])
+    bad_repair = {  # repair's own output violates the schema (extra field)
+        "tasks": [{"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1", "priority": 9}],
+        "edges": [],
+        "notes": "fixed it",
+    }
+    backend = MockBackend([step1, step2, bad_repair])
+
+    r = generate_mission("Drop on FIRE_SITE_1.", scene, backend)
+
+    assert not r.approved and r.attempts == 2 and r.repaired
+    assert r.failure_category == "SCHEMA"
+    assert r.repaired_schema_valid is False
+    assert r.graph is None
+    # the raw (pre-repair) candidate/validation survive the repair's own failure
+    assert r.raw_schema_valid and not r.raw_whole_graph_valid
+    assert r.raw_candidate is not None and not r.raw_validation.accepted
+
+
 def test_repair_that_still_fails_is_explicitly_rejected(scene):
     step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1", 9)])
     step2 = Step2Output(edges=[])
