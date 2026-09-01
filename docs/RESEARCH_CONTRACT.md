@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.13 (D-014). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.14 (D-015). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -43,6 +43,8 @@
 - v1.13 (D-014): §14에 `STEP_LIMIT` 실행의 `makespan`/`agent_utilization`은 평가 지표로
   쓰지 않음을 명시(busy는 dispatch 시 예정치를 더하므로 미완 실행에서 util > 1 가능;
   `agent_utilization`은 빈 dict 반환).
+- v1.14 (D-015): §14의 `patch_hash` 정리를 "P5 전"에서 "P8로 유보"로 변경 — MissionPatch는
+  P5 candidate 검증에 쓰이지 않고 RQ3(P8)에서 실제 사용되므로 P8 문서 개정 시 확정.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -539,7 +541,8 @@ schema 허용 범위 변경, hash payload 형식 변경) 반드시 올린다. �
 **rejected patch의 `graph_hash` 범위(D-008)**: `E_SCHEMA`/`E_PATCH_CONFLICT`로 whole-graph
 단계 이전에 거부된 patch는 최종 graph가 존재하지 않으므로 `graph_hash`가 빈 문자열이다. 이
 경우 `scene_hash` + `validator_version` + `error_codes`가 감사 기록이다. raw operation을
-해시하는 `patch_hash` 도입은 P5 전 정리 대상으로 남긴다.
+해시하는 `patch_hash` 도입은 **P8로 유보한다(D-015)** — MissionPatch는 P5 candidate 검증
+경로에 쓰이지 않고 RQ3(P8)에서 실제로 사용되므로, P8 문서 개정 시 함께 확정한다.
 
 이전 저장소에서 재사용하는 것은 전부 `docs/PROVENANCE.md`에 원본 경로·source commit·재사용
 이유를 기록한다. 재사용 후보: TaskGraph 연산 패턴, 상태 전이(READY/PENDING recompute) 패턴,

@@ -462,3 +462,17 @@ workload가 쏠렸으나, D-013의 availability-aware 수정 후 다시 균형�
 **결정** `STEP_LIMIT` 실행의 `makespan`/`agent_utilization`은 평가 지표로 쓰지 않는다.
 `_result`가 `STEP_LIMIT`이면 `agent_utilization`을 빈 dict로 반환한다(§14). 테스트에 명시.
 연구 결과에는 `STEP_LIMIT` 실행을 포함하지 않는다.
+
+## D-015: patch_hash를 P8로 유보 (계약 v1.14)
+
+**배경** §14에 `patch_hash`(raw MissionPatch operation 해시) 도입이 "P5 전 정리 대상"으로
+남아 있었다. P5 candidate 검증 경로는 `MissionCandidate`만 쓰고 `MissionPatch`는 쓰지
+않으며, MissionPatch는 RQ3(P8)에서 실제로 사용된다(D-006).
+
+**결정** `patch_hash` 도입 여부·형식은 **P8 문서 개정 시 확정**한다. P5는 이것 없이 진행한다.
+§14 문구를 "P5 전"에서 "P8로 유보"로 수정.
+
+**미확정으로 남긴 것 (P5 착수 전 사용자 결정 필요)**: HAZARD_MARKER_DEPLOY를 유지할지
+GROUND_SUPPRESSION 중심 workflow로 바꿀지. 계약 §2가 "UGV FIRE_SUPPRESS는 그대로 복제하지
+않는다"고 명시하므로, 변경 시 §2 차별점 서술·§3 시나리오·§4 task vocabulary·§5 capability·
+reference fixture를 함께 개정해야 한다. 이 결정 이전에는 P5 prompt/annotation을 만들지 않는다.
