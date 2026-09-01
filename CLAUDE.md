@@ -25,9 +25,9 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1 구현 완료 + Codex 1차 검토 반영(D-003). 계약 v1.2.** `core/`(enums, Agent, Task,
+**P1 구현 완료 + Codex 검토 2회 반영(D-003, D-004). 계약 v1.3.** `core/`(enums, Agent, Task,
 TaskGraph, RouteGraph), `scenarios/`(scene loader, `compile_reference_graph`, reference
-fixture)까지 구현. §15 P1 완료 게이트 5개 + Codex 반례 테스트가 전부 통과된다(pytest 51개,
+fixture)까지 구현. §15 P1 완료 게이트 5개 + Codex 반례 테스트가 전부 통과된다(pytest 57개,
 `python3 -m pytest -q`). Codex 재검토 대기 중. 승인 후 **P2**(deterministic whole-graph
 Validator + MissionPatch reconciliation, §9/§10) 착수.
 
