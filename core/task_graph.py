@@ -12,6 +12,7 @@ detection, edge-reference validity) plus the READY-frontier recompute.
 """
 
 from collections import deque
+from dataclasses import replace
 
 from core.enums import TaskStatus
 from core.task import Task
@@ -40,6 +41,20 @@ class TaskGraph:
     def add_edge(self, predecessor: str, successor: str) -> None:
         self._successors.setdefault(predecessor, set()).add(successor)
         self._predecessors.setdefault(successor, set()).add(predecessor)
+
+    def remove_edge(self, predecessor: str, successor: str) -> None:
+        if successor not in self._successors.get(predecessor, ()):
+            raise KeyError(f"no such edge: {predecessor} -> {successor}")
+        self._successors[predecessor].discard(successor)
+        self._predecessors[successor].discard(predecessor)
+
+    def clone(self) -> "TaskGraph":
+        g = TaskGraph()
+        for task in self._tasks.values():
+            g.add_task(replace(task))
+        for pred, succ in self.edges:
+            g.add_edge(pred, succ)
+        return g
 
     # -- access ---------------------------------------------------------
     def __contains__(self, task_id: str) -> bool:
