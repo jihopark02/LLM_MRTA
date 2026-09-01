@@ -181,3 +181,26 @@ D-004부터 "계약 문서 커밋 → 구현 커밋" 순서를 지킨다.
 **영향** P2 구현은 raw `MissionPatch` 표현(list)을 먼저 검증한 뒤 canonical 순서로 적용한다.
 `compile_reference_graph`(D-003)와 마찬가지로 "raw candidate/patch는 list로 받아 검증 후에만
 graph화"라는 입력 경계 원칙을 따른다.
+
+## D-006: reconciliation release 경로의 도달성 (계약 v1.5)
+
+**배경** P2 구현 중 확인: 고정 5종 task 어휘 + 엄격한 §9 #10("downstream 존재 시 정확히
+canonical predecessor 1개") 하에서는 어떤 **유효한** patch도 기존 task의 predecessor 집합을
+바꿀 수 없다. workflow task는 canonical predecessor edge를 제거하면 즉시 E_WORKFLOW가 되고,
+다른 predecessor를 추가해도 E_WORKFLOW다. AREA_RECON은 edge를 가질 수 없다. RemoveTask
+operation은 없다. 따라서 P2의 유효 graph에서 patch가 할 수 있는 것은 "AREA_RECON 추가"와
+"incident chain을 canonical하게 연장"뿐이다.
+
+**결정** §10 6단계의 reconciliation release 로직(ASSIGNED→PENDING + assignment/bundle/
+winning-bid 제거, E_RUNNING_LOCKED, terminal outgoing 재배선 허용)을 P2에서 **구현하고
+단위테스트**하되, end-to-end(apply_patch 경유)로는 RQ3(P8)가 recheck 계열 task를 도입하기
+전까지 도달하지 않음을 계약 §10에 명시한다. §9 #13의 terminal **incoming** 불변은 P2에서
+도달 가능하며 end-to-end 테스트한다.
+
+**근거** reconciliation을 P8로 미루면 §10이 반쪽만 구현되고, P8에서 계약을 개정하며 다시
+설계해야 한다. 지금 구현해 두면 P8은 task 어휘 확장 + precondition만 다루면 된다. 도달성
+한계를 명시하지 않으면 "P2 gate의 reconciliation 테스트"가 무엇을 의미하는지 모호하다.
+
+**영향** P2 gate의 "MissionPatch reconciliation" 항목은 (a) op-list 검증 + canonical 적용 +
+whole-graph 재검증 + 트랜잭션 = end-to-end 테스트, (b) predecessor-diff + release +
+E_RUNNING_LOCKED = 단위테스트로 충족된다. `validator/patch_apply.py`에 도달성 note를 남김.

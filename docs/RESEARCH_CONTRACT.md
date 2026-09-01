@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.4 (D-005). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.5 (D-006). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -16,6 +16,9 @@
   독립성을 보장하지 않는다. patch raw op 목록 self-일관성 검증(`E_PATCH_CONFLICT`) + canonical
   적용 순서(`AddTask → RemoveEdge → AddEdge`)를 추가. CANCELLED predecessor의 frontier
   의미를 P4로 명시 유보.
+- v1.5 (D-006): §10에 reconciliation release 경로(ASSIGNED release / E_RUNNING_LOCKED /
+  terminal outgoing 재배선)가 RQ3(P8) 전에는 end-to-end로 도달하지 않음을 명시(고정 5종
+  어휘 + §9 #10의 결과). P2는 이를 단위테스트로 검증한다.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -356,6 +359,13 @@ transaction에서 새로 생긴 것으로 한정하면, 다른 종류의 patch�
 7. reconciliation 결과에 대해 state/assignment invariant를 재검사한다.
 8. 유효하면 patch 전체를 commit, 아니면 전체 rollback한다. 중간 상태는 절대 외부에 노출하거나
    실행하지 않는다.
+
+**reconciliation release 경로의 도달성(D-006)**: 고정 5종 task 어휘 + 엄격한 §9 #10 하에서는
+어떤 **유효한** patch도 기존 task의 predecessor 집합을 바꾸지 못한다(workflow task는 항상
+정확히 canonical predecessor 1개를 가져야 하므로). 따라서 6단계의 ASSIGNED→PENDING release,
+E_RUNNING_LOCKED, terminal outgoing 재배선은 구현·단위테스트하되, RQ3(P8)가 recheck 계열
+task를 도입하기 전에는 end-to-end로 도달하지 않는다. #13의 terminal incoming 불변은 P2에서
+도달 가능하다.
 
 **PatchResult**: `accepted`, `added_tasks`, `added_edges`, `removed_edges`,
 `directly_released_tasks`, `status_changes`, `rejection_errors`를 기록한다.
