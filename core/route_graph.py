@@ -46,6 +46,13 @@ class RouteGraph:
     def nodes(self) -> set[str]:
         return set(self._nodes)
 
+    @property
+    def lanes(self) -> list[tuple[str, str, float]]:
+        """Each undirected lane once, as (a, b, weight) with a < b."""
+        return sorted(
+            (a, b, w) for a, nbrs in self._adj.items() for b, w in nbrs.items() if a < b
+        )
+
     def position(self, node_id: str) -> tuple[float, float]:
         return self._nodes[node_id]
 
