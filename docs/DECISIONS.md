@@ -583,3 +583,53 @@ reference annotation을 주입해 §12 precision/recall을 측정한다. 실제 
 
 **영향** P5 게이트는 backend 무관(MockBackend) — 185 tests 그대로. P6에서 `OpenAIBackend`로
 실제 9개 입력 평가. Claude Code 구독 ≠ Anthropic API라는 점을 사용자와 확인함.
+
+## D-019: P5 Codex 검토 반영 — 순서·schema 엄격성·raw 보존 (계약 v1.18)
+
+**배경** P5 승인 검토에서 3개 차단 + raw/final 보존 문제:
+
+1. **Step 1 검증 전에 Step 2를 호출**: 계약은 "Step 1 → schema validation → Step 2" 순서를
+   요구하는데 `pipeline.py`는 Step 1 직후 Step 2를 부르고 81행에서야 후보를 검증했다.
+   `WATER_LOAD` 같은 금지 task가 Step 1에 나와도 Step 2가 호출됨을 재현.
+2. **pydantic schema가 금지 필드를 버리고 타입을 교정**: 기본 설정이라
+   `position`(task 추가 필드), top-level `notes`, `priority="3"`(str→int 강제),
+   `priority=True`, edge의 `reason` 추가 필드가 전부 조용히 통과했다. "허용 키·타입을
+   정확히 제한하고 그 외엔 E_SCHEMA"라는 계약과 충돌.
+3. **pydantic validation 실패가 예외로 파이프라인을 탈출**: `backend.py`/`pipeline.py`에
+   `model_validate()` 실패를 잡는 처리가 없어 `pydantic.ValidationError`가 그대로
+   전파되고 `GenerationResult(failure_category="SCHEMA")`가 아니라 평가 실행 자체가
+   중단됨을 재현.
+4. **raw/repaired 미분리**: repair가 성공하면 최초 후보와 최초 Validator 오류가
+   사라져 "raw output과 validated output 비교"(§16)를 재구성할 수 없었다.
+
+**결정** 계약 v1.18:
+
+- **순서 강제**(§12): `generate_mission`이 Step 1 출력을 `MissionCandidate.from_raw`(edges
+  없이) + `consistency_errors()`로 먼저 schema 검증하고, 통과해야만 Step 2를 호출한다.
+  실패 시 즉시 `SCHEMA` 거부 — Step 2 backend 호출은 발생하지 않는다. mock 테스트가
+  backend 호출 횟수(정확히 1)로 이를 검증한다.
+- **schema 엄격화**(`llm/schemas.py`): 모든 모델에
+  `model_config = ConfigDict(extra="forbid", strict=True)`. 추가 필드·문자열/bool priority가
+  전부 `pydantic.ValidationError`로 거부됨을 확인(재현 케이스 5종 회귀 테스트).
+- **backend 예외 → 명시적 거부**(`llm/pipeline.py`): 각 backend 호출을 `_call()` 헬퍼로
+  감싸 `pydantic.ValidationError`만 잡아 `GenerationResult(approved=False,
+  failure_category="SCHEMA")`로 변환한다. 그 외 예외(네트워크·인증·`MockBackend` 소진의
+  `AssertionError`)는 그대로 전파 — SCHEMA로 뭉뚱그리지 않는다.
+- **raw/final 분리 보존**(`GenerationResult`): `raw_candidate`/`raw_validation`(Step 1+2
+  직후, repair 이전)과 `candidate`/`validation`(최종)을 항상 함께 갖는다.
+  `raw_schema_valid`/`raw_whole_graph_valid`는 raw 기준 고정. `repaired_schema_valid`/
+  `repaired_whole_graph_valid`는 repair를 실제로 시도했을 때만 bool이고, 시도 안 했으면
+  `None`(이전에는 repair가 schema에서 또 실패하면 최초 성공 여부까지 덮어썼음).
+
+**비차단(같이 처리)**:
+- `OpenAIBackend`에 `client` 주입 지점 추가 — `openai` 미설치·네트워크 없이 fake client로
+  모델명·`response_format`·messages·`temperature` 생략을 테스트.
+- `completion.model`(실제 resolved snapshot, 예: `gpt-5-mini-2025-08-07`)을
+  `OpenAIBackend.resolved_models`에 기록 — alias(`gpt-5-mini`)가 가리키는 실제 스냅샷을
+  결과와 함께 남겨 재현성을 보강한다(§14).
+- repair 테스트가 repair prompt에 실제로 `E_WORKFLOW`와 원본 graph 내용이 들어갔는지
+  assertion 추가.
+- `.env` 권한을 `600`으로(다른 사용자가 읽지 못하게).
+
+**영향** P5 재검증 대상. `tests/test_llm_pipeline.py` 13개(+6) +
+`tests/test_openai_backend.py` 5개(신규) = 196 tests 전체 통과.

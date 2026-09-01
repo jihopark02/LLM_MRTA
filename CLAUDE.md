@@ -19,28 +19,32 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-018, 계약 v1.17)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-019, 계약 v1.18)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1~P5 구현 완료(P1~P4 승인, P5 Codex 검토 대기). 계약 v1.17 (D-018).** `validator/`(P2) +
+**P1~P5 구현 완료(P1~P4 승인, P5 Codex 검토 대기). 계약 v1.18 (D-019).** `validator/`(P2) +
 `allocation/`(P3) + `execution/`(P4) + `llm/`(P5). `VALIDATOR_VERSION = "1.2"`, `λ = 0.999`.
-pytest 185개 통과, ruff clean.
+pytest 196개 통과, ruff clean.
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
 
 P5 구조:
-- `llm/schemas.py`: `Step1Output`/`Step2Output`/`RepairOutput` (pydantic).
+- `llm/schemas.py`: `Step1Output`/`Step2Output`/`RepairOutput` (pydantic,
+  `extra="forbid"`+`strict=True` — D-019).
 - `llm/backend.py`: `LLMBackend` Protocol, `MockBackend`(게이트용), `OpenAIBackend`
   (`chat.completions.parse`, `OPENAI_API_KEY` — env 또는 repo-root `.env`, `openai` 지연
-  import = `llm` extra). 평가 모델 `gpt-5-mini` 고정(reasoning model → `temperature` 미전달), §14.
+  import = `llm` extra, `client` 주입 가능 — 테스트용). 평가 모델 `gpt-5-mini` 고정
+  (reasoning model → `temperature` 미전달), 실제 resolved snapshot은 `resolved_models`에 기록(§14).
 - `llm/prompts.py`: scene 어휘 주입 Step1/Step2/repair 프롬프트.
-- `llm/pipeline.py` `generate_mission`: Step1 → `from_raw` schema(오류 즉시 거부) → Step2 →
-  `validate_candidate` → repair 1회 → 재검증 → 승인(+compiled graph) / 명시적 거부. reference
-  fallback 없음. `GenerationResult`가 §12 지표.
+- `llm/pipeline.py` `generate_mission`: Step1 → `from_raw` schema(오류 즉시 거부, **Step2
+  호출 전**, D-019) → Step2 → `validate_candidate` → repair 1회 → 재검증 → 승인(+compiled
+  graph) / 명시적 거부. backend의 `pydantic.ValidationError`는 명시적 SCHEMA 거부로 변환,
+  다른 예외는 전파. `raw_candidate`/`raw_validation`과 최종 `candidate`/`validation`을
+  분리 보존(D-019). reference fallback 없음.
 
 다음: **P6**(최소 9개 입력 평가 + 시각화). `OpenAIBackend`로 실제 평가, MockBackend는
 파이프라인 self-test. reference annotation 사전 고정.

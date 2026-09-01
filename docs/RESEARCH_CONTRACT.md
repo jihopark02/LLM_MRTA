@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.17 (D-018). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.18 (D-019). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -56,6 +56,10 @@
 - v1.17 (D-018): 실제 LLM backend를 OpenAI로 확정 — `OpenAIBackend`(`chat.completions.parse`,
   `OPENAI_API_KEY`, 선택적 repo-root `.env`). 평가 모델은 `gpt-5-mini`로 pin(reasoning
   model → `temperature` 미전달)하고 결과 표에 기록(§14). `llm` extra는 `openai`.
+- v1.18 (D-019): P5 Codex 검토 반영 — §12에 Step 1→Step 2 순서 강제(Step 1이 schema
+  통과 전에는 Step 2 호출 안 함), pydantic schema `extra="forbid"`+`strict=True` 명시,
+  backend의 `ValidationError`를 명시적 SCHEMA 거부로 변환, `raw_candidate`/`raw_validation`과
+  최종 `candidate`/`validation`을 분리 보존 명시.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -507,16 +511,36 @@ CBBA를 새로운 알고리즘 기여로 표현하지 않는다.
 
 repair 후에도 실패하면 해당 mission을 명시적 실패로 집계한다.
 
-**구현(D-017, D-018)**: `llm/pipeline.py`의 `generate_mission(command, scene, backend)`.
+**구현(D-017, D-018, D-019)**: `llm/pipeline.py`의 `generate_mission(command, scene, backend)`.
 Step 1/2/repair는 pydantic 구조화 출력(`llm/schemas.py`)이고, backend는 `LLMBackend`
 Protocol이다 — `OpenAIBackend`(`chat.completions.parse`, `OPENAI_API_KEY`, 평가 모델
 `gpt-5-mini` 고정)와 `MockBackend`(스크립트 응답). P5 게이트 테스트는 전부 `MockBackend`로
 돌아 네트워크·API 키가 필요없다. 실제 LLM 평가(P6)는 §14 재현성을 위해 모델을 결과와 함께
-기록한다. `GenerationResult`는
-§12 지표(`schema_valid`, `raw_whole_graph_valid`, `repaired_whole_graph_valid`, `attempts`,
-`repaired`, `failure_category` ∈ {SCHEMA, WORKFLOW, STRUCTURE, REFERENCE, FEASIBILITY, OTHER})를
-담는다. schema 오류(허용 키·타입·범위)는 whole-graph 단계 이전에 즉시 명시적 거부한다.
-승인된 candidate만 `compile_reference_graph`로 실행 graph화한다(D-003 경계).
+기록한다.
+
+**순서 강제(D-019)**: Step 1 출력은 **Step 2를 호출하기 전에** 자체적으로 schema 검증한다
+(task-only `MissionCandidate.from_raw` + 중복 id 검사). Step 1이 schema를 통과하지 못하면
+Step 2 backend 호출 자체가 일어나지 않는다 — mock 테스트는 이 경우 backend 호출 횟수가
+정확히 1임을 검증한다.
+
+**schema는 정확히 제한한다(D-019)**: `llm/schemas.py`의 모든 pydantic 모델은
+`model_config = ConfigDict(extra="forbid", strict=True)`를 쓴다. 모델이 허용 안 된 키를
+내거나(`position`, top-level `notes` 등) 타입을 벗어나면(`priority="3"`, `priority=True`)
+조용히 버리거나 강제 변환하지 않고 `pydantic.ValidationError`로 거부되어야 한다.
+
+**backend 예외는 명시적 SCHEMA 거부로 변환한다(D-019)**: Step 1/2/repair 중 어느 backend
+호출에서든 `pydantic.ValidationError`가 나면 파이프라인이 예외로 죽지 않고
+`GenerationResult(approved=False, failure_category="SCHEMA")`를 반환한다. 네트워크·인증
+오류 등 다른 예외는 그대로 전파한다(P6 평가 하네스가 별도로 기록·재시도한다).
+
+**raw와 최종을 분리 보존한다(D-019, §16)**: `GenerationResult`는 `raw_candidate`/
+`raw_validation`(repair 이전, Step 1+2 직후의 후보와 검증 결과)과 `candidate`/`validation`
+(최종 — repair가 있었으면 그 결과, 없었으면 raw와 동일 객체)을 둘 다 갖는다.
+`raw_schema_valid`/`raw_whole_graph_valid`는 항상 raw 기준이고, `repaired_schema_valid`/
+`repaired_whole_graph_valid`는 repair를 실제로 시도했을 때만 값이 있고(`repaired=True`),
+시도하지 않았으면 `None`이다. "raw output과 validated output 비교"(§16)는 이 필드들로 한다.
+`failure_category` ∈ {SCHEMA, WORKFLOW, STRUCTURE, REFERENCE, FEASIBILITY, OTHER}. 승인된
+candidate만 `compile_reference_graph`로 실행 graph화한다(D-003 경계).
 
 **평가**: 최소 9개 명령(family당 3개), 시간이 있으면 18개(family당 6개)로 확장.
 
