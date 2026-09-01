@@ -30,7 +30,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 §14 deadlock 절차, §13 지표). `VALIDATOR_VERSION = "1.1"`, `λ = 0.999`. pytest 175개 통과
 (`python3 -m pytest -q`), ruff clean. P4 게이트 통과 — reference mission 12/12 완주,
 violation 0, 완주 후 §10 assignment invariant 통과, deadlock·STEP_LIMIT 구분. RQ1/RQ2 실행 파이프라인(P1~P4)
-완성. 다음: Codex 승인 후 **P5**(LLM Step1/Step2/repair, mock 테스트).
+완성. 다음: **P5**(LLM Step1/Step2/repair, mock 테스트).
 
 P4 구조:
 - `execution/executor.py` `SimExecutor.run()` — clone 위 event loop: recompute → `run_epoch`
