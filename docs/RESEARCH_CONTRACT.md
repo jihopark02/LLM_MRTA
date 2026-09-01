@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.3 (D-004). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.4 (D-005). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -12,6 +12,10 @@
 - v1.3 (D-004): §8의 `travel_time` 예시를 `scene.agent_access_nodes` 기반으로 정정(core
   Agent에 `access_node` 없음). §8에 scene 로드 시점 검증 4종(incident access_node 존재,
   UGV 시작 node 존재, UGV task 도달성, `agent_id` 유일)을 명시.
+- v1.4 (D-005): §10의 "operation 순서 무관" 주장을 정정 — diff reconciliation은 순서
+  독립성을 보장하지 않는다. patch raw op 목록 self-일관성 검증(`E_PATCH_CONFLICT`) + canonical
+  적용 순서(`AddTask → RemoveEdge → AddEdge`)를 추가. CANCELLED predecessor의 frontier
+  의미를 P4로 명시 유보.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -297,6 +301,10 @@ aerial-only 임무, (b) full-response 명령인데 나머지 task를 누락한 �
 | 13 | **종결(COMPLETED/CANCELLED) task는 상태·결과·target·incoming edge가 불변. 단, 아직 RUNNING이 아닌 successor를 향한 outgoing edge는 같은 atomic patch 안에서 유효한 workflow로 재배선할 수 있다** | 전체 | E_TERMINAL_IMMUTABLE |
 | 14 | patch 거부 시 원본 완전 보존(트랜잭션) | patch 전체 | (부분 commit 없음) |
 
+이 표는 **최종 후보 graph** 위에서 도는 whole-graph Validator다. patch의 raw operation 목록
+self-일관성 검사(중복 op, 같은 edge Add+Remove 등, 오류코드 `E_PATCH_CONFLICT`)는 이 검증
+이전 단계이며 §10 처리 절차 2단계에서 별도로 수행한다.
+
 **#13은 RQ3(P8)를 염두에 둔 것**: "화재 재발 위험 보고" 시나리오는 `SUPPRESSANT_DROP_F2`(이미
 COMPLETED)의 outgoing edge를 `GROUND_INSPECTION_F2`에서 신규 `THERMAL_RECHECK_F2`로 재배선해야
 한다. #13이 outgoing edge까지 불변으로 두면 이 재배선 자체가 구조적으로 불가능해진다.
@@ -317,14 +325,23 @@ transaction에서 새로 생긴 것으로 한정하면, 다른 종류의 patch�
 **처리 절차**:
 
 1. 현재 `MissionState`를 clone한다.
-2. patch의 모든 operation을 clone에 적용한다(순서는 caller가 정하되, 결과는 순서 무관하게
-   동일해야 함 — 아래 reconciliation이 diff 기반이라 이게 보장됨).
-3. 최종 후보 graph 전체를 §9 invariant로 검증한다.
-4. **원본 graph와 최종 candidate graph의 predecessor-set diff를 계산한다** — patch 도중의
-   중간 상태가 아니라 시작과 끝만 비교한다. (같은 patch 안에서 추가했다 다시 제거한 edge는
-   diff에 안 잡히므로 불필요한 release를 유발하지 않는다 — 이게 "AddEdge 시점 즉시 release"
-   방식 대신 diff 기반을 쓰는 이유다.)
-5. diff로 predecessor 집합이 바뀐 task에 대해 lifecycle/assignment를 reconciliation한다:
+2. **raw operation 목록을 self-일관성 검증한다** (D-005). 이 검사는 operation을 TaskGraph에
+   넣기 전에 raw 목록(list) 위에서 한다 — set/graph에 들어가면 중복 정보가 사라진다.
+   - 각 operation의 schema 유효성 (E_SCHEMA)
+   - 같은 `task_id`에 대한 AddTask ≥2 (E_PATCH_CONFLICT)
+   - 같은 edge에 대한 AddEdge ≥2, 또는 RemoveEdge ≥2 (E_PATCH_CONFLICT)
+   - 같은 edge를 한 patch에서 AddEdge와 RemoveEdge 둘 다 (E_PATCH_CONFLICT)
+   - 원본에도 없고 이 patch의 AddEdge도 아닌 edge에 대한 RemoveEdge (E_PATCH_CONFLICT)
+3. 검증을 통과하면 canonical 순서 **`AddTask → RemoveEdge → AddEdge`**로 clone에 적용한다.
+   2단계에서 self-충돌·중복을 제거했으므로 최종 후보 graph는 operation 나열 순서와 무관하게
+   유일하다. (diff 기반 reconciliation은 lifecycle 부수효과만 정리할 뿐 최종 graph 자체의
+   순서 의존성은 없애지 못한다 — 순서 독립성은 2·3단계가 보장한다.)
+4. 최종 후보 graph 전체를 §9 invariant로 검증한다.
+5. **원본 graph와 최종 candidate graph의 predecessor-set diff를 계산한다** — patch 도중의
+   중간 상태가 아니라 시작과 끝만 비교한다. (서로 다른 edge를 제거·추가하는 RQ3 재배선에서
+   중간 상태가 불필요한 release를 유발하지 않게 하려는 것이 "AddEdge 시점 즉시 release" 대신
+   diff 기반을 쓰는 이유다.)
+6. diff로 predecessor 집합이 바뀐 task에 대해 lifecycle/assignment를 reconciliation한다:
    - PENDING(새 unmet predecessor 추가): 그대로 PENDING
    - READY → PENDING
    - ASSIGNED → PENDING, assignment/bundle/path/winner-bid 기록 제거
@@ -332,9 +349,12 @@ transaction에서 새로 생긴 것으로 한정하면, 다른 종류의 patch�
      않음 — abort는 executor handshake까지 설계해야 하는 후속 과제)
    - COMPLETED/CANCELLED: 그 task 자신의 상태·결과·target·incoming이 바뀌는 diff면 거부;
      outgoing만 바뀌는 diff는 §9 #13에 따라 허용
-   - predecessor 제거로 모든 조건이 충족된 PENDING: READY로 재계산
-6. reconciliation 결과에 대해 state/assignment invariant를 재검사한다.
-7. 유효하면 patch 전체를 commit, 아니면 전체 rollback한다. 중간 상태는 절대 외부에 노출하거나
+   - predecessor 제거로 모든 조건이 충족된 PENDING: READY로 재계산. **frontier 계산은
+     COMPLETED predecessor만 "충족"으로 취급한다** — CANCELLED predecessor가 successor를
+     충족시키는지(또는 successor도 취소되는지)는 P4 executor 설계 시 확정한다. P1~P3에서는
+     cancellation을 쓰지 않는다.
+7. reconciliation 결과에 대해 state/assignment invariant를 재검사한다.
+8. 유효하면 patch 전체를 commit, 아니면 전체 rollback한다. 중간 상태는 절대 외부에 노출하거나
    실행하지 않는다.
 
 **PatchResult**: `accepted`, `added_tasks`, `added_edges`, `removed_edges`,

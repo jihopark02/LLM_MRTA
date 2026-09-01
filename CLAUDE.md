@@ -19,24 +19,30 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-004, 계약 v1.3)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-005, 계약 v1.4)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1 구현 완료 + Codex 검토 2회 반영(D-003, D-004). 계약 v1.3.** `core/`(enums, Agent, Task,
-TaskGraph, RouteGraph), `scenarios/`(scene loader, `compile_reference_graph`, reference
-fixture)까지 구현. §15 P1 완료 게이트 5개 + Codex 반례 테스트가 전부 통과된다(pytest 57개,
-`python3 -m pytest -q`). Codex 재검토 대기 중. 승인 후 **P2**(deterministic whole-graph
-Validator + MissionPatch reconciliation, §9/§10) 착수.
+**P1 승인 완료(Codex). 계약 v1.4 (D-005).** `core/`(enums, Agent, Task, TaskGraph,
+RouteGraph), `scenarios/`(scene loader, `compile_reference_graph`, reference fixture)까지
+구현, §15 P1 게이트 5개 + Codex 반례 전부 통과(pytest 57개, `python3 -m pytest -q`). D-005는
+P2 착수 전 선행 계약 수정이며 코드 변경은 없다. 다음: **P2**(deterministic whole-graph
+Validator + MissionPatch reconciliation, §9/§10).
 
 P2 착수 시 주의:
 - §9 invariant 14개 전부 구현. **매 patch마다 최종 후보 graph 전체를 처음부터 재검증**(§9
   멀티 트랜잭션 우회 방지). patch 거부 시 원본 완전 보존(트랜잭션).
-- raw LLM/patch candidate는 **별도 candidate 표현**으로 받아 Validator가 E_UNKNOWN_REF/
-  E_DUPLICATE_EDGE 등을 판정한다. `scenarios/compiler.py`의 `compile_reference_graph`는
-  신뢰된(검증 통과) 목록만 받으므로 candidate 검증 용도로 쓰지 않는다(D-003, 계약 §7).
+- raw LLM candidate / raw MissionPatch는 **list 표현으로 받아 검증 후에만 graph화**한다
+  (D-003, D-005). candidate는 Validator가 E_UNKNOWN_REF/E_DUPLICATE_EDGE 등을, patch는
+  §10 2단계가 `E_PATCH_CONFLICT`(중복 op, 같은 edge Add+Remove 등)를 판정. 그 다음
+  canonical 순서 `AddTask → RemoveEdge → AddEdge`로 적용 — 순서 독립성은 diff가 아니라 이
+  검증+canonical 적용이 보장한다.
+- `compile_reference_graph`는 신뢰된(검증 통과) 목록만 받으므로 candidate 검증 용도로 쓰지
+  않는다(계약 §7).
+- frontier 계산은 COMPLETED predecessor만 "충족"으로 취급(§10 6단계). CANCELLED predecessor
+  의미는 P4 전에 확정.
 - `TaskGraph.reference_errors()`/`has_cycle()`는 P1의 경량 구조 검사일 뿐 P2 Validator가
   아니다.
 

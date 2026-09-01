@@ -144,3 +144,40 @@ Codex가 독립 검토한다. 함께 CLAUDE.md에 문서 갱신 트리거와 DEC
 
 **절차 노트**: D-003에서 계약 변경과 코드를 같은 커밋에 넣었다. 이력은 다시 쓰지 않되,
 D-004부터 "계약 문서 커밋 → 구현 커밋" 순서를 지킨다.
+
+## D-005: MissionPatch operation 순서 의존성 (계약 v1.4)
+
+**배경** P1 승인 후, Codex가 §10 MissionPatch 계약의 모순을 지적. §10은 "operation 순서와
+무관하게 결과가 같고, diff reconciliation이 이를 보장한다"고 적었으나, diff는 (원본 graph,
+최종 graph) 두 상태만 비교해 lifecycle 부수효과를 정리할 뿐 **최종 graph 자체의 순서
+의존성을 없애지 못한다**.
+
+반례(초기 graph에 A→B 없음):
+- `AddEdge(A,B)` 다음 `RemoveEdge(A,B)` → 최종 edge 없음
+- `RemoveEdge(A,B)` 다음 `AddEdge(A,B)` → 최종 edge 있음
+
+**결정** 계약을 v1.4로 갱신. §10 처리 절차를 다음으로 교체:
+
+1. clone.
+2. **raw operation 목록 self-일관성 검증**(list 위에서, set/graph 진입 전 —
+   Codex 지적대로 중복 정보가 사라지기 전에): schema, 같은 task_id AddTask ≥2, 같은 edge
+   AddEdge/RemoveEdge ≥2, 같은 edge Add+Remove 동시, 원본에도 AddEdge에도 없는 edge
+   RemoveEdge → 전부 `E_PATCH_CONFLICT`.
+3. canonical 순서 `AddTask → RemoveEdge → AddEdge`로 적용. 2단계가 self-충돌·중복을
+   제거했으므로 최종 graph는 나열 순서와 무관하게 유일 — 순서 독립성은 diff가 아니라 2·3이
+   보장한다.
+4. 이후는 기존과 동일(whole-graph Validator → predecessor-set diff → reconciliation →
+   재검사 → commit/rollback).
+
+**대안 검토** "set 의미론(최종 edge = (원본 ∪ Add) \ Remove)"도 순서 독립적이고 기존
+"추가했다 제거" 문장을 살리지만, "patch가 자기모순이면 caller 버그로 거부"가 더 단순하고
+방어적이라 판단. §10의 diff-기반 정당화 예시를 "서로 다른 edge를 제거·추가하는 RQ3
+재배선"으로 교체(정상 RQ3 재배선은 이 제한에 걸리지 않음).
+
+**저우선순위 유보** CANCELLED predecessor가 successor를 충족시키는지는 계약에 미정의.
+현재 `TaskGraph.recompute_ready`는 COMPLETED만 충족으로 취급한다. P1~P3에서 cancellation을
+쓰지 않으므로 문제없으나, P4 executor 설계 전에 의미를 확정한다. §10 6단계에 명시.
+
+**영향** P2 구현은 raw `MissionPatch` 표현(list)을 먼저 검증한 뒤 canonical 순서로 적용한다.
+`compile_reference_graph`(D-003)와 마찬가지로 "raw candidate/patch는 list로 받아 검증 후에만
+graph화"라는 입력 경계 원칙을 따른다.
