@@ -14,7 +14,7 @@ Unmanned Systems
 
 **P1 승인. P2 구현 완료**(Codex 검토 3회 반영, 재검토 대기) — `validator/`에 deterministic
 whole-graph Validator(§9 invariant #1~14)와 MissionPatch apply/reconciliation(§10, 트랜잭션
-+ 다중 트랜잭션 우회 방지). 테스트 114개 통과(`python3 -m pytest -q`). 다음은 P3(platform-aware
++ 다중 트랜잭션 우회 방지). 테스트 129개 통과(`python3 -m pytest -q`). 다음은 P3(platform-aware
 CBBA, §11).
 
 계약 버전 v1.7 / 최신 결정 D-008. 단계 게이트 정의는

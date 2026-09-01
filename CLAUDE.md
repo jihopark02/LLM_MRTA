@@ -27,7 +27,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1 승인. P2 구현 완료 + Codex 검토 3회 반영(D-006/007/008). 계약 v1.7.** `validator/`에
 whole-graph Validator(§9 invariant #1~14 + `E_PATCH_CONFLICT`/`E_RUNNING_LOCKED`)와
-MissionPatch apply/reconciliation(§10)을 구현. `VALIDATOR_VERSION = "1.1"`. pytest 114개
+MissionPatch apply/reconciliation(§10)을 구현. `VALIDATOR_VERSION = "1.1"`. pytest 129개
 통과(`python3 -m pytest -q`), ruff clean, wheel에 core/scenarios/validator 포함, `build/`·
 `dist/` gitignore. 다음: Codex 승인 후 **P3**(platform-aware CBBA, rolling READY-frontier
 epoch, §11).
