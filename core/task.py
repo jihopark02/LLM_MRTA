@@ -9,6 +9,7 @@ the semantic scene and the default capability table.
 predecessor state in the task graph (see ``core/task_graph.py``).
 """
 
+import math
 from dataclasses import dataclass
 
 from core.enums import Capability, PlatformKind, TaskStatus, TaskType
@@ -26,3 +27,9 @@ class Task:
     duration: float
     status: TaskStatus
     assigned_agent: str | None = None
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.duration) or self.duration <= 0.0:
+            raise ValueError(
+                f"{self.task_id}: duration must be finite and positive, got {self.duration!r}"
+            )

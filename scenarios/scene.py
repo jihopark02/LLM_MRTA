@@ -111,27 +111,40 @@ def load_scene(path: str | Path) -> Scene:
     for a, b in raw["route_graph"]["lanes"]:
         rg.add_lane(a, b)
 
+    # Contract §8 (a): every incident's ground access node must be a route node,
+    # so UGV-task reachability can be checked at fixture/candidate load.
+    for incident in incidents.values():
+        if incident.access_node not in rg:
+            raise ValueError(
+                f"{incident.incident_id}: access_node {incident.access_node} not in route graph"
+            )
+
     fleet: list[Agent] = []
     access_nodes: dict[str, str] = {}
+    seen_agent_ids: set[str] = set()
     for spec in raw["fleet"]:
+        agent_id = spec["agent_id"]
+        if agent_id in seen_agent_ids:  # §8 (d): agent_id is a dict key in CBBA
+            raise ValueError(f"duplicate agent_id: {agent_id}")
+        seen_agent_ids.add(agent_id)
         kind = PlatformKind(spec["platform_kind"])
         caps = frozenset(Capability(c) for c in spec["capabilities"])
         if kind is PlatformKind.UGV:
             node = spec["access_node"]
-            if node not in rg:
-                raise ValueError(f"{spec['agent_id']}: access_node {node} not in route graph")
-            access_nodes[spec["agent_id"]] = node
+            if node not in rg:  # §8 (b)
+                raise ValueError(f"{agent_id}: access_node {node} not in route graph")
+            access_nodes[agent_id] = node
             pos = rg.position(node)
         else:
             pos = _xy(spec["position"])
         fleet.append(
             Agent(
-                agent_id=spec["agent_id"],
+                agent_id=agent_id,
                 platform_kind=kind,
                 capabilities=caps,
                 initial_position=pos,
                 position=pos,
-                speed=_positive_finite(spec["speed"], f"{spec['agent_id']}.speed"),
+                speed=_positive_finite(spec["speed"], f"{agent_id}.speed"),
             )
         )
 

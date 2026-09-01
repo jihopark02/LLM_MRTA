@@ -59,6 +59,22 @@ def test_task_construction_carries_frozenset_fields():
     assert PlatformKind.UAV in t.eligible_platforms
 
 
+@pytest.mark.parametrize("bad", [0.0, -1.0, float("nan"), float("inf")])
+def test_task_duration_must_be_finite_positive(bad):
+    with pytest.raises(ValueError, match="duration"):
+        Task(
+            task_id="T1",
+            task_type=TaskType.AREA_RECON,
+            target="ZONE_A",
+            position=(0.0, 0.0),
+            priority=1,
+            required_capabilities=frozenset({Capability.AERIAL_RECON}),
+            eligible_platforms=frozenset({PlatformKind.UAV}),
+            duration=bad,
+            status=TaskStatus.READY,
+        )
+
+
 def test_dataclass_slots_reject_unknown_attributes():
     a = make_agent()
     with pytest.raises(AttributeError):

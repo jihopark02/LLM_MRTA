@@ -67,6 +67,35 @@ def test_invalid_incident_status_is_rejected(tmp_path):
         load_scene(bad)
 
 
+def test_incident_access_node_missing_from_route_graph_is_rejected(tmp_path):
+    bad = tmp_path / "s.yaml"
+    bad.write_text(
+        _minimal_scene_yaml(
+            "F1: {zone: ZONE_A, priority: 1, position: [1, 1], access_node: GHOST,"
+            " status: RESPONSE_REQUIRED}"
+        )
+    )
+    with pytest.raises(ValueError, match="not in route graph"):
+        load_scene(bad)
+
+
+def test_duplicate_agent_id_is_rejected(tmp_path):
+    bad = tmp_path / "s.yaml"
+    bad.write_text(
+        _minimal_scene_yaml(
+            "F1: {zone: ZONE_A, priority: 1, position: [1, 1], access_node: N0,"
+            " status: RESPONSE_REQUIRED}",
+            "fleet:\n"
+            "  - {agent_id: S1, platform_kind: UAV, capabilities: [AERIAL_RECON],"
+            " position: [0, 0], speed: 5}\n"
+            "  - {agent_id: S1, platform_kind: UAV, capabilities: [THERMAL_SENSOR],"
+            " position: [0, 0], speed: 5}",
+        )
+    )
+    with pytest.raises(ValueError, match="duplicate agent_id"):
+        load_scene(bad)
+
+
 def test_non_positive_agent_speed_is_rejected(tmp_path):
     bad = tmp_path / "s.yaml"
     bad.write_text(
