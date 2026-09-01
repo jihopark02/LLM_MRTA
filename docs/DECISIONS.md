@@ -414,4 +414,11 @@ mock 테스트). P7 Gazebo executor는 이 executor와 동일 route semantics를
 - **PROVENANCE**: executor를 "참고하지 않고 신규 작성"으로 후보에서 제외(§14가 옛 코드
   복사 금지를 명시).
 
-**영향** P4 재검증. #1은 CBBA 할당 결과를 바꾸므로 P4 게이트 재확인 필요.
+**영향** P4 재검증. #1은 CBBA 할당 결과를 바꾼다. residual-path 수정 후 reference mission의
+executor 실행은 workload가 한쪽으로 쏠린다(예: G2가 ground task 4개, R1이 drop 2개, G1·R2
+유휴) — 이전의 균형 잡힌 결과는 double-count 버그의 부작용이었다. **rolling 단일-task epoch
++ 동일 사양 agent + tie-break**에서 가장 가까운 capable agent가 연속 낙찰하는 것은 올바른
+greedy CBBA 동작이며 §5가 유휴 agent를 명시적으로 허용한다. 균형 잡힌 이종 할당은 P3
+`allocate`(whole-wave 경매)가 보여주는 planning 지표이고, P4 executor는 event-driven 실행을
+보여준다 — 서로 다른 것을 측정한다. P4 게이트(완주 + violation 0 + deadlock 테스트)는
+workload 균형을 요구하지 않는다.
