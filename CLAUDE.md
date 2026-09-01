@@ -25,12 +25,20 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1 승인. P2 구현 완료 + Codex 검토 3회 반영(D-006/007/008). 계약 v1.7.** `validator/`에
-whole-graph Validator(§9 invariant #1~14 + `E_PATCH_CONFLICT`/`E_RUNNING_LOCKED`)와
-MissionPatch apply/reconciliation(§10)을 구현. `VALIDATOR_VERSION = "1.1"`. pytest 129개
-통과(`python3 -m pytest -q`), ruff clean, wheel에 core/scenarios/validator 포함, `build/`·
-`dist/` gitignore. 다음: Codex 승인 후 **P3**(platform-aware CBBA, rolling READY-frontier
-epoch, §11).
+**P1·P2 승인. P3 구현 완료(Codex 검토 대기). 계약 v1.8 (D-009).** `validator/`(P2) +
+`allocation/`(P3: travel §8, scoring §11, cbba epoch, allocate rolling frontier + §13 지표).
+`VALIDATOR_VERSION = "1.1"`, `λ = 0.999`. pytest 155개 통과(`python3 -m pytest -q`), ruff
+clean. P3 게이트 통과 — reference fixture 12/12 할당, capability/precedence violation 0,
+UGV 이동거리 = route Dijkstra 합. 다음: Codex 승인 후 **P4**(2D executor, end-to-end).
+
+P3 구조:
+- `allocation/travel.py`: `leg_time`/`leg_distance` — UAV Euclidean, UGV route Dijkstra.
+- `allocation/scoring.py`: `path_score`(Σ λ^completion·priority), `marginal_score`(best
+  insertion, 비적격 → -inf). 이식(PROVENANCE), λ=0.999.
+- `allocation/cbba.py`: `run_epoch` — bundle build + Table I action rule + s-vector +
+  suffix release + `_beats` tie-break. 이식.
+- `allocation/allocate.py`: `allocate()` — clone 위 epoch 반복(recompute→auction→plan-time
+  sim→COMPLETED 표시), `AllocationResult`(§13 지표). 신규.
 
 P2 구조:
 - `validator/candidate.py`: raw candidate(list) — #1/#3 파싱, #2/#5-edge/#6/#7 consistency.
@@ -50,12 +58,12 @@ P2 구조:
   assignment 참조 무결성(§10 규칙 6 — bundle/path/winning_bids가 존재하는 task만 참조).
   rejected patch(whole-graph 전 거부)는 `graph_hash` 빈 문자열(§14).
 
-P3 착수 시: CBBA는 §11 rolling READY-frontier epoch, bid = priority×λ^completion_time 기반
-marginal path utility. priority는 1..10 고정(D-008)이므로 보상 함수는 음수·0 priority를
-고려하지 않아도 된다. 이동비용은 §8 platform-aware(`scene.agent_access_nodes` + route
-Dijkstra). `compile_reference_graph`는 신뢰된 목록만 받는다(계약 §7). frontier는 COMPLETED
-predecessor만 충족으로 취급(§10 6단계). MissionState 조작 시 §10 assignment invariant(규칙
-1~6) 유지.
+P4 착수 시: 2D executor는 `allocation.cbba.run_epoch`를 재사용하되 `allocate`의 plan-time
+sim 대신 실제 이벤트 루프로 frontier를 굴린다. `execution/mission_runner.py`는 계약 §14의
+premature-deadlock 버그를 피해 **deadlock 판정 직전 recompute를 한 번 더** 하는 패턴으로
+처음부터 작성하고, 최소 재현 테스트(단일 agent, A→B 체인)를 P4 게이트에 넣는다.
+`compile_reference_graph`는 신뢰된 목록만 받는다(계약 §7). MissionState 조작 시 §10
+assignment invariant(규칙 1~6) 유지.
 
 RQ1(LLM 복합 task graph 생성)과 RQ2(이종 UAV/UGV CBBA 할당)가 필수 범위다. RQ3(선택적
 재할당)는 P8 후속이며, 구현되기 전까지는 어디에도 "동적 재할당"을 완료된 결과로 쓰지 않는다.
