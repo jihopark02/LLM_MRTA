@@ -1,0 +1,46 @@
+# Semantic scene: ~220 m virtual industrial park, fire response.
+# RESEARCH_CONTRACT.md §3, §5, §8.
+#
+# This file holds ONLY the environment + fleet vocabulary (zones, incidents,
+# route graph, agents). Task instances are layered on top by a separate fixture
+# file (scenarios/reference_fixture.yaml) so offline tests stay reproducible.
+
+scene_id: industrial_park
+
+zones:
+  ZONE_A: { name: Warehouse,       recon_waypoint: [30.0, 180.0] }
+  ZONE_B: { name: Processing Area, recon_waypoint: [120.0, 115.0] }
+  ZONE_C: { name: Utility Yard,    recon_waypoint: [30.0, 40.0] }
+  ZONE_D: { name: Tank Farm,       recon_waypoint: [200.0, 45.0] }
+
+# Incidents are given as RESPONSE_REQUIRED by the scene; nothing in the system
+# decides whether a fire exists (contract §3).
+incidents:
+  FIRE_SITE_1: { zone: ZONE_B, priority: 9, position: [128.0, 108.0], access_node: R_B }
+  FIRE_SITE_2: { zone: ZONE_D, priority: 7, position: [205.0, 42.0], access_node: R_D }
+
+# Predefined UGV lane/waypoint graph. Lane weight defaults to Euclidean node
+# distance (see core/route_graph.py).
+route_graph:
+  nodes:
+    R_DEPOT: [10.0, 10.0]
+    R_C:     [30.0, 40.0]
+    R_A:     [30.0, 175.0]
+    R_MID:   [110.0, 60.0]
+    R_B:     [125.0, 112.0]
+    R_D:     [200.0, 45.0]
+  lanes:
+    - [R_DEPOT, R_C]
+    - [R_C, R_A]
+    - [R_C, R_MID]
+    - [R_MID, R_B]
+    - [R_MID, R_D]
+
+# 6 agents, fixed 2/2/2 (contract §5).
+fleet:
+  - { agent_id: S1, platform_kind: UAV, capabilities: [AERIAL_RECON, THERMAL_SENSOR],       position: [10.0, 10.0], speed: 8.0 }
+  - { agent_id: S2, platform_kind: UAV, capabilities: [AERIAL_RECON, THERMAL_SENSOR],       position: [10.0, 10.0], speed: 8.0 }
+  - { agent_id: R1, platform_kind: UAV, capabilities: [THERMAL_SENSOR, SUPPRESSANT_PAYLOAD], position: [10.0, 10.0], speed: 7.0 }
+  - { agent_id: R2, platform_kind: UAV, capabilities: [THERMAL_SENSOR, SUPPRESSANT_PAYLOAD], position: [10.0, 10.0], speed: 7.0 }
+  - { agent_id: G1, platform_kind: UGV, capabilities: [GROUND_MOBILITY, MARKER_DISPENSER],   access_node: R_DEPOT, speed: 3.0 }
+  - { agent_id: G2, platform_kind: UGV, capabilities: [GROUND_MOBILITY, MARKER_DISPENSER],   access_node: R_C,     speed: 3.0 }

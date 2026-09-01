@@ -1,0 +1,35 @@
+# Canonical full-response reference graph (RESEARCH_CONTRACT.md §3 fixed shape,
+# §12 Family A). Hand-authored; used by P1-P4 before the LLM is in the loop.
+#
+# Fixed shape (contract §3): 12 tasks, 6 edges, computed initial READY 6,
+# initial PENDING 6. READY/PENDING are NOT written here — they are recomputed
+# from predecessor state (core/task_graph.py).
+#
+# Edge endpoints are "TASK_TYPE:target"; task_id is "TASK_TYPE__target".
+
+fixture_id: family_a_full_response
+scene: industrial_park
+
+tasks:
+  - { type: AREA_RECON,          target: ZONE_A,      priority: 4 }
+  - { type: AREA_RECON,          target: ZONE_B,      priority: 5 }
+  - { type: AREA_RECON,          target: ZONE_C,      priority: 3 }
+  - { type: AREA_RECON,          target: ZONE_D,      priority: 4 }
+
+  - { type: THERMAL_RECON,       target: FIRE_SITE_1, priority: 9 }
+  - { type: SUPPRESSANT_DROP,    target: FIRE_SITE_1, priority: 9 }
+  - { type: GROUND_INSPECTION,   target: FIRE_SITE_1, priority: 8 }
+  - { type: HAZARD_MARKER_DEPLOY, target: FIRE_SITE_1, priority: 6 }
+
+  - { type: THERMAL_RECON,       target: FIRE_SITE_2, priority: 7 }
+  - { type: SUPPRESSANT_DROP,    target: FIRE_SITE_2, priority: 7 }
+  - { type: GROUND_INSPECTION,   target: FIRE_SITE_2, priority: 6 }
+  - { type: HAZARD_MARKER_DEPLOY, target: FIRE_SITE_2, priority: 5 }
+
+edges:
+  - [THERMAL_RECON:FIRE_SITE_1,     SUPPRESSANT_DROP:FIRE_SITE_1]
+  - [SUPPRESSANT_DROP:FIRE_SITE_1,  GROUND_INSPECTION:FIRE_SITE_1]
+  - [GROUND_INSPECTION:FIRE_SITE_1, HAZARD_MARKER_DEPLOY:FIRE_SITE_1]
+  - [THERMAL_RECON:FIRE_SITE_2,     SUPPRESSANT_DROP:FIRE_SITE_2]
+  - [SUPPRESSANT_DROP:FIRE_SITE_2,  GROUND_INSPECTION:FIRE_SITE_2]
+  - [GROUND_INSPECTION:FIRE_SITE_2, HAZARD_MARKER_DEPLOY:FIRE_SITE_2]
