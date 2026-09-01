@@ -47,9 +47,12 @@
 
 - `mission/graph.py`의 TaskGraph 연산 패턴(cycle 검사, predecessor/successor 조회) — 도메인
   무관 자료구조. (P1에서 참고 없이 새로 작성함 — 표준 자료구조라 포팅 불필요로 판단.)
-- `execution/sim_executor.py`의 event-loop 구조 — 단, `execution/mission_runner.py`의
-  premature-deadlock 버그(§14 RESEARCH_CONTRACT.md 참고)는 패턴만 배우고 고친 형태로 새로
-  작성. 옛 코드를 그대로 복사하지 않는다.
+
+## 참고하지 않고 신규 작성한 것 (후보에서 제외)
+
+- `execution/executor.py`의 `SimExecutor` (P4): 이전 저장소 `execution/sim_executor.py`/
+  `mission_runner.py`는 §14의 premature-deadlock 버그가 있어 코드를 보지 않고 독립적으로
+  작성했다. event-loop·deadlock 판정·held carry-forward 전부 신규.
 - `mission/loader.py`의 environment/reference 분리 원칙(fleet+landmark 어휘만 담는 파일과,
   그 위에 task 인스턴스를 얹는 별도 파일을 분리) — 재현 가능한 오프라인 테스트를 위한 검증된
   설계 패턴.

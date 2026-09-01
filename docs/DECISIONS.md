@@ -379,3 +379,39 @@ SUPPRESSANT_DROP 영구 미배치)도 종료·보고.
 
 **영향** RQ1/RQ2 필수 범위의 실행 파이프라인 완성(P1~P4). 다음은 P5(LLM Step1/Step2/repair
 mock 테스트). P7 Gazebo executor는 이 executor와 동일 route semantics를 공유해야 한다(§8).
+
+## D-012: P4 Codex 검토 반영 (계약 v1.11)
+
+**배경** P4 구현 후 Codex 검토에서 정상 fixture가 못 잡은 3 + 4:
+
+1. **실행 중 agent의 신규 task 입찰 오류**: RUNNING task가 residual path에 남아 이동·dwell·
+   reward가 이중 계산됨. 재현: R1(현재 task 완료 위치 = 신규 task 위치)이 R2(70m 떨어짐)에게
+   짐 — 정상은 R1 승(9.7043 > 9.6077). CBBA 할당 결과 자체가 바뀜.
+2. **완주 후 MissionState invariant 위반**: COMPLETED 시 `task.assigned_agent`를 안 지워
+   §10 assignment invariant가 12개 에러("non-active task still assigned"). `agent.current_task`도
+   dispatch/completion 어디서도 갱신 안 됨.
+3. **`execution*`가 `pyproject.toml` discovery에 없음** — P3 allocation과 같은 결함.
+4. **`max_steps` 소진을 deadlock으로 오판**: `max_steps=1`도 `deadlocked=True`. §13 deadlock
+   집계에 거짓 실패 혼입.
+5. precedence 테스트가 travel gap을 검사 안 함(`succ_start >= pred_completion`만).
+6. CANCELLED predecessor 의미가 v1.4에서 "P4 결정"으로 유보됐는데 D-011/구현에서도 미확정.
+7. PROVENANCE가 executor를 "예정된 이식 후보"로 표시 — 실제 상태 모호.
+
+**결정** 계약 v1.11:
+
+- **residual-path 입찰**(§14): RUNNING task는 그 agent의 residual path에서 임시 제거하고
+  도착 지점으로 위치 투영, 경매 후 실제 path 선두에 재병합. 재현 사례를 회귀 테스트로 추가.
+- **assignment 정리**(§14, §10): COMPLETED 시 `assigned_agent=None`, `current_task=None`,
+  bundle/path 제거. dispatch 시 `current_task=task_id`. 완주 후
+  `_assignment_invariant_errors(executor.work) == []` 직접 검증.
+- **`pyproject.toml`에 `execution*` 추가**, wheel 격리 import 검증.
+- **종료 사유**(§14): `ExecutionResult.termination` ∈ {`COMPLETED`, `DEADLOCK`, `STEP_LIMIT`}.
+  `deadlocked` = `termination == DEADLOCK`. `STEP_LIMIT`은 deadlock 아님.
+- **precedence 테스트 강화**: `task_departure`(agent 이동 시작 시각)를 결과에 기록하고
+  `task_departure[succ] >= task_completion[pred]`를 검증(서로 다른 위치 synthetic chain).
+- **cancellation**(§10): P1~P7 미지원, P8 유보. CANCELLED predecessor 있으면 successor는
+  blocked → deadlock 보고가 의도된 의미.
+- **PROVENANCE**: executor를 "참고하지 않고 신규 작성"으로 후보에서 제외(§14가 옛 코드
+  복사 금지를 명시).
+
+**영향** P4 재검증. #1은 CBBA 할당 결과를 바꾸므로 P4 게이트 재확인 필요.

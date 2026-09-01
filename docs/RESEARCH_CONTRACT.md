@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.10 (D-011). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.11 (D-012). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -33,6 +33,9 @@
 - v1.10 (D-011): §11에 rolling epoch의 `held` commitment(미완료 할당은 재경매 안 함) +
   task lifecycle(ASSIGNED→RUNNING→COMPLETED) 명시, §14에 P4 구현체 `SimExecutor`의
   deadlock 판정 절차 명시(P4 구현).
+- v1.11 (D-012): P4 Codex 검토 반영 — §14에 종료 사유 분리(`COMPLETED`/`DEADLOCK`/
+  `STEP_LIMIT`), 실행 중 epoch 입찰의 residual-path 규칙, COMPLETED 시 assignment 정리
+  명시. §10에 cancellation을 P1~P7 미지원·P8 유보로 확정.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -371,9 +374,10 @@ transaction에서 새로 생긴 것으로 한정하면, 다른 종류의 patch�
    - COMPLETED/CANCELLED: 그 task 자신의 상태·결과·target·incoming이 바뀌는 diff면 거부;
      outgoing만 바뀌는 diff는 §9 #13에 따라 허용
    - predecessor 제거로 모든 조건이 충족된 PENDING: READY로 재계산. **frontier 계산은
-     COMPLETED predecessor만 "충족"으로 취급한다** — CANCELLED predecessor가 successor를
-     충족시키는지(또는 successor도 취소되는지)는 P4 executor 설계 시 확정한다. P1~P3에서는
-     cancellation을 쓰지 않는다.
+     COMPLETED predecessor만 "충족"으로 취급한다**(D-012 확정): P1~P7에서 cancellation은
+     지원하지 않으며 RQ3(P8)로 유보한다. 만약 CANCELLED predecessor가 존재하면 그 successor는
+     영원히 blocked로 남고 executor는 이를 deadlock으로 보고한다 — 이게 의도된 현재 의미다.
+     P8에서 cancellation을 도입할 때 cascade cancel vs blocked를 이 문서 개정으로 확정한다.
 7. reconciliation 결과에 대해 state/assignment invariant를 재검사한다.
 8. 유효하면 patch 전체를 commit, 아니면 전체 rollback한다. 중간 상태는 절대 외부에 노출하거나
    실행하지 않는다.
@@ -545,8 +549,23 @@ deadlock 판정 직전에 반드시 recompute를 한 번 더 하는 패턴으로
 
 P4 구현체는 `execution/executor.py`의 `SimExecutor`다(D-011). "아무도 작업 중이 아니고
 dispatch할 것도 없다"고 판단하기 직전에 `recompute_ready()`를 호출한 뒤 epoch를 한 번 더
-시도하고, 그래도 진전이 없으면 `deadlocked=True` + 남은 task 목록을 반환하고 종료한다(무한
-루프 없음). 최소 재현·부분진전 후 deadlock·정상 완주 테스트가 P4 게이트다.
+시도하고, 그래도 진전이 없으면 남은 task 목록과 함께 종료한다(무한 루프 없음). 최소 재현·
+부분진전 후 deadlock·정상 완주 테스트가 P4 게이트다.
+
+**종료 사유 분리(D-012)**: `ExecutionResult`는 `termination` ∈ {`COMPLETED`, `DEADLOCK`,
+`STEP_LIMIT`}을 기록한다. `deadlocked`는 `termination == DEADLOCK`일 때만 참이다. `max_steps`
+소진(`STEP_LIMIT`)은 deadlock이 아니다 — §13의 deadlock 집계에 섞이면 안 된다.
+
+**실행 중 새 epoch의 입찰(D-012)**: 이미 RUNNING인 task는 그 agent의 residual path scoring에서
+제외한다(도착 지점으로 위치 투영 + RUNNING task는 path에서 임시 제거). 아직 시작 안 한
+held task만 residual path에 남긴다. 경매 후 RUNNING task를 실제 실행 path 선두에 다시
+병합한다. RUNNING task를 residual path에 남기면 그 이동·dwell·reward가 이중 계산돼 winner가
+바뀐다.
+
+**assignment 정리(D-012)**: task를 COMPLETED로 바꿀 때 `task.assigned_agent = None`,
+`agent.current_task = None`, bundle/path에서 제거한다(§10 assignment invariant). 과거 winner는
+`ExecutionResult.assignments`에만 보존한다. 완주 후 내부 MissionState는 §10 assignment
+invariant를 통과해야 한다.
 
 ---
 
