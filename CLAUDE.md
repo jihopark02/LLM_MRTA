@@ -25,16 +25,24 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1~P4 승인. 계약 v1.15 (D-016).** `validator/`(P2) + `allocation/`(P3) + `execution/`(P4).
-`VALIDATOR_VERSION = "1.2"`, `λ = 0.999`. pytest 175개 통과, ruff clean.
+**P1~P5 구현 완료(P1~P4 승인, P5 Codex 검토 대기). 계약 v1.16 (D-017).** `validator/`(P2) +
+`allocation/`(P3) + `execution/`(P4) + `llm/`(P5). `VALIDATOR_VERSION = "1.2"`, `λ = 0.999`,
+LLM 기본 모델 `claude-opus-5`. pytest 185개 통과, ruff clean.
 
-**D-016 — task 어휘 변경 반영**: `HAZARD_MARKER_DEPLOY` → `GROUND_SUPPRESSION`(symbolic 진압,
-UGV), `MARKER_DISPENSER` → `SUPPRESSANT_APPLICATOR`, "Safety UGV" → "Ground Response UGV"
-(ID G1/G2 유지). workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION →
-GROUND_SUPPRESSION`. P1~P4 전부 재실행 통과. 새 골든값: P3 makespan ~359.8, P4 ~257.9,
-둘 다 violation 0 / workload 균형 / idle 0 (D-016 참조).
+workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
+(D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
 
-다음: **P5**(LLM Step1/Step2/repair, mock 테스트).
+P5 구조:
+- `llm/schemas.py`: `Step1Output`/`Step2Output`/`RepairOutput` (pydantic).
+- `llm/backend.py`: `LLMBackend` Protocol, `MockBackend`(게이트용), `AnthropicBackend`
+  (`client.messages.parse`, `claude-opus-5`, `anthropic` 지연 import — `llm` extra).
+- `llm/prompts.py`: scene 어휘 주입 Step1/Step2/repair 프롬프트.
+- `llm/pipeline.py` `generate_mission`: Step1 → `from_raw` schema(오류 즉시 거부) → Step2 →
+  `validate_candidate` → repair 1회 → 재검증 → 승인(+compiled graph) / 명시적 거부. reference
+  fallback 없음. `GenerationResult`가 §12 지표.
+
+다음: **P6**(최소 9개 입력 평가 + 시각화). MockBackend에 reference annotation 주입해 §12
+precision/recall 측정. 실제 LLM 평가는 API 키 있을 때 `AnthropicBackend`.
 
 P4 구조:
 - `execution/executor.py` `SimExecutor.run()` — clone 위 event loop: recompute → `run_epoch`
@@ -69,12 +77,12 @@ P2 구조:
   assignment 참조 무결성(§10 규칙 6 — bundle/path/winning_bids가 존재하는 task만 참조).
   rejected patch(whole-graph 전 거부)는 `graph_hash` 빈 문자열(§14).
 
-P5 착수 시: LLM 파이프라인은 §12 — NL → Step1(task_type/target/priority만) → schema 검증
-(`MissionCandidate.from_raw`) → Step2(edge) → `validate_candidate`(whole-graph Validator)
-→ 구조화 오류 기반 repair 최대 1회 → 재검증 → 승인/명시적 거부(reference로 조용히 fallback
-안 함). mock LLM 응답 주입으로 테스트. LLM은 좌표/capability/duration/task_id를 생성하지
-않는다(§7). 승인된 candidate만 `compile_reference_graph`로 실행 graph화. Validator가
-"자연어 의미 충실도"를 보장한다고 서술하지 않는다(§9 — 그건 §12 precision/recall).
+P6 착수 시: 최소 9개 NL 입력(family당 3), family A(full)/B(aerial)/C(selective). 사람이 LLM
+출력 보기 전에 canonical reference annotation을 고정(`task_key`/`edge_key`, 정답 복수 허용).
+지표: schema-valid / raw·repair 후 whole-graph-valid count, task·edge precision/recall,
+exact graph match, failure category, latency — 원시 개수 함께 제시. `data/reference_annotations/`.
+`unnecessary_task_rate`는 별도 지표 안 씀(task precision의 FP). Validator가 "자연어 의미
+충실도"를 보장한다고 서술하지 않는다(§9 — 그건 §12 precision/recall).
 
 RQ1(LLM 복합 task graph 생성)과 RQ2(이종 UAV/UGV CBBA 할당)가 필수 범위다. RQ3(선택적
 재할당)는 P8 후속이며, 구현되기 전까지는 어디에도 "동적 재할당"을 완료된 결과로 쓰지 않는다.
