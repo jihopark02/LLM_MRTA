@@ -19,30 +19,31 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-017, 계약 v1.16)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-018, 계약 v1.17)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1~P5 구현 완료(P1~P4 승인, P5 Codex 검토 대기). 계약 v1.16 (D-017).** `validator/`(P2) +
-`allocation/`(P3) + `execution/`(P4) + `llm/`(P5). `VALIDATOR_VERSION = "1.2"`, `λ = 0.999`,
-LLM 기본 모델 `claude-opus-5`. pytest 185개 통과, ruff clean.
+**P1~P5 구현 완료(P1~P4 승인, P5 Codex 검토 대기). 계약 v1.17 (D-018).** `validator/`(P2) +
+`allocation/`(P3) + `execution/`(P4) + `llm/`(P5). `VALIDATOR_VERSION = "1.2"`, `λ = 0.999`.
+pytest 185개 통과, ruff clean.
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
 
 P5 구조:
 - `llm/schemas.py`: `Step1Output`/`Step2Output`/`RepairOutput` (pydantic).
-- `llm/backend.py`: `LLMBackend` Protocol, `MockBackend`(게이트용), `AnthropicBackend`
-  (`client.messages.parse`, `claude-opus-5`, `anthropic` 지연 import — `llm` extra).
+- `llm/backend.py`: `LLMBackend` Protocol, `MockBackend`(게이트용), `OpenAIBackend`
+  (`chat.completions.parse`, `OPENAI_API_KEY`, `openai` 지연 import — `llm` extra, D-018).
+  실제 평가 모델은 실험 전에 pin(§14).
 - `llm/prompts.py`: scene 어휘 주입 Step1/Step2/repair 프롬프트.
 - `llm/pipeline.py` `generate_mission`: Step1 → `from_raw` schema(오류 즉시 거부) → Step2 →
   `validate_candidate` → repair 1회 → 재검증 → 승인(+compiled graph) / 명시적 거부. reference
   fallback 없음. `GenerationResult`가 §12 지표.
 
-다음: **P6**(최소 9개 입력 평가 + 시각화). MockBackend에 reference annotation 주입해 §12
-precision/recall 측정. 실제 LLM 평가는 API 키 있을 때 `AnthropicBackend`.
+다음: **P6**(최소 9개 입력 평가 + 시각화). `OpenAIBackend`로 실제 평가, MockBackend는
+파이프라인 self-test. reference annotation 사전 고정.
 
 P4 구조:
 - `execution/executor.py` `SimExecutor.run()` — clone 위 event loop: recompute → `run_epoch`

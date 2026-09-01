@@ -58,18 +58,17 @@
   설계 패턴.
 - 도메인 독립 테스트 유틸리티(mock LLM 응답 주입 패턴 등).
 
-### 2026-09-01 — LLM backend abstraction: 패턴만 참고 (P5)
+### 2026-09-01 — LLM backend abstraction: 패턴만 참고 (P5, D-018로 갱신)
 
 - 원본: `research/llm/backends.py` (LLM_CBBA, git 이력 없음)
 - 종류: 패턴만 (코드 미포팅)
-- 이유: "structured-output 호출을 백엔드 추상화 뒤에 두고, offline/mock replay로
-  재현 가능한 테스트를 만든다"는 설계 패턴은 도메인 무관하다.
-- 수정한 부분(=새로 작성): 원본은 OpenAI + pydantic + 파일 캐시. 이 저장소는
-  `LLMBackend` Protocol + `AnthropicBackend`(Anthropic SDK, `client.messages.parse`,
-  기본 `claude-opus-5`) + `MockBackend`(스크립트 응답 리스트). 파일 캐시·dotenv 로더는
-  안 가져옴 — P5 게이트는 MockBackend로 충분.
+- 이유: "structured-output 호출을 백엔드 추상화 뒤에 두고, mock replay로 재현 가능한
+  테스트를 만든다"는 설계 패턴은 도메인 무관하다.
+- 수정한 부분(=새로 작성): `LLMBackend` Protocol + `OpenAIBackend`(OpenAI SDK,
+  `client.chat.completions.parse`, `response_format=<pydantic schema>`) +
+  `MockBackend`(스크립트 응답 리스트). 원본과 같은 OpenAI 계열이지만 코드는 새로 작성.
 - 가져오지 않은 부분: `mission_generator.py` 전체(도메인 프롬프트·타입), `.env` 로더,
-  `results/llm_cache.json` 캐시.
+  `results/llm_cache.json` 파일 캐시(P6 재현성 필요 시 재검토).
 
 ## 명시적으로 가져오지 않는 것
 

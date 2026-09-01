@@ -14,11 +14,11 @@ Unmanned Systems
 
 **P1~P4 승인. P5 구현 완료**(Codex 검토 대기) — `validator/`(P2) + `allocation/`(P3) +
 `execution/`(P4: `SimExecutor`) + `llm/`(P5: Step1/Step2/repair 파이프라인 §12, `MockBackend`
-+ Anthropic `AnthropicBackend`). 테스트 185개 통과(`python3 -m pytest -q`). RQ1/RQ2 파이프라인
-완성. 다음은 P6(최소 9개 입력 평가 + 시각화).
++ `OpenAIBackend`). 테스트 185개 통과(`python3 -m pytest -q`). RQ1/RQ2 파이프라인 완성.
+다음은 P6(최소 9개 입력 평가 + 시각화).
 
-task 어휘: `GROUND_SUPPRESSION`(symbolic UGV 진압) workflow (D-016). 계약 버전 v1.16 /
-최신 결정 D-017. 단계 게이트 정의는
+task 어휘: `GROUND_SUPPRESSION`(symbolic UGV 진압) workflow (D-016). 계약 버전 v1.17 /
+최신 결정 D-018. 단계 게이트 정의는
 [`docs/RESEARCH_CONTRACT.md`](docs/RESEARCH_CONTRACT.md) §15 참고.
 
 새로운 LLM 모델이나 CBBA 알고리즘을 제안하는 연구가 아니다. 검증된 구성요소를 통합하고

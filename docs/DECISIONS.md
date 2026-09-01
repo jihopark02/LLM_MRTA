@@ -560,3 +560,26 @@ task type → SCHEMA 거부, cross-incident 거부, backend 소진 시 Assertion
 **영향** 다음은 P6(최소 9개 입력 평가 + 결과 시각화). MockBackend에 사람이 사전 고정한
 reference annotation을 주입해 §12 precision/recall을 측정한다. 실제 LLM 평가는 API 키가
 있을 때 `AnthropicBackend`로 별도 수행.
+
+## D-018: 실제 LLM backend는 OpenAI (계약 v1.17)
+
+**배경** D-017은 provider 미지정 상태에서 `AnthropicBackend`(`claude-opus-5`)를 기본값으로
+넣었다. 사용자가 OpenAI API 키를 보유. Claude Code 구독은 프로그램에서 Messages API를
+호출할 수 없다(별도 `ANTHROPIC_API_KEY` 필요).
+
+**결정 — D-017의 backend 선택을 supersede**:
+
+- `llm/backend.py`의 `AnthropicBackend` → `OpenAIBackend` (`from openai import OpenAI`,
+  `client.chat.completions.parse(response_format=<pydantic schema>)`, `OPENAI_API_KEY`·
+  선택적 `OPENAI_BASE_URL` 환경변수, `temperature` 기본 0.0·`None`이면 생략).
+- `pyproject.toml` `llm` extra: `anthropic` → `openai>=1.40`.
+- `DEFAULT_MODEL = "gpt-4o-mini"` — override 가능한 기본값. P6 실험은 모델을 **하나로
+  고정**해 §14 재현성 기록에 포함한다(모델 문자열도 결과 표에).
+- `LLMBackend` Protocol과 `MockBackend`, `llm/pipeline.py`, `llm/schemas.py`,
+  `llm/prompts.py`는 변경 없음 — backend만 교체.
+
+**PROVENANCE** LLM_CBBA `llm/backends.py`가 원래 OpenAI 기반이므로, 이번엔 그 구조에 더
+가깝다(단, 파일 캐시·dotenv·`mission_generator.py`는 여전히 미포팅). PROVENANCE.md 갱신.
+
+**영향** P5 게이트는 backend 무관(MockBackend) — 185 tests 그대로. P6에서 `OpenAIBackend`로
+실제 9개 입력 평가. Claude Code 구독 ≠ Anthropic API라는 점을 사용자와 확인함.
