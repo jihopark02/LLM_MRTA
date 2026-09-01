@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.14 (D-015). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.15 (D-016). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -45,6 +45,11 @@
   `agent_utilization`은 빈 dict 반환).
 - v1.14 (D-015): §14의 `patch_hash` 정리를 "P5 전"에서 "P8로 유보"로 변경 — MissionPatch는
   P5 candidate 검증에 쓰이지 않고 RQ3(P8)에서 실제 사용되므로 P8 문서 개정 시 확정.
+- v1.15 (D-016): **task 어휘 변경** — `HAZARD_MARKER_DEPLOY` → `GROUND_SUPPRESSION`(symbolic),
+  `Capability.MARKER_DISPENSER` → `SUPPRESSANT_APPLICATOR`, "Safety UGV" → "Ground Response
+  UGV"(ID G1/G2 유지). §2·§3·§4·§5·§7·§9 #12·§15 P1 게이트 개정. `VALIDATOR_VERSION`
+  1.1 → 1.2. reference fixture의 GROUND_SUPPRESSION priority = incident priority(F1 9 / F2 7).
+  P3/P4 골든값 재산출.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -91,9 +96,15 @@ RQ3는 RQ1/RQ2의 모든 통과 조건이 충족되고 발표 가능한 정량 �
 Actor 1~4 단계, Critic 2/3/4a(feasibility)/4b(grammar), task 11종(표3), 실시간 피드백·동적
 갱신 미구현·후속과제 명시 — 전부 확인됨.
 
-**그대로 복제하지 않는 것**: WATER_LOAD, UGV FIRE_SUPPRESS, OBSTACLE_CLEAR, RELAY_DEPLOY,
-TARGET_TRACK, 인명·물자 적재/하적, MP4MR의 A~G 체계 분류. 새 시나리오는 "MP4MR-inspired"로
-명시한다.
+**그대로 복제하지 않는 것**: WATER_LOAD, OBSTACLE_CLEAR, RELAY_DEPLOY, TARGET_TRACK,
+인명·물자 적재/하적, MP4MR의 A~G 체계 분류. 새 시나리오는 "MP4MR-inspired"로 명시한다.
+
+**GROUND_SUPPRESSION에 대하여(D-016)**: §4의 `GROUND_SUPPRESSION`은 지상 무인체계가 incident
+접근 지점에서 수행하는 **symbolic task**다 — 위치 도달 + dwell로만 완료를 판정하고, 물리적
+소화 성공이나 소화 소요시간을 산출하거나 주장하지 않는다(`SUPPRESSANT_DROP`과 같은 성격).
+MP4MR의 UGV suppression과 유사한 단계가 있으나, 이 연구의 독창성 주장은 task 어휘가 아니라
+**결정론적 whole-graph Validator + CBBA 축**에 둔다(아래 "핵심 차별점"). task 어휘 변경만으로
+독창성을 주장하지 않는다.
 
 **핵심 차별점**: LLM이 생성한 임무 그래프의 실현 가능성과 도메인 제약을, 또 다른 LLM Critic
 호출이 아니라 **결정론적 whole-graph Validator**로 검증한다. 동일한 후보 그래프에는 항상
@@ -128,7 +139,7 @@ time으로만 판정한다.
 | task | 12 | `AREA_RECON` 4 (ZONE_A~D) + incident workflow 4단계 × incident 2 = 8 |
 | edge | 6 | incident 체인당 3 (§4 workflow) × incident 2 |
 | 초기 READY | 6 | predecessor 없는 task = `AREA_RECON` 4 + `THERMAL_RECON` 2 |
-| 초기 PENDING | 6 | `SUPPRESSANT_DROP` 2 + `GROUND_INSPECTION` 2 + `HAZARD_MARKER_DEPLOY` 2 |
+| 초기 PENDING | 6 | `SUPPRESSANT_DROP` 2 + `GROUND_INSPECTION` 2 + `GROUND_SUPPRESSION` 2 |
 
 READY/PENDING은 fixture YAML에 적지 않고 graph의 predecessor 상태에서 계산한다(§7, §9).
 
@@ -143,8 +154,8 @@ READY/PENDING은 fixture YAML에 적지 않고 graph의 predecessor 상태에서
 | `AREA_RECON` | Scout UAV가 지정 구역을 정찰 | 위치 도달 + dwell |
 | `THERMAL_RECON` | 이미 보고된 incident 위치에 UAV가 접근해 대응 전 열원 확인 절차를 수행하는 symbolic task. 열분포 지도, 새 좌표, 센서 데이터를 산출하지 않는다 | 위치 도달 + dwell |
 | `SUPPRESSANT_DROP` | Response UAV가 사전 탑재한 대응 payload를 투하. 완료는 물리적 화재 진압 성공을 의미하지 않는다 | 위치 도달 + dwell |
-| `GROUND_INSPECTION` | SUPPRESSANT_DROP workflow 완료 후 Safety UGV가 incident 접근 지점으로 이동해 지상 상태 점검 | 위치 도달 + dwell |
-| `HAZARD_MARKER_DEPLOY` | GROUND_INSPECTION 완료 후 Safety UGV가 위험 구역 marker 설치 | 위치 도달 + dwell |
+| `GROUND_INSPECTION` | SUPPRESSANT_DROP workflow 완료 후 Ground Response UGV가 incident 접근 지점으로 이동해 지상 상태 점검 | 위치 도달 + dwell |
+| `GROUND_SUPPRESSION` | GROUND_INSPECTION 완료 후 Ground Response UGV가 incident 접근 지점에서 지상 진압을 수행하는 symbolic task. 완료는 물리적 소화 성공·소화 소요시간을 의미하지 않는다(D-016) | 위치 도달 + dwell |
 
 `THERMAL_RECON`을 `THERMAL_MAPPING`으로 부르지 않는다 — "mapping"은 위치를 도출하는 것처럼
 들리는데 실제로는 아무 데이터도 산출하지 않는다.
@@ -152,7 +163,7 @@ READY/PENDING은 fixture YAML에 적지 않고 graph의 predecessor 상태에서
 **정적 incident workflow** (Phase 1, 조건부 규칙 — 아래 항상 강제되는 게 아님에 주의):
 
 ```
-THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → HAZARD_MARKER_DEPLOY
+THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION
 ```
 
 이 규칙은 "downstream task가 **존재하면** 같은 incident의 올바른 predecessor가 필요하다"는
@@ -164,6 +175,10 @@ mission profile로 별도 판정한다(§9 참고).
 `AREA_RECON`은 이 incident 대응 chain의 predecessor가 아니다 — 구역 정찰은 독립적으로
 수행한다.
 
+**dwell duration은 symbolic scenario parameter다**(D-016): 각 task_type마다 하나의 고정값을
+`TASK_TABLE`에 두며, 물리적 소요시간(비행시간·소화시간 등)이라고 주장하지 않는다.
+`GROUND_SUPPRESSION`의 duration도 마찬가지로 하나로 고정한다.
+
 ---
 
 ## 5. Agent 구성
@@ -174,12 +189,12 @@ mission profile로 별도 판정한다(§9 참고).
 |---|---|---|
 | Scout UAV (S1, S2) | 2 | `AERIAL_RECON`, `THERMAL_SENSOR` |
 | Response UAV (R1, R2) | 2 | `THERMAL_SENSOR`, `SUPPRESSANT_PAYLOAD` |
-| Safety UGV (G1, G2) | 2 | `GROUND_MOBILITY`, `MARKER_DISPENSER` |
+| Ground Response UGV (G1, G2) | 2 | `GROUND_MOBILITY`, `SUPPRESSANT_APPLICATOR` |
 
 Task별 eligible bidder: `AREA_RECON`=Scout 2, `THERMAL_RECON`=Scout+Response 4,
-`SUPPRESSANT_DROP`=Response 2, `GROUND_INSPECTION`=Safety UGV 2, `HAZARD_MARKER_DEPLOY`=
-Safety UGV 2. 모든 task type에 eligible bidder ≥2 — UGV 전용 task에서도 CBBA가 G1/G2 중
-winner를 결정한다.
+`SUPPRESSANT_DROP`=Response 2, `GROUND_INSPECTION`=Ground Response UGV 2,
+`GROUND_SUPPRESSION`=Ground Response UGV 2. 모든 task type에 eligible bidder ≥2 — UGV 전용
+task에서도 CBBA가 G1/G2 중 winner를 결정한다.
 
 Response UAV의 payload는 사전 탑재된 것으로 가정한다. `WATER_LOAD`, suppressant 잔량·재보급,
 same-agent resource coupling은 구현하지 않는다.
@@ -212,7 +227,7 @@ class Capability(StrEnum):
     THERMAL_SENSOR = "THERMAL_SENSOR"
     SUPPRESSANT_PAYLOAD = "SUPPRESSANT_PAYLOAD"
     GROUND_MOBILITY = "GROUND_MOBILITY"
-    MARKER_DISPENSER = "MARKER_DISPENSER"
+    SUPPRESSANT_APPLICATOR = "SUPPRESSANT_APPLICATOR"
 
 @dataclass(slots=True)
 class Agent:
@@ -243,7 +258,7 @@ class Task:
     target: str                                   # area_id 또는 incident_id
     position: tuple[float, float]
     priority: int                                 # 1..10 (D-008), 클수록 우선
-    required_capabilities: frozenset[Capability]   # 복수 — 예: marker task는 GROUND_MOBILITY+MARKER_DISPENSER 둘 다 필요할 수 있음
+    required_capabilities: frozenset[Capability]   # 복수 — 예: GROUND_SUPPRESSION은 GROUND_MOBILITY+SUPPRESSANT_APPLICATOR 둘 다 필요
     eligible_platforms: frozenset[PlatformKind]
     duration: float
     status: TaskStatus
@@ -330,7 +345,7 @@ aerial-only 임무, (b) full-response 명령인데 나머지 task를 누락한 �
 | 9 | capability 충족 agent 존재(≥1) | task별 | E_INFEASIBLE |
 | 10 | incident workflow: downstream이 존재하면 같은 incident의 정확히 그 predecessor 타입을 정확히 1개 가짐(조건부, §4 참고) | incident 체인별 | E_WORKFLOW |
 | 11 | cross-incident edge 금지 | workflow edge별 | E_CROSS_INCIDENT |
-| 12 | UGV 대상 task 위치가 route graph에서 도달 가능 | GROUND_INSPECTION/HAZARD_MARKER_DEPLOY | E_UNREACHABLE |
+| 12 | UGV 대상 task 위치가 route graph에서 도달 가능 | GROUND_INSPECTION/GROUND_SUPPRESSION | E_UNREACHABLE |
 | 13 | **종결(COMPLETED/CANCELLED) task는 상태·결과·target·incoming edge가 불변. 단, 아직 RUNNING이 아닌 successor를 향한 outgoing edge는 같은 atomic patch 안에서 유효한 workflow로 재배선할 수 있다** | 전체 | E_TERMINAL_IMMUTABLE |
 | 14 | patch 거부 시 원본 완전 보존(트랜잭션) | patch 전체 | (부분 commit 없음) |
 
@@ -617,7 +632,7 @@ invariant를 통과해야 한다.
 4. fixture의 모든 task_id 유일, 모든 target이 존재하는 area/incident 참조, 모든 edge 양끝이
    존재하는 task 참조, cycle 없음.
 5. route graph 도달가능성 전수 검증 통과 — 모든 UGV 대상 task(`GROUND_INSPECTION`,
-   `HAZARD_MARKER_DEPLOY`)의 `access_node_id`가 route graph에 존재하고 모든 UGV 시작
+   `GROUND_SUPPRESSION`)의 `access_node_id`가 route graph에 존재하고 모든 UGV 시작
    노드에서 도달 가능(§8).
 
 ---

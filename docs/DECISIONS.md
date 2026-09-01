@@ -473,6 +473,40 @@ workload가 쏠렸으나, D-013의 availability-aware 수정 후 다시 균형�
 §14 문구를 "P5 전"에서 "P8로 유보"로 수정.
 
 **미확정으로 남긴 것 (P5 착수 전 사용자 결정 필요)**: HAZARD_MARKER_DEPLOY를 유지할지
-GROUND_SUPPRESSION 중심 workflow로 바꿀지. 계약 §2가 "UGV FIRE_SUPPRESS는 그대로 복제하지
-않는다"고 명시하므로, 변경 시 §2 차별점 서술·§3 시나리오·§4 task vocabulary·§5 capability·
-reference fixture를 함께 개정해야 한다. 이 결정 이전에는 P5 prompt/annotation을 만들지 않는다.
+GROUND_SUPPRESSION 중심 workflow로 바꿀지. → D-016에서 결정됨.
+
+## D-016: task 어휘 변경 — HAZARD_MARKER_DEPLOY → GROUND_SUPPRESSION (계약 v1.15)
+
+**배경** P5 착수 전 사용자가 UGV 지상 진압 중심 workflow로 방향을 정함(D-015에서 유보했던
+결정). 사용자 응답: (a) GROUND_SUPPRESSION이 HAZARD_MARKER_DEPLOY만 교체, (b) Safety UGV
+capability를 `MARKER_DISPENSER` → `SUPPRESSANT_APPLICATOR` 교체, (c) §2 차별점은 Validator +
+CBBA 축 유지.
+
+**결정 — 이 항목이 D-001~D-015의 관련 부분을 supersede한다** (DECISIONS는 append-only이므로
+과거 항목은 그대로 두되, 아래가 우선):
+
+- `TaskType.HAZARD_MARKER_DEPLOY` → `GROUND_SUPPRESSION`. 의미: Ground Response UGV가
+  GROUND_INSPECTION 완료 후 incident 접근 지점에서 수행하는 **symbolic** 진압 task. 위치 도달
+  + dwell로만 완료 판정; 물리적 소화 성공·소화 소요시간을 산출하거나 주장하지 않는다.
+- workflow 체인: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`.
+- `Capability.MARKER_DISPENSER` → `SUPPRESSANT_APPLICATOR`. Ground Response UGV(G1/G2) =
+  `GROUND_MOBILITY` + `SUPPRESSANT_APPLICATOR`. `GROUND_SUPPRESSION` required_capabilities =
+  두 capability 모두. eligible bidder 2(G1/G2).
+- 문서 명칭 "Safety UGV" → "Ground Response UGV". agent ID `G1`/`G2` 유지.
+- `VALIDATOR_VERSION` **1.1 → 1.2** — 허용 TaskType 집합과 §9 #10 workflow invariant의 판정
+  의미가 바뀜(§14 bump 규칙).
+- reference fixture: `GROUND_SUPPRESSION`의 priority는 incident priority를 따른다 —
+  FIRE_SITE_1 = 9, FIRE_SITE_2 = 7 (기존 marker의 6/5 아님). duration은 `TASK_TABLE`에
+  하나로 고정된 symbolic scenario parameter.
+- §2에서 "UGV FIRE_SUPPRESS는 그대로 복제하지 않는다"를 삭제하고, GROUND_SUPPRESSION이
+  symbolic이며 독창성 주장은 Validator+CBBA 축에 둔다는 문단을 추가.
+- §3 fixture 형상, §4 vocabulary·workflow, §5 agent·bidder, §7 required_capabilities 예시,
+  §9 #12 scope, §15 P1 게이트 5번을 GROUND_SUPPRESSION 기준으로 개정.
+
+**골든값**: P3(`allocate`)·P4(`SimExecutor`) 결과를 새 priority·duration으로 처음부터
+재산출한다. 기존 균형 workload를 유지하려고 값을 역조정하지 않는다 — 유효한 새 결과를 기록.
+
+**작업 순서**: 계약 커밋 → enum/capability/compiler/scene/fixture/Validator → VALIDATOR_VERSION
+1.2 → 테스트·현재 문서 참조 수정 → P1~P4 전체 실행 → 새 P3/P4 결과 기록 → README/CLAUDE →
+현재 파일(코드·계약·테스트) 옛 어휘 잔존 검색(0이어야 함; DECISIONS D-001~D-015 과거 기록은
+제외).
