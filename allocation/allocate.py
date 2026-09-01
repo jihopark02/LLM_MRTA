@@ -27,7 +27,7 @@ class AllocationResult:
     winning_bids: dict[str, float]
     task_start: dict[str, float]
     task_completion: dict[str, float]
-    consensus_rounds: list[int]                       # one per epoch
+    consensus_rounds: list[int]                       # one per epoch, incl. a final stalled one
     allocation_success: bool
     unassigned_tasks: list[str]
     capability_violations: list[str]
@@ -106,9 +106,9 @@ def allocate(
         result = run_epoch(
             {t.task_id: t for t in graph.tasks}, agents, epoch_scene, lam=lam, frontier=frontier
         )
+        consensus_rounds.append(result.rounds)  # the auction ran even if it placed nothing
         if not result.winners:
             break  # frontier stalled — nothing was assignable this epoch
-        consensus_rounds.append(result.rounds)
 
         for task_id, agent_id in result.winners.items():
             assignments[task_id] = agent_id

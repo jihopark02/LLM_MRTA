@@ -34,8 +34,9 @@ def _bid_gt(a: float, b: float) -> bool:
 
 
 def _beats(y_k: float, k: str, y_i: float, i: str) -> bool:
-    """Does agent k's bid beat agent i's? Strict >, exact ties broken by the
-    lexicographically smaller agent_id (contract §11 deterministic tie-break)."""
+    """Does agent k's bid beat agent i's? Strict > beyond EPSILON; bids within
+    EPSILON (1e-9) are a tie, broken by the lexicographically smaller agent_id
+    (contract §11 / D-010 deterministic tie-break)."""
     if _bid_gt(y_k, y_i):
         return True
     if _bid_gt(y_i, y_k):

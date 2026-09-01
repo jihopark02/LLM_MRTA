@@ -12,11 +12,11 @@ Unmanned Systems
 
 ## 현재 단계
 
-**P1·P2 승인. P3 구현 완료**(Codex 검토 반영, 재검토 대기) — `validator/`(P2: whole-graph
-Validator §9, MissionPatch §10) + `allocation/`(P3: platform-aware travel §8, CBBA
-scoring/epoch §11, rolling READY-frontier allocation + §13 지표). 테스트 161개 통과
-(`python3 -m pytest -q`). P3 게이트 통과(reference fixture 12/12 할당, capability/precedence
-violation 0, UGV bid가 route Dijkstra 사용). 다음은 P4(2D executor, end-to-end).
+**P1·P2·P3 승인 완료** — `validator/`(P2: whole-graph Validator §9, MissionPatch §10) +
+`allocation/`(P3: platform-aware travel §8, CBBA scoring/epoch §11, rolling READY-frontier
+allocation + §13 지표). 테스트 161개 통과(`python3 -m pytest -q`). P3 게이트 통과(reference
+fixture 12/12 할당, capability/precedence violation 0, UGV bid가 route Dijkstra 사용).
+다음은 P4(2D executor, end-to-end).
 
 계약 버전 v1.9 / 최신 결정 D-010. 단계 게이트 정의는
 [`docs/RESEARCH_CONTRACT.md`](docs/RESEARCH_CONTRACT.md) §15 참고.

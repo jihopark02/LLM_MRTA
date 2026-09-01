@@ -130,7 +130,9 @@ def test_frontier_stall_stops_immediately(scene, tmp_path):
     r = allocate(st, scene, max_epochs=5)
     assert "SUPPRESSANT_DROP__FIRE_SITE_1" in r.unassigned_tasks
     assert not r.allocation_success
-    assert len(r.consensus_rounds) <= 2  # did not re-auction the stalled frontier 5x
+    # epoch 1 places THERMAL_RECON, epoch 2 auctions the stalled frontier once
+    # (its round count is still recorded) then stops — not re-auctioned 5x.
+    assert r.consensus_rounds == [3, 2]
 
 
 def test_ugv_marginal_bid_uses_route_distance(state, scene):

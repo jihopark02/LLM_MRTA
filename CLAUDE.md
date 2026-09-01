@@ -25,13 +25,11 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1·P2 승인. P3 구현 완료 + Codex 검토 반영(D-010). 계약 v1.9.** `validator/`(P2) +
-`allocation/`(P3: travel §8, scoring §11, cbba epoch, allocate rolling frontier + §13 지표).
-`VALIDATOR_VERSION = "1.1"`, `λ = 0.999`. pytest 161개 통과(`python3 -m pytest -q`), ruff
-clean, wheel에 allocation 포함 확인. P3 게이트 통과 — reference fixture 12/12 할당,
-capability/precedence violation 0, UGV bid가 route Dijkstra 사용. plan-time schedule은
-topological-wave barrier(D-010) — makespan은 상한 추정. 다음: Codex 재검토 후 **P4**(2D
-executor, end-to-end).
+**P1·P2·P3 승인 완료(Codex). 계약 v1.9 (D-010).** `validator/`(P2) + `allocation/`(P3:
+travel §8, scoring §11, cbba epoch, allocate rolling frontier + §13 지표). `VALIDATOR_VERSION
+= "1.1"`, `λ = 0.999`. pytest 161개 통과(`python3 -m pytest -q`), ruff clean, wheel에
+allocation 포함 확인. plan-time schedule은 topological-wave barrier(D-010) — makespan은
+상한 추정. 다음: **P4**(2D executor, end-to-end).
 
 P3 구조:
 - `allocation/travel.py`: `leg_time`/`leg_distance` — UAV Euclidean, UGV route Dijkstra.

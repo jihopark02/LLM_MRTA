@@ -93,7 +93,7 @@ def test_converges_and_reports_round_count(scene):
     assert result.winners["THERMAL_RECON__FIRE_SITE_1"] in {"S1", "S2", "R1", "R2"}
 
 
-def test_tie_break_is_1e9_tolerance_then_agent_id(scene):
+def test_tie_break_is_1e_minus_9_tolerance_then_agent_id(scene):
     from allocation.cbba import _beats
 
     # exact tie -> smaller agent_id wins
