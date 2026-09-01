@@ -12,7 +12,7 @@ import yaml
 
 from core.enums import PlatformKind, TaskType
 from core.task_graph import TaskGraph
-from scenarios.compiler import TASK_TABLE, compile_graph, task_id_for
+from scenarios.compiler import TASK_TABLE, compile_reference_graph, task_id_for
 from scenarios.scene import Scene, load_scene
 
 _SCENES_DIR = Path(__file__).parent
@@ -50,8 +50,15 @@ def load_reference_fixture(
     edges = [
         (_parse_endpoint(pred), _parse_endpoint(succ)) for pred, succ in raw["edges"]
     ]
-    graph = compile_graph(scene, task_specs, edges)
-    return LoadedFixture(raw["fixture_id"], scene, graph)
+    graph = compile_reference_graph(scene, task_specs, edges)
+    loaded = LoadedFixture(raw["fixture_id"], scene, graph)
+
+    # Contract §8: reject the scenario at load time if any UGV-targeted task is
+    # not connected to the route graph from every UGV start node.
+    reach_errors = scene.reachability_errors(loaded.ugv_target_nodes())
+    if reach_errors:
+        raise ValueError("route graph reachability failed:\n  " + "\n  ".join(reach_errors))
+    return loaded
 
 
 def eligible_bidder_counts(scene: Scene) -> dict[TaskType, int]:

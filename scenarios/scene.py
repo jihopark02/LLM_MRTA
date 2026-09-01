@@ -1,21 +1,23 @@
 """Semantic scene loader (RESEARCH_CONTRACT.md §3, §5, §8).
 
 The scene is the environment + fleet vocabulary. Task instances are NOT here;
-they come from a separate fixture (P1) or the LLM pipeline (P5) and are compiled
-against this scene by ``core/compiler.py``.
+they are compiled against this scene by ``scenarios/compiler.py`` — for the
+trusted reference fixture in P1, and (P5) for LLM output only after it has
+passed the P2 whole-graph Validator.
 
 UGV start nodes are kept in ``Scene.agent_access_nodes`` rather than on the core
 ``Agent`` (contract §6 keeps platform-specific config out of the core model);
 the platform adapter design is settled in P7.
 """
 
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
 from core.agent import Agent
-from core.enums import Capability, PlatformKind
+from core.enums import Capability, IncidentStatus, PlatformKind
 from core.route_graph import RouteGraph
 
 
@@ -33,6 +35,7 @@ class Incident:
     priority: int
     position: tuple[float, float]
     access_node: str
+    status: IncidentStatus
 
 
 @dataclass(slots=True)
@@ -76,6 +79,13 @@ def _xy(pair) -> tuple[float, float]:
     return (float(pair[0]), float(pair[1]))
 
 
+def _positive_finite(value: float, label: str) -> float:
+    v = float(value)
+    if not math.isfinite(v) or v <= 0.0:
+        raise ValueError(f"{label} must be finite and positive, got {value!r}")
+    return v
+
+
 def load_scene(path: str | Path) -> Scene:
     raw = yaml.safe_load(Path(path).read_text())
 
@@ -84,7 +94,14 @@ def load_scene(path: str | Path) -> Scene:
         for zid, z in raw["zones"].items()
     }
     incidents = {
-        iid: Incident(iid, i["zone"], int(i["priority"]), _xy(i["position"]), i["access_node"])
+        iid: Incident(
+            incident_id=iid,
+            zone=i["zone"],
+            priority=int(i["priority"]),
+            position=_xy(i["position"]),
+            access_node=i["access_node"],
+            status=IncidentStatus(i["status"]),
+        )
         for iid, i in raw["incidents"].items()
     }
 
@@ -114,7 +131,7 @@ def load_scene(path: str | Path) -> Scene:
                 capabilities=caps,
                 initial_position=pos,
                 position=pos,
-                speed=float(spec["speed"]),
+                speed=_positive_finite(spec["speed"], f"{spec['agent_id']}.speed"),
             )
         )
 

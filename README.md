@@ -12,11 +12,12 @@ Unmanned Systems
 
 ## 현재 단계
 
-P1 구현 완료 — semantic scene / Agent / Task / TaskGraph / RouteGraph / 결정론적 compiler /
-reference fixture. §15 P1 완료 게이트 5개 항목 전부 통과(테스트 41개). Codex 검토 대기 중이며,
-승인되면 P2(deterministic whole-graph Validator + MissionPatch reconciliation) 착수.
+P1 구현 완료 + Codex 1차 검토 반영(D-003) — semantic scene / Agent / Task / TaskGraph /
+RouteGraph / 결정론적 compiler / reference fixture. §15 P1 완료 게이트 5개 + 검토 반례
+테스트 전부 통과(테스트 51개). Codex 재검토 대기 중이며, 승인되면 P2(deterministic
+whole-graph Validator + MissionPatch reconciliation) 착수.
 
-계약 버전 v1.1 / 최신 결정 D-002. P1 게이트 정의는
+계약 버전 v1.2 / 최신 결정 D-003. P1 게이트 정의는
 [`docs/RESEARCH_CONTRACT.md`](docs/RESEARCH_CONTRACT.md) §15 참고.
 
 새로운 LLM 모델이나 CBBA 알고리즘을 제안하는 연구가 아니다. 검증된 구성요소를 통합하고

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from core.enums import Capability, PlatformKind
+from core.enums import Capability, IncidentStatus, PlatformKind
 from scenarios.scene import load_scene
 
 SCENE_PATH = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
@@ -40,6 +40,48 @@ def test_incident_access_nodes_are_in_route_graph(scene):
         assert incident.access_node in scene.route_graph
 
 
+def test_incidents_carry_response_required_status(scene):
+    assert all(
+        i.status is IncidentStatus.RESPONSE_REQUIRED for i in scene.incidents.values()
+    )
+
+
+def _minimal_scene_yaml(incident_line: str, fleet_line: str = "fleet: []") -> str:
+    return (
+        "scene_id: t\n"
+        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0]}}\n"
+        f"incidents: {{{incident_line}}}\n"
+        "route_graph: {nodes: {N0: [0, 0], N1: [3, 4]}, lanes: [[N0, N1]]}\n"
+        f"{fleet_line}\n"
+    )
+
+
+def test_invalid_incident_status_is_rejected(tmp_path):
+    bad = tmp_path / "s.yaml"
+    bad.write_text(
+        _minimal_scene_yaml(
+            "F1: {zone: ZONE_A, priority: 1, position: [1, 1], access_node: N0, status: ON_FIRE}"
+        )
+    )
+    with pytest.raises(ValueError):
+        load_scene(bad)
+
+
+def test_non_positive_agent_speed_is_rejected(tmp_path):
+    bad = tmp_path / "s.yaml"
+    bad.write_text(
+        _minimal_scene_yaml(
+            "F1: {zone: ZONE_A, priority: 1, position: [1, 1], access_node: N0,"
+            " status: RESPONSE_REQUIRED}",
+            "fleet:\n"
+            "  - {agent_id: X1, platform_kind: UAV, capabilities: [AERIAL_RECON],"
+            " position: [0, 0], speed: 0}",
+        )
+    )
+    with pytest.raises(ValueError, match="speed"):
+        load_scene(bad)
+
+
 def test_eligible_agents_filters_by_platform_and_capability(scene):
     responders = scene.eligible_agents(
         frozenset({Capability.SUPPRESSANT_PAYLOAD}), frozenset({PlatformKind.UAV})
@@ -50,11 +92,10 @@ def test_eligible_agents_filters_by_platform_and_capability(scene):
 def test_incident_referencing_unknown_zone_is_rejected(tmp_path):
     bad = tmp_path / "bad.yaml"
     bad.write_text(
-        "scene_id: bad\n"
-        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0]}}\n"
-        "incidents: {F1: {zone: ZONE_X, priority: 1, position: [1, 1], access_node: N0}}\n"
-        "route_graph: {nodes: {N0: [0, 0]}, lanes: []}\n"
-        "fleet: []\n"
+        _minimal_scene_yaml(
+            "F1: {zone: ZONE_X, priority: 1, position: [1, 1], access_node: N0,"
+            " status: RESPONSE_REQUIRED}"
+        )
     )
     with pytest.raises(ValueError, match="unknown zone"):
         load_scene(bad)

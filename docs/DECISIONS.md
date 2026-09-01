@@ -80,3 +80,37 @@ P2(Validator) 착수 시점에 잘못된 fixture를 근거로 삼게 된다. Cod
 **영향** P1 구현 전에 이 문서 커밋을 먼저 한다. 이후 Claude가 P1을 구현하고 커밋 단위로
 Codex가 독립 검토한다. 함께 CLAUDE.md에 문서 갱신 트리거와 DECISIONS 기록 범위를 명문화한다
 (운영 절차 보강이므로 별도 decision 없이 이 커밋에 포함).
+
+## D-003: compiler 입력 경계 + P1 Codex 검토 반영 (계약 v1.2)
+
+**배경** P1 구현 후 Codex 검토에서 4개 중요 지적:
+
+1. `compile_graph()`가 edge 추가 직후 `recompute_ready()`를 호출해, 존재하지 않는
+   predecessor는 KeyError로 종료되고 중복 edge는 set 저장으로 조용히 합쳐졌다. 이 상태로
+   같은 compiler를 P5 LLM 출력에 쓰면 P2 Validator가 E_UNKNOWN_REF/E_DUPLICATE_EDGE를
+   판정할 기회를 잃는다.
+2. `RouteGraph.add_lane()`이 weight를 검증하지 않아 음수·NaN·inf가 통과했다(Dijkstra 전제
+   위반).
+3. 계약 §3의 incident `RESPONSE_REQUIRED`가 scene 데이터에 없고 주석으로만 존재했다.
+4. "str,Enum이 YAML 왕복된다"는 서술이 틀렸다(`yaml.safe_dump`는 RepresenterError).
+
+**결정** 계약을 v1.2로 갱신하고 다음을 확정:
+
+- **compiler 입력 경계**(§7): 결정론적 compiler는 신뢰된 task 목록(손으로 쓴 reference
+  fixture, 또는 §12 Validator를 이미 통과한 LLM 출력)만 받는다. 함수명을
+  `compile_reference_graph`로 바꾸고, 깨진 신뢰 입력(존재하지 않는 edge 끝점, 중복 edge)에는
+  명시적 ValueError를 던진다. raw LLM candidate의 구조 검증은 P2 Validator가 자체 candidate
+  표현 위에서 수행한 뒤에만 compile한다.
+- **RouteGraph weight**: finite & strictly positive 강제, 단위테스트 추가.
+- **incident status**: `IncidentStatus.RESPONSE_REQUIRED`를 core enum으로 추가하고 scene
+  YAML 필수 필드로 명시, loader가 검증(§3).
+- **enum 직렬화 서술 정정**(§6): 읽기는 커스텀 loader 불필요, 직렬화 경계에서는 `.value`.
+- 추가 보강(별도 decision 불필요, 구현 선택): scene loader가 agent `speed`를 finite
+  positive로 검증. `Task.duration`도 동일 원칙. 문서 경로 오타(`core/compiler.py` →
+  `scenarios/compiler.py`) 수정.
+
+**근거** #1이 P2 Validator의 입력 경계를 결정하므로 P2 착수 전 해결이 필수. Codex가 명시적
+반례(unknown predecessor → KeyError, duplicate edge 2개 → 1개만 저장)를 재현해 제시함.
+
+**영향** P1 재검증 대상. 반례 테스트 10개 추가(총 51 passed). P2 착수 시 candidate 표현을
+별도로 설계하고, compiler는 검증 통과분만 받는다.

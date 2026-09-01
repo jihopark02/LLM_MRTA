@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from core.enums import Capability, PlatformKind, TaskType
-from scenarios.compiler import compile_task, task_id_for
+from core.enums import Capability, PlatformKind, TaskStatus, TaskType
+from scenarios.compiler import compile_reference_graph, compile_task, task_id_for
 from scenarios.scene import load_scene
 
 SCENE_PATH = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
@@ -54,3 +54,33 @@ def test_unknown_target_is_rejected(scene):
 def test_task_id_helper_matches_compiled_id(scene):
     t = compile_task(scene, TaskType.GROUND_INSPECTION, "FIRE_SITE_1", priority=8)
     assert t.task_id == task_id_for(TaskType.GROUND_INSPECTION, "FIRE_SITE_1")
+
+
+# -- compile_reference_graph: trusted-list strictness ----------------------
+
+_TWO_TASKS = [
+    (TaskType.THERMAL_RECON, "FIRE_SITE_1", 9),
+    (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1", 9),
+]
+_GOOD_EDGE = ((TaskType.THERMAL_RECON, "FIRE_SITE_1"), (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1"))
+
+
+def test_reference_graph_builds_and_recomputes_frontier(scene):
+    g = compile_reference_graph(scene, _TWO_TASKS, [_GOOD_EDGE])
+    assert len(g) == 2 and len(g.edges) == 1
+    assert g.ids_with_status(TaskStatus.READY) == {"THERMAL_RECON__FIRE_SITE_1"}
+    assert g.ids_with_status(TaskStatus.PENDING) == {"SUPPRESSANT_DROP__FIRE_SITE_1"}
+
+
+def test_reference_graph_rejects_unknown_edge_endpoint(scene):
+    bad_edge = (
+        (TaskType.THERMAL_RECON, "FIRE_SITE_1"),
+        (TaskType.GROUND_INSPECTION, "FIRE_SITE_2"),  # not in the task list
+    )
+    with pytest.raises(ValueError, match="not a compiled task"):
+        compile_reference_graph(scene, _TWO_TASKS, [bad_edge])
+
+
+def test_reference_graph_rejects_duplicate_edge(scene):
+    with pytest.raises(ValueError, match="duplicate edge"):
+        compile_reference_graph(scene, _TWO_TASKS, [_GOOD_EDGE, _GOOD_EDGE])

@@ -19,21 +19,26 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-002, 계약 v1.1)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-003, 계약 v1.2)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1 구현 완료. 계약 v1.1 (D-002).** `core/`(enums, Agent, Task, TaskGraph, RouteGraph),
-`scenarios/`(scene loader, 결정론적 compiler, reference fixture)까지 구현했고 §15 P1 완료
-게이트 5개 항목이 전부 테스트로 통과된다(pytest 41개, `python3 -m pytest -q`). Codex 검토
-대기 중. 검토 승인 후 **P2**(deterministic whole-graph Validator + MissionPatch
-reconciliation, §9/§10) 착수.
+**P1 구현 완료 + Codex 1차 검토 반영(D-003). 계약 v1.2.** `core/`(enums, Agent, Task,
+TaskGraph, RouteGraph), `scenarios/`(scene loader, `compile_reference_graph`, reference
+fixture)까지 구현. §15 P1 완료 게이트 5개 + Codex 반례 테스트가 전부 통과된다(pytest 51개,
+`python3 -m pytest -q`). Codex 재검토 대기 중. 승인 후 **P2**(deterministic whole-graph
+Validator + MissionPatch reconciliation, §9/§10) 착수.
 
-P2 착수 시 주의: §9 invariant 14개를 전부 구현하고, **매 patch마다 최종 후보 graph 전체를
-처음부터 재검증**(§9 멀티 트랜잭션 우회 방지), patch 거부 시 원본 완전 보존(트랜잭션).
-`TaskGraph.reference_errors()`/`has_cycle()`는 P1의 경량 구조 검사일 뿐 P2 Validator가 아니다.
+P2 착수 시 주의:
+- §9 invariant 14개 전부 구현. **매 patch마다 최종 후보 graph 전체를 처음부터 재검증**(§9
+  멀티 트랜잭션 우회 방지). patch 거부 시 원본 완전 보존(트랜잭션).
+- raw LLM/patch candidate는 **별도 candidate 표현**으로 받아 Validator가 E_UNKNOWN_REF/
+  E_DUPLICATE_EDGE 등을 판정한다. `scenarios/compiler.py`의 `compile_reference_graph`는
+  신뢰된(검증 통과) 목록만 받으므로 candidate 검증 용도로 쓰지 않는다(D-003, 계약 §7).
+- `TaskGraph.reference_errors()`/`has_cycle()`는 P1의 경량 구조 검사일 뿐 P2 Validator가
+  아니다.
 
 RQ1(LLM 복합 task graph 생성)과 RQ2(이종 UAV/UGV CBBA 할당)가 필수 범위다. RQ3(선택적
 재할당)는 P8 후속이며, 구현되기 전까지는 어디에도 "동적 재할당"을 완료된 결과로 쓰지 않는다.

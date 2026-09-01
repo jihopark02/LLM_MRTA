@@ -2,8 +2,8 @@
 
 The LLM produces only ``task_type`` + ``target`` + ``priority``. Everything else
 (``task_id``, ``position``, ``required_capabilities``, ``eligible_platforms``,
-``duration``) is resolved deterministically by ``core/compiler.py`` from the
-semantic scene and the default capability table.
+``duration``) is resolved deterministically by ``scenarios/compiler.py`` from
+the semantic scene and the default capability table.
 
 ``status`` is NOT stored independently in YAML; it is recomputed from the
 predecessor state in the task graph (see ``core/task_graph.py``).

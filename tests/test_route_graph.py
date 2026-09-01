@@ -37,6 +37,15 @@ def test_lane_default_weight_is_euclidean():
     assert g.shortest_path_distance("N0", "N2") == pytest.approx(20.0)
 
 
+@pytest.mark.parametrize("bad", [-1.0, 0.0, float("nan"), float("inf")])
+def test_non_positive_or_non_finite_weight_is_rejected(bad):
+    g = RouteGraph()
+    g.add_node("A", (0.0, 0.0))
+    g.add_node("B", (1.0, 0.0))
+    with pytest.raises(ValueError):
+        g.add_lane("A", "B", weight=bad)
+
+
 def test_explicit_weight_overrides_geometry():
     g = RouteGraph()
     g.add_node("A", (0.0, 0.0))

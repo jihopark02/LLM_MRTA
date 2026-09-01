@@ -16,8 +16,8 @@ zones:
 # Incidents are given as RESPONSE_REQUIRED by the scene; nothing in the system
 # decides whether a fire exists (contract §3).
 incidents:
-  FIRE_SITE_1: { zone: ZONE_B, priority: 9, position: [128.0, 108.0], access_node: R_B }
-  FIRE_SITE_2: { zone: ZONE_D, priority: 7, position: [205.0, 42.0], access_node: R_D }
+  FIRE_SITE_1: { zone: ZONE_B, priority: 9, position: [128.0, 108.0], access_node: R_B, status: RESPONSE_REQUIRED }
+  FIRE_SITE_2: { zone: ZONE_D, priority: 7, position: [205.0, 42.0], access_node: R_D, status: RESPONSE_REQUIRED }
 
 # Predefined UGV lane/waypoint graph. Lane weight defaults to Euclidean node
 # distance (see core/route_graph.py).

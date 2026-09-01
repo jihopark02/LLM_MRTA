@@ -23,13 +23,19 @@ class RouteGraph:
         self._adj.setdefault(node_id, {})
 
     def add_lane(self, a: str, b: str, weight: float | None = None) -> None:
-        """Undirected lane. Weight defaults to Euclidean distance between nodes."""
+        """Undirected lane. Weight defaults to Euclidean distance between nodes.
+
+        The weight must be finite and strictly positive — Dijkstra is invalid
+        with negative edges, and NaN/inf silently break shortest-path results.
+        """
         for n in (a, b):
             if n not in self._nodes:
                 raise KeyError(f"lane endpoint is not a route node: {n}")
         if a == b:
             raise ValueError(f"self-loop lane: {a}")
         w = weight if weight is not None else math.dist(self._nodes[a], self._nodes[b])
+        if not math.isfinite(w) or w <= 0.0:
+            raise ValueError(f"lane {a}-{b}: weight must be finite and positive, got {w!r}")
         self._adj[a][b] = w
         self._adj[b][a] = w
 
