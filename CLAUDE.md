@@ -25,11 +25,18 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1·P2·P3 승인 완료(Codex). 계약 v1.9 (D-010).** `validator/`(P2) + `allocation/`(P3:
-travel §8, scoring §11, cbba epoch, allocate rolling frontier + §13 지표). `VALIDATOR_VERSION
-= "1.1"`, `λ = 0.999`. pytest 161개 통과(`python3 -m pytest -q`), ruff clean, wheel에
-allocation 포함 확인. plan-time schedule은 topological-wave barrier(D-010) — makespan은
-상한 추정. 다음: **P4**(2D executor, end-to-end).
+**P1·P2·P3 승인. P4 구현 완료(Codex 검토 대기). 계약 v1.10 (D-011).** `validator/`(P2) +
+`allocation/`(P3) + `execution/`(P4: `SimExecutor` 2D discrete-event, held carry-forward,
+§14 deadlock 절차, §13 지표). `VALIDATOR_VERSION = "1.1"`, `λ = 0.999`. pytest 169개 통과
+(`python3 -m pytest -q`), ruff clean. P4 게이트 통과 — reference mission 12/12 완주,
+violation 0, deadlock 최소 재현·부분진전·정상완주 테스트. RQ1/RQ2 실행 파이프라인(P1~P4)
+완성. 다음: Codex 승인 후 **P5**(LLM Step1/Step2/repair, mock 테스트).
+
+P4 구조:
+- `execution/executor.py` `SimExecutor.run()` — clone 위 event loop: recompute → `run_epoch`
+  (held 전달) → dispatch(predecessor COMPLETED면 이동) → advance(가장 이른 완료로 전진,
+  arrival+dwell) → 반복. RUNNING task는 path[0]에 pin, 입찰은 착지 지점 기준. deadlock 판정
+  직전 recompute 한 번 더(§14). `ExecutionResult`(§13 지표 + deadlocked).
 
 P3 구조:
 - `allocation/travel.py`: `leg_time`/`leg_distance` — UAV Euclidean, UGV route Dijkstra.
@@ -58,12 +65,12 @@ P2 구조:
   assignment 참조 무결성(§10 규칙 6 — bundle/path/winning_bids가 존재하는 task만 참조).
   rejected patch(whole-graph 전 거부)는 `graph_hash` 빈 문자열(§14).
 
-P4 착수 시: 2D executor는 `allocation.cbba.run_epoch`를 재사용하되 `allocate`의 plan-time
-sim 대신 실제 이벤트 루프로 frontier를 굴린다. `execution/mission_runner.py`는 계약 §14의
-premature-deadlock 버그를 피해 **deadlock 판정 직전 recompute를 한 번 더** 하는 패턴으로
-처음부터 작성하고, 최소 재현 테스트(단일 agent, A→B 체인)를 P4 게이트에 넣는다.
-`compile_reference_graph`는 신뢰된 목록만 받는다(계약 §7). MissionState 조작 시 §10
-assignment invariant(규칙 1~6) 유지.
+P5 착수 시: LLM 파이프라인은 §12 — NL → Step1(task_type/target/priority만) → schema 검증
+(`MissionCandidate.from_raw`) → Step2(edge) → `validate_candidate`(whole-graph Validator)
+→ 구조화 오류 기반 repair 최대 1회 → 재검증 → 승인/명시적 거부(reference로 조용히 fallback
+안 함). mock LLM 응답 주입으로 테스트. LLM은 좌표/capability/duration/task_id를 생성하지
+않는다(§7). 승인된 candidate만 `compile_reference_graph`로 실행 graph화. Validator가
+"자연어 의미 충실도"를 보장한다고 서술하지 않는다(§9 — 그건 §12 precision/recall).
 
 RQ1(LLM 복합 task graph 생성)과 RQ2(이종 UAV/UGV CBBA 할당)가 필수 범위다. RQ3(선택적
 재할당)는 P8 후속이며, 구현되기 전까지는 어디에도 "동적 재할당"을 완료된 결과로 쓰지 않는다.
