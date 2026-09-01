@@ -93,6 +93,18 @@ def test_converges_and_reports_round_count(scene):
     assert result.winners["THERMAL_RECON__FIRE_SITE_1"] in {"S1", "S2", "R1", "R2"}
 
 
+def test_tie_break_is_1e9_tolerance_then_agent_id(scene):
+    from allocation.cbba import _beats
+
+    # exact tie -> smaller agent_id wins
+    assert _beats(1.0, "A", 1.0, "B") is True
+    assert _beats(1.0, "B", 1.0, "A") is False
+    # within 1e-9 counts as a tie (contract §11 / D-010) even if B bid a hair more
+    assert _beats(1.0, "A", 1.0 + 5e-10, "B") is True
+    # a real difference wins on its own
+    assert _beats(1.0 + 1e-6, "B", 1.0, "A") is True
+
+
 def test_idle_agents_are_allowed(scene):
     # One task, six agents -> five stay idle; not an error (contract §5).
     tasks = ready_tasks(scene, [(TaskType.AREA_RECON, "ZONE_A", 5)])

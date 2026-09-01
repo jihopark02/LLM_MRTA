@@ -1,10 +1,11 @@
 """Rolling READY-frontier allocation + evaluation metrics (RESEARCH_CONTRACT.md §11, §13).
 
-``allocate`` drives CBBA epoch by epoch over a clone of the mission state: run
-``run_epoch`` on the current READY frontier, record the winners, advance a
-plan-time simulation (agent positions + task completion times), mark the epoch's
-tasks done so the frontier rolls, repeat until every task is placed or the
-frontier stalls.
+``allocate`` drives CBBA epoch by epoch over a clone of the mission state, using a
+plan-time **topological-wave barrier** (D-010): epoch 1 starts at t=0; each
+epoch auctions the current READY frontier; an agent departs epoch e at
+``max(agent_free_at, epoch_start)`` where ``epoch_start`` is the previous wave's
+maximum completion, so no agent travels toward a task before it is READY. Busy
+time is travel + dwell only. The real event loop is P4, not this.
 
 Nothing here is ported — it is the P3 wiring around the ported CBBA core.
 """
@@ -46,28 +47,27 @@ def _eligible(agent: Agent, task) -> bool:
     )
 
 
-def _walk(agent, path_ids, graph, scene, start_time, completion):
-    """Simulate one agent executing its epoch path; return (end_time, distance,
-    per-task start times)."""
+def _walk(agent, path_ids, graph, scene, depart_time):
+    """Simulate one agent executing its epoch path from ``depart_time`` (the
+    barrier already guarantees every task's predecessors are done). Returns
+    (end_time, distance, busy_time, per-task starts, per-task completions)."""
     ref = start_ref(agent, scene)
-    clock = start_time
+    clock = depart_time
     distance = 0.0
+    busy = 0.0
     starts: dict[str, float] = {}
+    comps: dict[str, float] = {}
     for task_id in path_ids:
         task = graph[task_id]
         d = leg_distance(agent, ref, task, scene)
         clock += d / agent.speed
-        pred_ready = max(
-            (completion[p] for p in graph.predecessors(task_id) if p in completion),
-            default=0.0,
-        )
-        st = max(clock, pred_ready)
-        starts[task_id] = st
-        clock = st + task.duration
-        completion[task_id] = clock
+        starts[task_id] = clock
+        clock += task.duration
+        comps[task_id] = clock
         distance += d
+        busy += d / agent.speed + task.duration
         ref = task_ref(agent, task, scene)
-    return clock, distance, starts
+    return clock, distance, busy, starts, comps
 
 
 def allocate(
@@ -88,6 +88,7 @@ def allocate(
     uav_flight = 0.0
     ugv_route = 0.0
     agent_free_at: dict[str, float] = {a: 0.0 for a in agents}
+    epoch_start = 0.0
 
     for _ in range(max_epochs):
         graph.recompute_ready()
@@ -105,6 +106,8 @@ def allocate(
         result = run_epoch(
             {t.task_id: t for t in graph.tasks}, agents, epoch_scene, lam=lam, frontier=frontier
         )
+        if not result.winners:
+            break  # frontier stalled — nothing was assignable this epoch
         consensus_rounds.append(result.rounds)
 
         for task_id, agent_id in result.winners.items():
@@ -112,16 +115,17 @@ def allocate(
             winning_bids[task_id] = result.winning_bids[task_id]
             workload[agent_id] += 1
 
+        wave_completions: list[float] = []
         for agent_id, agent in agents.items():
             if not agent.path:
                 continue
-            end, dist, starts = _walk(
-                agent, agent.path, graph, epoch_scene, agent_free_at[agent_id], task_completion
-            )
+            depart = max(agent_free_at[agent_id], epoch_start)
+            end, dist, busy, starts, comps = _walk(agent, agent.path, graph, epoch_scene, depart)
             task_start.update(starts)
-            busy = end - agent_free_at[agent_id]
+            task_completion.update(comps)
             agent_busy[agent_id] += busy
             agent_free_at[agent_id] = end
+            wave_completions.append(end)
             if agent.platform_kind is PlatformKind.UAV:
                 uav_flight += dist
                 agent.position = task_ref(agent, graph[agent.path[-1]], epoch_scene)
@@ -131,6 +135,8 @@ def allocate(
 
         for task_id in result.winners:
             graph[task_id].status = TaskStatus.COMPLETED
+        if wave_completions:
+            epoch_start = max(wave_completions)
 
     unassigned = sorted(t.task_id for t in graph.tasks if t.task_id not in assignments)
     makespan = max(task_completion.values(), default=0.0)

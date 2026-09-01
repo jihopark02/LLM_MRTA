@@ -96,6 +96,90 @@ def test_allocation_is_deterministic(state, scene):
     assert a.estimated_makespan == pytest.approx(b.estimated_makespan)
 
 
+def test_barrier_no_travel_before_task_is_ready(state, scene):
+    r = allocate(state, scene)
+    # SUPPRESSANT_DROP starts strictly after THERMAL_RECON completes PLUS a
+    # nonzero travel leg (the responder cannot pre-position during epoch 1).
+    for inc in ("FIRE_SITE_1", "FIRE_SITE_2"):
+        tr_done = r.task_completion[f"THERMAL_RECON__{inc}"]
+        sd_start = r.task_start[f"SUPPRESSANT_DROP__{inc}"]
+        assert sd_start > tr_done + 1.0  # a real gap, not exact equality
+
+
+def test_utilization_excludes_waiting(state, scene):
+    r = allocate(state, scene)
+    # busy = travel + dwell only, so utilization is well below 1 for agents that
+    # wait between waves.
+    assert all(0.0 <= u < 1.0 for u in r.agent_utilization.values())
+    assert r.agent_utilization["R1"] < 0.5  # R1 does one short drop late in the plan
+
+
+def test_frontier_stall_stops_immediately(scene, tmp_path):
+    # A fixture whose sole task needs a capability no agent has -> stall.
+    fx = tmp_path / "stall.yaml"
+    fx.write_text(
+        "fixture_id: stall\nscene: industrial_park\n"
+        "tasks:\n  - {type: SUPPRESSANT_DROP, target: FIRE_SITE_1, priority: 9}\n"
+        "  - {type: THERMAL_RECON, target: FIRE_SITE_1, priority: 9}\n"
+        "edges:\n  - [THERMAL_RECON:FIRE_SITE_1, SUPPRESSANT_DROP:FIRE_SITE_1]\n"
+    )
+    graph = load_reference_fixture(fx).graph
+    # remove every Response UAV so SUPPRESSANT_DROP can never be won
+    fleet = [a for a in scene.fleet if not a.agent_id.startswith("R")]
+    st = MissionState(graph, {a.agent_id: a for a in fleet})
+    r = allocate(st, scene, max_epochs=5)
+    assert "SUPPRESSANT_DROP__FIRE_SITE_1" in r.unassigned_tasks
+    assert not r.allocation_success
+    assert len(r.consensus_rounds) <= 2  # did not re-auction the stalled frontier 5x
+
+
+def test_ugv_marginal_bid_uses_route_distance(state, scene):
+    from allocation.scoring import DEFAULT_LAMBDA, marginal_score
+    from scenarios.compiler import compile_task
+
+    g1 = next(a for a in scene.fleet if a.agent_id == "G1")
+    gi = compile_task(scene, TaskType.GROUND_INSPECTION, "FIRE_SITE_1", 8)
+    node = scene.incidents["FIRE_SITE_1"].access_node
+
+    route_time = scene.route_graph.shortest_path_distance("R_DEPOT", node) / g1.speed
+    expected = (DEFAULT_LAMBDA ** (route_time + gi.duration)) * gi.priority
+    gain, n = marginal_score(g1, gi, [], scene)
+    assert gain == pytest.approx(expected)
+    assert n == 0
+
+    euclid_time = math.dist(scene.route_graph.position("R_DEPOT"), gi.position) / g1.speed
+    euclid_bid = (DEFAULT_LAMBDA ** (euclid_time + gi.duration)) * gi.priority
+    assert gain != pytest.approx(euclid_bid)
+
+
+def test_bundle_and_path_postcondition_after_epoch(scene):
+    from dataclasses import replace
+
+    from allocation.cbba import run_epoch
+    from core.enums import TaskStatus
+    from scenarios.compiler import compile_task
+
+    tasks = {}
+    for tt, target in [
+        (TaskType.AREA_RECON, "ZONE_A"),
+        (TaskType.AREA_RECON, "ZONE_B"),
+        (TaskType.THERMAL_RECON, "FIRE_SITE_1"),
+    ]:
+        t = compile_task(scene, tt, target, 5)
+        t.status = TaskStatus.READY
+        tasks[t.task_id] = t
+    agents = {a.agent_id: replace(a, bundle=[], path=[]) for a in scene.fleet}
+    run_epoch(tasks, agents, scene)
+
+    seen: set[str] = set()
+    for a in agents.values():
+        assert set(a.bundle) == set(a.path)  # same task set
+        assert len(a.bundle) == len(set(a.bundle))  # no dupes
+        assert not (seen & set(a.bundle))  # single owner
+        seen |= set(a.bundle)
+        assert a.current_task is None
+
+
 def test_frontier_rolls_epoch_by_epoch(state, scene):
     r = allocate(state, scene)
     # THERMAL_RECON completes before its SUPPRESSANT_DROP starts (precedence).
