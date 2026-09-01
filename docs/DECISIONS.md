@@ -114,3 +114,33 @@ Codex가 독립 검토한다. 함께 CLAUDE.md에 문서 갱신 트리거와 DEC
 
 **영향** P1 재검증 대상. 반례 테스트 10개 추가(총 51 passed). P2 착수 시 candidate 표현을
 별도로 설계하고, compiler는 검증 통과분만 받는다.
+
+## D-004: scene 로드 검증 보강 + §8 travel_time 예시 정정 (계약 v1.3)
+
+**배경** P1 2차 Codex 검토에서 3개 P1 차단 문제:
+
+1. `load_scene()`이 incident의 `access_node`가 route graph에 존재하는지 검사하지 않는다.
+   존재하지 않아도 로드가 성공하고, 나중에 UGV task compile 시 KeyError가 난다. 계약 §8은
+   "scene 로드 시점에 UGV 대상 위치가 route graph에 연결" 및 "unreachable이면 로드 거부"를
+   규정하는데 그 전제(access_node 존재)가 빠졌다.
+2. `load_scene()`의 fleet loader가 중복 `agent_id`를 검사하지 않는다. CBBA에서 agent_id는
+   winner/bid/bundle dict의 key이므로 중복 시 한 agent가 조용히 덮어써진다.
+3. `pyproject.toml`에 `[build-system]`과 package discovery 설정이 없어 깨끗한 venv에서
+   `pip install -e .`가 실패하거나 `UNKNOWN-0.0.0`으로 설치된다.
+
+**결정**
+
+- §8에 scene 로드 시점 검증 4종을 명시하고, `load_scene()`에 (a) incident access_node
+  존재, (d) agent_id 유일 검사를 추가한다. 각각 실패 테스트 추가.
+- §8 `travel_time` 예시가 `agent.access_node`(존재하지 않는 필드)를 쓰던 것을
+  `scene.agent_access_nodes[agent_id]` 기반으로 정정한다.
+- `pyproject.toml`에 setuptools build-system과 `[tool.setuptools.packages.find]`
+  (`core*`, `scenarios*`; 이후 package가 늘면 확장)을 추가한다.
+- 저우선순위: `Task.__post_init__`에 `duration` finite-positive 검사를 추가해 D-003의
+  "Task.duration도 finite positive" 서술과 일치시킨다(계약 변경 아님, 구현 선택).
+
+**근거** 세 문제 모두 Codex가 깨끗한 Python 3.10 venv에서 직접 재현. 1·2는 scene 데이터
+무결성, 3은 재현성.
+
+**절차 노트**: D-003에서 계약 변경과 코드를 같은 커밋에 넣었다. 이력은 다시 쓰지 않되,
+D-004부터 "계약 문서 커밋 → 구현 커밋" 순서를 지킨다.

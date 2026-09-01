@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.2 (D-003). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.3 (D-004). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -9,6 +9,9 @@
 - v1.2 (D-003): §7에 compiler 입력 경계(신뢰된 목록만; raw candidate는 Validator 선행)를
   명시. §6의 enum 직렬화 서술을 정정(`safe_dump` 불가, 경계에서 `.value`). incident
   `status: RESPONSE_REQUIRED`를 scene 데이터 필수 필드로 명시(§3).
+- v1.3 (D-004): §8의 `travel_time` 예시를 `scene.agent_access_nodes` 기반으로 정정(core
+  Agent에 `access_node` 없음). §8에 scene 로드 시점 검증 4종(incident access_node 존재,
+  UGV 시작 node 존재, UGV task 도달성, `agent_id` 유일)을 명시.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -232,11 +235,15 @@ fixture, 그리고 §12 파이프라인에서 이미 whole-graph Validator를 �
 
 ## 8. 이동비용
 
+`agent.access_node`는 core `Agent`(§6)에 없다 — UGV 시작 node는 `scene.agent_access_nodes[agent_id]`로
+조회한다.
+
 ```python
-def travel_time(agent: Agent, target_pos: tuple[float, float], route_graph: RouteGraph | None) -> float:
+def travel_time(agent, target_pos, scene) -> float:
     if agent.platform_kind is PlatformKind.UAV:
         return math.dist(agent.position, target_pos) / agent.speed
-    dist = route_graph.shortest_path_distance(agent.access_node, target_access_node(target_pos))
+    start = scene.agent_access_nodes[agent.agent_id]
+    dist = scene.route_graph.shortest_path_distance(start, target_access_node(target_pos))
     if dist is None:
         raise UnreachableError(agent.agent_id, target_pos)
     return dist / agent.speed
@@ -245,8 +252,11 @@ def travel_time(agent: Agent, target_pos: tuple[float, float], route_graph: Rout
 - UAV: 2D 또는 3D Euclidean distance / speed.
 - UGV: 사전 정의된 lane/waypoint graph의 Dijkstra 최단경로 거리 / speed. 임의 좌표를 직접
   Dijkstra에 넣지 않고, target마다 `access_node_id`를 scene에 명시한다.
-- scene 로드 시점에 모든 UGV 대상 task 위치가 route graph에 연결돼 있는지 전수 검증한다.
-  unreachable이면 시나리오 로드 자체를 거부한다(CBBA 입찰 단계까지 가지 않음).
+- **scene 로드 시점 검증(전부 실패 시 시나리오 로드 거부)**: (a) 모든 incident의 `access_node`가
+  route graph node로 존재, (b) 모든 UGV agent의 시작 node가 route graph node로 존재, (c) 모든
+  UGV 대상 task 위치가 route graph에서 모든 UGV 시작 node로부터 도달 가능, (d) `agent_id` 유일.
+  (c)는 task 목록이 필요하므로 fixture/candidate 로드 시점에, (a)(b)(d)는 scene 로드 시점에
+  검사한다. CBBA 입찰 단계까지 가지 않는다.
 - 2D simulator와 향후 Gazebo가 동일한 route semantics를 공유해야 한다.
 
 이 함수는 이전 저장소의 `travel_time()`을 그대로 이식하지 않고 `platform_kind` 분기를 새로
