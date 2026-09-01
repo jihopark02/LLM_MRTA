@@ -307,3 +307,42 @@ HAZARD_MARKER_DEPLOY×2), 모든 agent 활용(idle 0), Response UAV가 두 drop 
 
 **영향** 다음은 P4(2D executor, end-to-end). executor는 `run_epoch`를 재사용하고 `allocate`의
 plan-time 시뮬 대신 실제 이벤트 루프로 frontier를 굴린다.
+
+## D-010: P3 Codex 검토 반영 — plan-time schedule 모델 (계약 v1.9)
+
+**배경** P3 구현 후 Codex 검토에서:
+
+1. `allocation*`가 `pyproject.toml` discovery에 없음 — 설치 wheel에서 `import allocation` 실패
+   (루트 pythonpath 테스트는 통과하므로 은폐).
+2. `allocate._walk`가 `clock += travel` 다음에 `pred_ready`를 보므로, successor가 아직
+   PENDING인데도 agent가 목적지로 **미리 이동한 것으로 계산**된다. reference fixture에서
+   `SUPPRESSANT_DROP_F1` 시작이 49.17s(THERMAL_RECON_F1 완료 시각)로 나오는데, R1의 이동
+   21.91s가 predecessor 실행 중 소진됨 — 정상은 71.08s. 기존 테스트는
+   `pred_completion <= succ_start`만 봐서 두 값이 같으면 통과(travel gap 소멸).
+3. utilization의 `busy = end - agent_free_at`가 predecessor 대기시간까지 포함 —
+   `busy/makespan` 정의와 불일치.
+4. tie-break: 계약 §11은 "정확히 같은 bid"라고 했으나 코드는 `EPSILON=1e-9` 이내를 동점
+   처리. `_beats(1.0,"A", 1.0+5e-10,"B") → True`(A가 더 낮은데 승).
+5. frontier stall 미감지 — winner 0이어도 같은 frontier를 `max_epochs`까지 재경매.
+6. §10 rule 5가 "bundle/path 관계는 P3에서 확정"이라 했으나 D-009에 미정.
+
+**결정** 계약 v1.9:
+
+- **plan-time topological-wave barrier**(§13): epoch 1 시작 0, 각 epoch frontier 계획 실행,
+  epoch 종료 시각 = 그 wave의 최대 completion, 다음 epoch agent 출발 = `max(agent_free_at,
+  epoch_start)`, 그다음 travel → task_start → dwell. **barrier 이전 이동 금지.** 이 방식이
+  "4 frontier wave" 설명을 유지하면서 시간 역전을 제거한다. makespan·utilization 골든값이
+  바뀐다(예상: reference fixture makespan 156.7 → 더 큰 값).
+- **utilization busy = travel + dwell만**. 대기시간은 제외(makespan − busy − 종료후여유).
+- **tie-break 허용오차**(§11): `|Δbid| ≤ 1e-9`를 동점으로 명시 — 코드 `EPSILON`과 일치.
+  부동소수점 안정성 때문에 정확 상등을 안 쓴다.
+- **bundle/path postcondition**(§11, §10 rule 5): bundle=획득순서, path=실행순서, 수렴 후
+  동일 task 집합(중복 없음), 각 task는 winner 한 명의 bundle/path에만, plan-time
+  `current_task=None`, 계획 기준은 `AllocationResult.assignments`. **CBBA postcondition으로
+  정의**(Validator invariant 아님) → `VALIDATOR_VERSION` bump 불필요.
+- **stall guard**: `run_epoch` 결과 winner가 0이면 즉시 중단.
+- `pyproject.toml`에 `allocation*` 추가, 격리 디렉터리 import 검증.
+- PROVENANCE.md의 sha256을 전체 값으로 기록(축약 금지).
+
+**영향** P3 재검증. makespan/utilization 관련 값이 바뀌므로 P3 게이트 테스트도 갱신. P4
+executor는 이 barrier 모델이 아니라 실제 이벤트 루프를 쓴다(D-009 영향 유지).

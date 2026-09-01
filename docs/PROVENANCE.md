@@ -9,9 +9,11 @@
 
 ### 2026-09-01 — CBBA bundle/consensus 코어 + 시간할인 보상 scoring 패턴 (P3)
 
-- 원본:
-  - `research/allocation/cbba.py` @ sha256 `7288b440…791c0c` (LLM_CBBA, git 이력 없음, mtime 2026-08-04)
-  - `research/allocation/scoring.py` @ sha256 `5d4b0c9c…bf69` (LLM_CBBA, mtime 2026-08-04)
+- 원본 (LLM_CBBA, git 이력 없음, mtime 2026-08-04):
+  - `research/allocation/cbba.py` @ sha256
+    `7288b4407c1e02b2c5afe97ddeda0b12dbfe44ba295273a949b27b4663791c0c`
+  - `research/allocation/scoring.py` @ sha256
+    `5d4b0c9c352459b4ccc355faf9c85a9812e0c27e69b68b856b9744d8f6dfbf69`
 - 종류: 직접 포팅 후 수정
 - 이유: CBBA 자체(Choi·Brunet·How 2009의 bundle 구성 + Table I action rule + s-vector
   timestamp + suffix release)는 도메인 무관한 검증된 알고리즘이다. 계약 §11/§14가 명시적으로

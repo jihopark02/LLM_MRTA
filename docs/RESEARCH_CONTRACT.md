@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.8 (D-009). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.9 (D-010). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -27,6 +27,9 @@
   범위 명시(P2 Codex 3차 지적).
 - v1.8 (D-009): §11에 `λ = 0.999` 고정, 보상은 스케일 없는 `priority`, tie-break는 정확히
   같은 bid에서 `agent_id`→`task_id` 사전순, `bundle` 무제한을 명시(P3 구현).
+- v1.9 (D-010): P3 Codex 검토 반영 — §13에 plan-time topological-wave barrier 모델(READY
+  이전 이동 금지, utilization busy = travel+dwell만), §11에 tie-break를 `1e-9` 허용오차로
+  명시(정확 상등 아님), §11·§10에 bundle/path 관계를 CBBA postcondition으로 확정.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -387,8 +390,8 @@ task를 도입하기 전에는 end-to-end로 도달하지 않는다. #13의 term
    `assigned_agent`다.
 4. `PENDING`/`READY`/`COMPLETED`/`CANCELLED` task는 어떤 agent의 `bundle`/`path`에도 없고
    `winning_bids`에도 없다.
-5. `bundle`/`path`의 세부 관계(순서, bundle⊆path 여부, `current_task`)는 P3 CBBA 표현과
-   함께 확정한다 — P2는 위 1~4만 강제한다.
+5. `bundle`/`path`의 세부 관계는 §11의 CBBA postcondition(D-010)으로 확정했다 — Validator
+   invariant는 아니므로 여기서 `E_SCHEMA`로 강제하지 않는다. P2는 위 1~4만 강제한다.
 
 6. **참조 무결성(D-008)**: 모든 `bundle`/`path` task_id와 모든 `winning_bids` key는 graph에
    존재하는 task를 가리킨다. `state.agents`의 dict key는 해당 `Agent.agent_id`와 일치한다.
@@ -427,9 +430,16 @@ bid = max_insertion[ PathUtility(path_with_candidate) − PathUtility(current_pa
 `projected_completion_time`은 현재 agent 위치, 플랫폼별 이동시간(§8), 선행 task들의 dwell
 duration, 후보 task duration을 누적한 값이다. `λ = 0.999`로 고정한다(D-009, 이전 저장소
 `DEFAULT_LAMBDA` 재사용) — 모든 조건에서 동일하게 쓴다. `priority(task_j)`는 §7의 정수
-1..10을 스케일 없이 그대로 쓴다(이전 저장소의 `10·priority`가 아님). 동점 처리는 정확히
-같은 bid일 때 `agent_id` 사전순으로 작은 쪽이 이기고, 그 다음 `task_id` 사전순이다.
-`bundle` 길이에는 상한을 두지 않는다(§17).
+1..10을 스케일 없이 그대로 쓴다(이전 저장소의 `10·priority`가 아님). 동점 처리(D-010):
+두 bid의 차가 `1e-9` 이내면 동점으로 보고 `agent_id` 사전순으로 작은 쪽이 이긴다(그 다음
+`task_id` 사전순). 부동소수점 안정성을 위해 정확한 상등이 아니라 이 허용오차를 쓴다 —
+코드의 `EPSILON`과 동일해야 한다. `bundle` 길이에는 상한을 두지 않는다(§17).
+
+**bundle / path 관계(D-010, CBBA postcondition — Validator invariant 아님)**: `bundle`은
+bid 획득 순서, `path`는 실행 순서. epoch 수렴 후 둘은 중복 없는 **동일 task 집합**이다. 각
+task는 최종 winner 한 명의 `bundle`/`path`에만 존재한다. P3 plan-time에서 `current_task`는
+`None`이다. epoch 종료 후 `bundle`/`path`는 임시 산출물이며 전체 계획의 기준은
+`AllocationResult.assignments`다.
 
 이 보상형태(우선순위×이동시간 할인)는 새로 고안한 게 아니라 이전 저장소 CBBA의 검증된 보상
 구조를 재사용한 것이다 — §14 PROVENANCE 참고. bundle/consensus/tie-break 핵심 로직만
@@ -478,6 +488,14 @@ allocation success, unassigned task count, capability violation count, precedenc
 count, total route distance, estimated makespan, agent utilization, workload distribution,
 idle-agent count, CBBA consensus rounds, 동일 입력 재실행 결정성. capability/precedence
 violation은 정상 실행에서 항상 0이어야 한다.
+
+**P3 plan-time schedule 모델(D-010)**: P3은 실제 event loop가 아니라 계획 평가다.
+topological-wave barrier로 계산한다 — epoch 1 시작 0, 각 epoch의 frontier task를 계획 실행,
+epoch 종료 시각 = 그 frontier의 최대 completion, 다음 epoch agent 출발 시각 =
+`max(agent_free_at, epoch_start)`, 그다음 travel → task_start → dwell 순서. **agent는
+task가 READY가 되기 전에 이동을 시작하지 않는다**(barrier 이전 이동 금지). `agent_utilization`
+의 busy time은 **실제 travel + dwell만** 포함하고 predecessor 대기시간은 제외한다.
+event-driven 방식(predecessor 완료마다 즉시 새 epoch)은 P4 executor 범위이므로 P3에서는 안 쓴다.
 
 작은 toy fixture에서 exact allocation과 비교할 수 있으나, 이는 CBBA 구현 자체의 sanity check일
 뿐 전체 시나리오에서의 최적성이나 BP 대비 우월성의 근거로 쓰지 않는다.
