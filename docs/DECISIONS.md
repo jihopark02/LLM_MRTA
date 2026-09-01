@@ -414,11 +414,40 @@ mock 테스트). P7 Gazebo executor는 이 executor와 동일 route semantics를
 - **PROVENANCE**: executor를 "참고하지 않고 신규 작성"으로 후보에서 제외(§14가 옛 코드
   복사 금지를 명시).
 
-**영향** P4 재검증. #1은 CBBA 할당 결과를 바꾼다. residual-path 수정 후 reference mission의
-executor 실행은 workload가 한쪽으로 쏠린다(예: G2가 ground task 4개, R1이 drop 2개, G1·R2
-유휴) — 이전의 균형 잡힌 결과는 double-count 버그의 부작용이었다. **rolling 단일-task epoch
-+ 동일 사양 agent + tie-break**에서 가장 가까운 capable agent가 연속 낙찰하는 것은 올바른
-greedy CBBA 동작이며 §5가 유휴 agent를 명시적으로 허용한다. 균형 잡힌 이종 할당은 P3
-`allocate`(whole-wave 경매)가 보여주는 planning 지표이고, P4 executor는 event-driven 실행을
-보여준다 — 서로 다른 것을 측정한다. P4 게이트(완주 + violation 0 + deadlock 테스트)는
-workload 균형을 요구하지 않는다.
+**영향** P4 재검증. #1은 CBBA 할당 결과를 바꾼다. (residual-path만 고친 중간 상태에서는
+workload가 쏠렸으나, D-013의 availability-aware 수정 후 다시 균형이 됨 — 아래 참조.)
+
+## D-013: P4 Codex 재검토 — availability-aware residual bidding (계약 v1.12)
+
+**배경** D-012 반영 후 재검토에서 residual-path 입찰의 시간 모델 결함:
+
+1. **RUNNING agent의 남은 가용시간이 입찰에서 누락**: residual-path 수정이 이중 계산은 없앴지만
+   agent가 완료 위치에 도달할 때까지의 시간도 사라져, 실행 중 agent가 "지금 즉시 그 위치에서
+   시작 가능"으로 계산됨. 재현: R1(신규 task 위치에서 1000초 후 가용) vs R2(70m, 즉시) →
+   현재 R1 낙찰(9.7043 > 9.6077), 정상은 R2(9.6077 > 3.5682). reference mission의 workload
+   집중도 일부는 이 누락 때문 — GROUND_INSPECTION_F2에서 G2(41초 대기 + 48초 이동 = 89초) vs
+   G1(즉시, 70초)이면 G1이 더 빠름.
+2. **residual regression 테스트가 실제 executor를 안 거침**: `run_epoch`를 직접 호출하고 R1을
+   빈 path로 목적지에 놓아서, path 제거·투영·재병합·가용시간 중 아무것도 검사 안 함.
+3. **마지막 step 완주가 `STEP_LIMIT`으로 반환**: loop 시작에서만 완주 확인 →
+   `max_steps=2`에서 완료했는데 `unfinished == [] && termination == STEP_LIMIT` 모순.
+4. **precedence violation 지표가 arrival(`task_start`) 사용**: successor가 predecessor 완료
+   전에 출발해도 도착만 나중이면 violation 0. departure 기준이어야 함.
+
+**결정** 계약 v1.12:
+
+- **availability-aware residual bidding**(§11): `path_score`/`marginal_score`/`run_epoch`에
+  `start_delay`/`start_delays` 추가. executor는 `availability_delay = max(0, finish_at − now)`를
+  전달, 위치는 착지 지점 투영. P3 `allocate`는 delay 0.
+- **마지막 step COMPLETED**(§14): `run()` loop 종료 후 최종 상태로 재판정 —
+  모든 task terminal이면 `COMPLETED`.
+- **precedence violation = departure 기준**(§14): `task_completion[p] > task_departure[s]`.
+- **residual regression 테스트**: 실제 `SimExecutor._run_epoch()`를 R1 mid-task 상태
+  (`sim.current`, `path=[running]`, `finish_at > now`)로 통과시키고, 남은 시간 짧을 때 R1
+  승 / 길 때 R2 승 두 경우 검증.
+
+**결과** availability-aware 후 reference mission executor workload가 다시 균형
+(S1/S2 3, R1/R2 1, G1/G2 2, idle 0). **D-012의 "집중이 정상 greedy CBBA"는 철회** — 집중은
+가용시간 누락 버그 때문이었다. makespan 232.9, capability/precedence violation 0.
+
+**영향** P4 재검증. `allocate`(P3)는 `start_delays` 미전달로 불변.

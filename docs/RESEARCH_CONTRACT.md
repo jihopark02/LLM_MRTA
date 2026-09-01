@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.11 (D-012). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.12 (D-013). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -36,6 +36,10 @@
 - v1.11 (D-012): P4 Codex 검토 반영 — §14에 종료 사유 분리(`COMPLETED`/`DEADLOCK`/
   `STEP_LIMIT`), 실행 중 epoch 입찰의 residual-path 규칙, COMPLETED 시 assignment 정리
   명시. §10에 cancellation을 P1~P7 미지원·P8 유보로 확정.
+- v1.12 (D-013): P4 Codex 재검토 — §11에 rolling epoch의 `availability_delay`(실행 중
+  agent의 남은 시간)를 입찰 누적 시작값으로 명시, §14에 마지막 step 완주 시 `COMPLETED`
+  판정 + precedence violation을 `task_departure` 기준으로 판정. availability-aware 후
+  reference mission workload가 다시 균형(D-012의 "집중이 정상" 서술 철회).
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -441,7 +445,10 @@ bid = max_insertion[ PathUtility(path_with_candidate) − PathUtility(current_pa
 ```
 
 `projected_completion_time`은 현재 agent 위치, 플랫폼별 이동시간(§8), 선행 task들의 dwell
-duration, 후보 task duration을 누적한 값이다. `λ = 0.999`로 고정한다(D-009, 이전 저장소
+duration, 후보 task duration을 누적한 값이다. **rolling epoch에서 아직 task를 실행 중인
+agent는 남은 실행시간(`availability_delay = max(0, finish_at − now)`)을 누적 시작값으로
+쓴다**(D-013) — 위치는 그 task의 도착 지점으로 투영하고, 실행 중인 task 자체는 residual
+path에서 제외한다. P3 `allocate`는 모든 `availability_delay = 0`으로 기존 동작을 유지한다. `λ = 0.999`로 고정한다(D-009, 이전 저장소
 `DEFAULT_LAMBDA` 재사용) — 모든 조건에서 동일하게 쓴다. `priority(task_j)`는 §7의 정수
 1..10을 스케일 없이 그대로 쓴다(이전 저장소의 `10·priority`가 아님). 동점 처리(D-010):
 두 bid의 차가 `1e-9` 이내면 동점으로 보고 `agent_id` 사전순으로 작은 쪽이 이긴다(그 다음
@@ -554,7 +561,13 @@ dispatch할 것도 없다"고 판단하기 직전에 `recompute_ready()`를 호�
 
 **종료 사유 분리(D-012)**: `ExecutionResult`는 `termination` ∈ {`COMPLETED`, `DEADLOCK`,
 `STEP_LIMIT`}을 기록한다. `deadlocked`는 `termination == DEADLOCK`일 때만 참이다. `max_steps`
-소진(`STEP_LIMIT`)은 deadlock이 아니다 — §13의 deadlock 집계에 섞이면 안 된다.
+소진(`STEP_LIMIT`)은 deadlock이 아니다 — §13의 deadlock 집계에 섞이면 안 된다. **마지막
+허용 step에서 모든 task가 완료되면 `COMPLETED`로 판정한다**(D-013) — loop 종료 후 최종
+상태를 다시 확인한다.
+
+**precedence violation 판정(D-013)**: agent가 predecessor 완료 전에 목적지로 **출발**했는지로
+본다 — `task_completion[p] > task_departure[s]`이면 위반. 도착 시각(`task_start`)이 아니라
+출발 시각(`task_departure`)과 비교해야 "READY 전 이동 금지"의 의미가 맞다.
 
 **실행 중 새 epoch의 입찰(D-012)**: 이미 RUNNING인 task는 그 agent의 residual path scoring에서
 제외한다(도착 지점으로 위치 투영 + RUNNING task는 path에서 임시 제거). 아직 시작 안 한
