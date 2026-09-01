@@ -57,6 +57,31 @@ def test_same_candidate_same_hash_and_verdict(scene):
     assert a.accepted == b.accepted
 
 
+def test_graph_hash_ignores_task_order_but_not_priority(scene):
+    raw = reference_raw()
+    reordered = {"tasks": list(reversed(raw["tasks"])), "edges": raw["edges"]}
+    assert validate_raw(raw, scene).graph_hash == validate_raw(reordered, scene).graph_hash
+
+    bumped = {
+        "tasks": [{**t, "priority": t["priority"] + 1} for t in raw["tasks"]],
+        "edges": raw["edges"],
+    }
+    assert validate_raw(raw, scene).graph_hash != validate_raw(bumped, scene).graph_hash
+
+
+def test_unexpected_top_level_or_task_key_is_schema_error(scene):
+    _, e1 = MissionCandidate.from_raw({"tasks": [], "edges": [], "notes": "x"})
+    assert [x.code for x in e1] == [ErrorCode.E_SCHEMA]
+    task_with_extra = {
+        "task_type": "AREA_RECON",
+        "target": "ZONE_A",
+        "priority": 1,
+        "assigned_agent": "S1",
+    }
+    _, e2 = MissionCandidate.from_raw({"tasks": [task_with_extra], "edges": []})
+    assert ErrorCode.E_SCHEMA in [x.code for x in e2]
+
+
 def test_unknown_target_is_flagged(scene):
     raw = {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_Z", "priority": 1}], "edges": []}
     assert ErrorCode.E_UNKNOWN_REF in codes(validate_raw(raw, scene))

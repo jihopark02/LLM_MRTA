@@ -76,6 +76,31 @@ def test_unknown_op_is_schema_error(base):
     assert ErrorCode.E_SCHEMA in codes(validate_patch_ops(patch, base))
 
 
+def test_add_task_with_string_task_type_is_schema_error_not_crash(base):
+    patch = MissionPatch([AddTask("NOT_A_TYPE", "ZONE_B", 1)])
+    assert codes(validate_patch_ops(patch, base)) == [ErrorCode.E_SCHEMA]
+
+
+def test_add_task_with_bool_priority_is_schema_error(base):
+    patch = MissionPatch([AddTask(TaskType.AREA_RECON, "ZONE_B", True)])
+    assert codes(validate_patch_ops(patch, base)) == [ErrorCode.E_SCHEMA]
+
+
+def test_add_task_with_non_string_target_is_schema_error(base):
+    patch = MissionPatch([AddTask(TaskType.AREA_RECON, 42, 1)])
+    assert codes(validate_patch_ops(patch, base)) == [ErrorCode.E_SCHEMA]
+
+
+def test_edge_with_malformed_endpoint_is_schema_error(base):
+    patch = MissionPatch([AddEdge(("THERMAL_RECON", "FIRE_SITE_1"), SD_F1)])
+    assert codes(validate_patch_ops(patch, base)) == [ErrorCode.E_SCHEMA]
+
+
+def test_operations_not_a_list_is_schema_error(base):
+    patch = MissionPatch(operations="oops")
+    assert codes(validate_patch_ops(patch, base)) == [ErrorCode.E_SCHEMA]
+
+
 def test_post_patch_keys_is_order_independent(base):
     ops = [
         RemoveEdge(SD_F1, GI_F1),

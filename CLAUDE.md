@@ -25,10 +25,11 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1 승인. P2 구현 완료(Codex 검토 대기). 계약 v1.5 (D-006).** `validator/`에 whole-graph
-Validator(§9 invariant #1~14 + `E_PATCH_CONFLICT`/`E_RUNNING_LOCKED`)와 MissionPatch
-apply/reconciliation(§10)을 구현. pytest 94개 통과(`python3 -m pytest -q`), ruff clean.
-다음: Codex 승인 후 **P3**(platform-aware CBBA, rolling READY-frontier epoch, §11).
+**P1 승인. P2 구현 완료 + Codex 검토 2회 반영(D-006, D-007). 계약 v1.6.** `validator/`에
+whole-graph Validator(§9 invariant #1~14 + `E_PATCH_CONFLICT`/`E_RUNNING_LOCKED`)와
+MissionPatch apply/reconciliation(§10)을 구현. pytest 103개 통과(`python3 -m pytest -q`),
+ruff clean, 깨끗한 venv wheel에 core/scenarios/validator 포함 확인. 다음: Codex 승인 후
+**P3**(platform-aware CBBA, rolling READY-frontier epoch, §11).
 
 P2 구조:
 - `validator/candidate.py`: raw candidate(list) — #1/#3 파싱, #2/#5-edge/#6/#7 consistency.
@@ -41,6 +42,9 @@ P2 구조:
   반환). `_reconcile`/`_predecessor_diff`/`_terminal_immutable_errors`는 단위테스트용 분리.
 - **D-006**: reconciliation release 경로는 P2에서 단위테스트만, end-to-end는 RQ3(P8)까지 도달
   안 함. #13 terminal incoming 불변은 P2에서 도달.
+- **D-007**: assignment consistency invariant(§10 7단계, 규칙 1~4)를 `_assignment_invariant_errors`가
+  강제. graph_hash payload에 priority 포함. `validate_patch_ops`가 op 필드를 런타임 검증.
+  candidate schema가 허용 키를 정확히 제한.
 
 P3 착수 시: CBBA는 §11 rolling READY-frontier epoch, bid = priority×λ^completion_time 기반
 marginal path utility. 이동비용은 §8 platform-aware(`scene.agent_access_nodes` + route

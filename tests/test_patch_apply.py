@@ -163,6 +163,31 @@ def test_reconcile_releases_assigned_task(scene):
     assert state.graph[tid(SD_F1)].status is TaskStatus.ASSIGNED
 
 
+def test_empty_patch_rejected_when_state_assignment_is_inconsistent(scene):
+    state = mini_state(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
+    sd = state.graph[tid(SD_F1)]
+    sd.status = TaskStatus.ASSIGNED
+    sd.assigned_agent = "MISSING_AGENT"  # not in the fleet, no bundle entry
+    _, result = apply_patch(state, MissionPatch([]), scene)
+    assert not result.accepted
+    assert ErrorCode.E_SCHEMA in result.error_codes
+
+
+def test_assignment_invariant_flags_multi_owner_and_stale_bid(scene):
+    from validator.patch_apply import _assignment_invariant_errors
+
+    state = mini_state(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
+    state.graph[tid(SD_F1)].status = TaskStatus.ASSIGNED
+    state.graph[tid(SD_F1)].assigned_agent = "R1"
+    state.agents["R1"].bundle.append(tid(SD_F1))
+    state.agents["R2"].bundle.append(tid(SD_F1))  # second owner
+    state.winning_bids[tid(TR_F1)] = 1.0  # TR is READY, not active -> stale
+    errs = _assignment_invariant_errors(state)
+    details = " ".join(e.detail for e in errs)
+    assert "multiple agents" in details
+    assert "stale winning_bid" in details
+
+
 def test_reconcile_running_predecessor_change_is_fatal(scene):
     graph = compile_reference_graph(scene, [(*TR_F1, 5), (*SD_F1, 5)], [(TR_F1, SD_F1)])
     state = MissionState(graph, {a.agent_id: a for a in scene.fleet})

@@ -18,8 +18,8 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-# Extend as allocation / validator / execution / llm / evaluation become packages.
-include = ["core*", "scenarios*"]
+# Extend as allocation / execution / llm / evaluation become packages.
+include = ["core*", "scenarios*", "validator*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
