@@ -19,18 +19,22 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-001, P0 계약 확정까지만 진행됨)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-002, 계약 v1.1)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P0 완료.** P1(semantic scene, Generic Agent, TaskGraph, route graph, reference fixture)부터
-시작한다. P1의 완료 게이트는 RESEARCH_CONTRACT.md §15 표를 따른다: route graph 도달가능성
-전수 검증 통과 + Agent/Task 단위테스트.
+**P0 완료. 계약 v1.1 (D-002) 확정.** P1(semantic scene, Generic Agent, TaskGraph, route
+graph, reference fixture)부터 시작한다. P1 완료 게이트는 RESEARCH_CONTRACT.md §15의 "P1
+완료 게이트" 5개 항목 전부 — 특히 reference fixture가 §3 고정 형상(task 12 / edge 6 / 초기
+READY 6)과 일치하는지 검사한다.
 
 RQ1(LLM 복합 task graph 생성)과 RQ2(이종 UAV/UGV CBBA 할당)가 필수 범위다. RQ3(선택적
 재할당)는 P8 후속이며, 구현되기 전까지는 어디에도 "동적 재할당"을 완료된 결과로 쓰지 않는다.
+
+**검토 구조**: Claude가 커밋 단위로 코드를 구현하면 Codex가 독립 검토한다. 커밋은 작게
+쪼개고, 각 커밋 메시지에 어떤 게이트 항목을 만족시키는지 적는다.
 
 ## 작업 방식
 
@@ -48,6 +52,20 @@ RQ1(LLM 복합 task graph 생성)과 RQ2(이종 UAV/UGV CBBA 할당)가 필수 �
 **검증 가능한 목표로 만든다.** "검증 추가" → "잘못된 입력 테스트를 쓰고 통과시킨다",
 "버그 수정" → "재현 테스트를 쓰고 통과시킨다". 다단계 작업은 각 단계에 verify 기준을
 붙인 짧은 계획을 먼저 말한다. §15 P1~P8 게이트가 이미 이 역할을 한다.
+
+## 문서 갱신 트리거
+
+- **단계 완료 시**: ① `README.md`의 "현재 단계" 갱신 → ② `CLAUDE.md`의 "지금 어디까지
+  왔는지"와 최신 decision ID 갱신 → ③ 게이트 증거(테스트 결과 등)와 함께 커밋.
+- **계약을 바꾸거나 아래 범위의 결정을 내릴 때**: `RESEARCH_CONTRACT.md`를 먼저 고치고
+  버전을 올린 뒤 `DECISIONS.md`에 append, 코드보다 먼저 커밋.
+- **`/home/jiho/LLM_CBBA`에서 코드/패턴을 재사용할 때**: `PROVENANCE.md`에 먼저 기록.
+
+`DECISIONS.md`에 기록하는 것: 연구 질문·주장 범위, scenario/task/agent 변경, invariant,
+score 수식, 평가 지표, 단계 게이트·범위 변경, 외부에 보이는 핵심 architecture 변경.
+
+기록하지 않는 것(DECISIONS를 비대하게 만들지 않기 위해): 함수명, 파일 분리, 내부 helper
+선택, 테스트 fixture 작성 방식, 포맷·사소한 구현 선택.
 
 ## 절대 하지 말 것
 

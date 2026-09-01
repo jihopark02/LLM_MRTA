@@ -53,3 +53,30 @@ earthquake/vehicle-inspection/fire-patrol 연구와는 별개이며, 그 저장�
    후속과제 명시)을 두 차례 직접 재확인해 참고 서술의 정확성을 검증함.
 
 **영향** `/home/jiho/LLM_MRTA`를 독립 Git 저장소로 생성. P1부터 이 계약을 근거로 구현한다.
+
+## D-002: P1 완료 게이트 강화 + reference fixture 고정 형상 (계약 v1.1)
+
+**배경** P1은 semantic scene / `Agent` / `TaskGraph` / route graph / reference fixture를
+구현하지만, v1.0의 P1 게이트는 "route graph 도달가능성 전수 검증 + Agent/Task 단위테스트"만
+요구했다. 이대로면 `TaskGraph`나 reference fixture가 잘못돼도 P1 통과를 선언할 수 있고,
+P2(Validator) 착수 시점에 잘못된 fixture를 근거로 삼게 된다. Codex 검토에서 지적됨.
+
+**결정**
+
+- 계약을 v1.1로 갱신한다.
+- §15에 **P1 완료 게이트** 5개 항목을 추가한다: (1) Agent/Task/TaskGraph/RouteGraph
+  단위테스트, (2) scene·fixture 로드 성공, (3) fixture가 고정 형상과 일치, (4) 모든
+  ID/target/edge 참조 유효 + cycle 없음, (5) route graph 도달가능성 전수 검증.
+- §3에 reference fixture 고정 형상을 명시한다: task 12(`AREA_RECON` 4 + workflow 4×2),
+  edge 6(3×2), 계산된 초기 READY 6(`AREA_RECON` 4 + `THERMAL_RECON` 2), 초기 PENDING 6.
+  이 fixture는 §12 Family A(full-response)에 대응하는 canonical graph다.
+- READY/PENDING은 fixture YAML에 적지 않고 graph predecessor 상태에서 계산한다(기존 §7/§9
+  원칙 재확인).
+
+**근거** 고정값은 §3 zone 4개 + §4 workflow 4단계 × incident 2개에서 유일하게 유도된다.
+게이트가 구현 산출물(fixture 형상)을 직접 검사해야 "구현 범위 전체를 검사하지 않는 게이트"
+문제가 사라진다.
+
+**영향** P1 구현 전에 이 문서 커밋을 먼저 한다. 이후 Claude가 P1을 구현하고 커밋 단위로
+Codex가 독립 검토한다. 함께 CLAUDE.md에 문서 갱신 트리거와 DECISIONS 기록 범위를 명문화한다
+(운영 절차 보강이므로 별도 decision 없이 이 커밋에 포함).

@@ -1,7 +1,11 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.0 (D-001). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.1 (D-002). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
+
+- v1.0 (D-001): 초판.
+- v1.1 (D-002): §15 P1 완료 게이트를 P1 구현 범위 전체를 검사하도록 강화하고, reference
+  fixture의 고정 형상(task 12 / edge 6 / 초기 READY 6)을 §3에 명시.
 
 이 프로젝트는 `/home/jiho/LLM_CBBA`(이하 "이전 저장소")와 Git 이력을 공유하지 않는 독립
 연구다. 이전 저장소의 earthquake/vehicle-inspection/fire-patrol 연구 계약, D-xxx 결정, task
@@ -75,6 +79,18 @@ Farm).
 화재 위치·상태는 semantic scene 또는 운용자·외부 시스템 보고로만 시스템에 진입한다. 실제
 영상 분석, 화재 탐지, 화재 안정성 판정은 구현하지 않는다. Task 완료는 위치 도달과 dwell
 time으로만 판정한다.
+
+**reference fixture 고정 형상** (P1~P4에서 쓰는 canonical full-response graph, §12 Family A에
+대응). 이 값은 게이트 기준이며 LLM이 개입하기 전까지 사람이 손으로 고정한다:
+
+| 항목 | 값 | 구성 |
+|---|---|---|
+| task | 12 | `AREA_RECON` 4 (ZONE_A~D) + incident workflow 4단계 × incident 2 = 8 |
+| edge | 6 | incident 체인당 3 (§4 workflow) × incident 2 |
+| 초기 READY | 6 | predecessor 없는 task = `AREA_RECON` 4 + `THERMAL_RECON` 2 |
+| 초기 PENDING | 6 | `SUPPRESSANT_DROP` 2 + `GROUND_INSPECTION` 2 + `HAZARD_MARKER_DEPLOY` 2 |
+
+READY/PENDING은 fixture YAML에 적지 않고 graph의 predecessor 상태에서 계산한다(§7, §9).
 
 ---
 
@@ -411,7 +427,7 @@ deadlock 판정 직전에 반드시 recompute를 한 번 더 하는 패턴으로
 | 단계 | 내용 | 완료 게이트 |
 |---|---|---|
 | P0 | 독립 저장소, 이 계약 확정 | 이 문서 커밋 |
-| P1 | semantic scene, Agent, TaskGraph, route graph, reference fixture | route graph 도달가능성 전수 검증 통과, Agent/Task 단위테스트 |
+| P1 | semantic scene, Agent, TaskGraph, route graph, reference fixture | 아래 P1 게이트 전 항목 |
 | P2 | deterministic whole-graph Validator + MissionPatch reconciliation | 단일 트랜잭션 + 다중 트랜잭션 우회 테스트 전부 통과 |
 | P3 | platform-aware CBBA, rolling READY-frontier epoch | reference fixture에서 capability/precedence violation 0, 모든 UGV bid가 route distance 사용 확인 |
 | P4 | 2D executor, end-to-end reference mission | 완주 + 위반 0 + deadlock 최소 재현 테스트 통과 |
@@ -419,6 +435,18 @@ deadlock 판정 직전에 반드시 recompute를 한 번 더 하는 패턴으로
 | P6 | 최소 9개 입력 평가 + 결과 시각화 | precision/recall/원시개수 표 산출 |
 | P7 (선택) | Gazebo integration | 20~30초 대표 클립 |
 | P8 (선택) | RQ3: MissionPatch 재배선 + 선택적 재할당 비교 | 별도 게이트, 착수 전 이 문서 개정 |
+
+**P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
+
+1. `Agent`, `Task`, `TaskGraph`, `RouteGraph` 단위테스트 통과.
+2. semantic scene과 reference fixture가 오류 없이 로드됨.
+3. reference fixture가 §3 고정 형상과 일치: task 12, edge 6, 계산된 초기 READY 6, 초기
+   PENDING 6.
+4. fixture의 모든 task_id 유일, 모든 target이 존재하는 area/incident 참조, 모든 edge 양끝이
+   존재하는 task 참조, cycle 없음.
+5. route graph 도달가능성 전수 검증 통과 — 모든 UGV 대상 task(`GROUND_INSPECTION`,
+   `HAZARD_MARKER_DEPLOY`)의 `access_node_id`가 route graph에 존재하고 모든 UGV 시작
+   노드에서 도달 가능(§8).
 
 ---
 
