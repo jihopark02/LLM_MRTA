@@ -1,0 +1,25 @@
+[project]
+name = "llm-mrta"
+version = "0.0.0"
+description = "LLM-Based Disaster Mission Decomposition and CBBA Task Allocation for Heterogeneous Unmanned Systems"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

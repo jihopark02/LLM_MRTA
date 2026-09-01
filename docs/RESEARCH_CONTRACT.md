@@ -157,6 +157,9 @@ UAV가 계속 유휴 상태라면 이는 즉시 실패가 아니라 capability �
 이전 저장소의 `UAV` dataclass를 복사하지 않는다. PX4 전용 필드(`mpc_xy_vel_max` 등)를 core
 model에 넣지 않는다.
 
+아래 코드는 예시다. `StrEnum`은 Python 3.11+ 전용이므로, 3.10 환경에서는 동일 의미의
+`class X(str, Enum)` 패턴으로 구현한다(값이 bare string과 == 비교되고 YAML 왕복 동일).
+
 ```python
 class PlatformKind(StrEnum):
     UAV = "UAV"
