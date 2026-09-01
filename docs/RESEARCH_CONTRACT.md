@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.20 (D-021). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.21 (D-022). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,6 +62,13 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
+- v1.21 (D-022): P6 Codex 검토 반영. §7 — LLM 출력에서 `priority` 제거, task entry는
+  `{task_type, target}`; `derive_priority`(incident → incident.priority, AREA_RECON →
+  상수 4)가 파생. §1 RQ1을 "구조 생성"으로 재서술. §9 — candidate 경로는 invariant
+  #1~#12만("14개" 서술 금지), #13~#14는 patch 전용. §14 `VALIDATOR_VERSION` 1.2 → 1.3.
+  §12 — 결과 JSON에 raw·final 후보 내용·graph_hash·error_codes 저장(감사, 축소 금지),
+  `X/N` 동적 분모, family B edge P/R은 N/A, repair attempted/recovered 분리,
+  하네스 예외는 `harness_error`로 분리. 감사 필드 추가 후 9개 라이브 재실행.
 - v1.20 (D-021): §12에 P6 평가 하네스 설계 고정 — reference annotation 파일 형식/위치
   (`data/reference_annotations/<id>.yaml`, LLM 첫 호출 전 커밋), `task_key=(task_type,target)`
   기준 비교, `allowed_graphs` 중 (task F1, edge F1) 최대인 것과 대조, raw·final 후보 둘 다
@@ -88,8 +95,10 @@ output, CBBA, 결정론적 Validator)를 통합하고 재현 가능하게 시연
 
 ## 1. 연구 질문
 
-**RQ1 (필수)**: LLM이 고수준 복합 재난 대응 명령과 semantic scene으로부터 위치·priority·
-capability·dependency가 포함된 실행 가능한 task graph를 생성할 수 있는가?
+**RQ1 (필수)**: LLM이 고수준 복합 재난 대응 명령과 semantic scene으로부터 실행 가능한 task
+graph의 **구조**(어떤 task_type을 어떤 target에, 그리고 task 간 dependency edge)를 생성할 수
+있는가? 좌표·priority·capability·duration은 LLM이 만들지 않고 결정론적 compiler가 semantic
+scene과 고정 매핑에서 resolve한다(§7) — RQ1은 그 구조 생성 능력을 §12 지표로 측정한다.
 
 **RQ2 (필수)**: 결정론적으로 검증된 task graph를 CBBA가 UAV/UGV의 capability와 플랫폼별
 이동비용을 고려하여 이종 무인체계에 실행 가능하게 할당할 수 있는가?
@@ -281,14 +290,28 @@ class Task:
     assigned_agent: str | None = None
 ```
 
-**LLM은 `position`, `required_capabilities`, `duration`, `eligible_platforms`, `task_id`를
-직접 생성하지 않는다.** LLM 출력은 `task_type` + `target`(landmark/incident 참조) +
-`priority`만 포함한다. 나머지는 결정론적 compiler가 semantic scene과 기본 매핑 테이블에서
-resolve한다. LLM이 좌표를 직접 생성하면 semantic scene과 이중 진실 원천이 생긴다.
+**LLM은 `position`, `priority`, `required_capabilities`, `duration`, `eligible_platforms`,
+`task_id`를 직접 생성하지 않는다(D-022).** LLM 출력은 `task_type` + `target`(landmark/incident
+참조)만 포함한다. 나머지는 결정론적 compiler가 semantic scene과 기본 매핑 테이블에서
+resolve한다. LLM이 좌표나 priority를 직접 생성하면 semantic scene과 이중 진실 원천이 생긴다.
 schema 검증(§9 #1)은 이를 강제한다 — top-level 키는 정확히 `{tasks, edges}`, task entry
-키는 정확히 `{task_type, target, priority}`여야 하며, 그 외 키(`assigned_agent` 등)가 있으면
-`E_SCHEMA`로 거부한다. `priority`는 정수 **1..10**이어야 하며 범위를 벗어나면 `E_SCHEMA`로
-거부한다(D-008 — CBBA 보상 함수가 0·음수 priority에서 음수 bid·미할당을 유발하지 않도록).
+키는 정확히 `{task_type, target}`여야 하며, 그 외 키(`priority`, `assigned_agent` 등)가
+있으면 `E_SCHEMA`로 거부한다.
+
+**priority 파생 규칙(D-022)**: compiler(`scenarios/compiler.py`의 `derive_priority`)가
+결정한다.
+- incident를 target으로 하는 task(`THERMAL_RECON`/`SUPPRESSANT_DROP`/`GROUND_INSPECTION`/
+  `GROUND_SUPPRESSION`) → 그 incident의 `priority`(§3: FIRE_SITE_1 = 9, FIRE_SITE_2 = 7).
+- `AREA_RECON`(zone target) → 고정 상수 `AREA_RECON_PRIORITY = 4`. zone은 사건 심각도가
+  없으므로 균일하며, 두 incident priority(7·9)보다 낮아 CBBA가 진행 중 사건 대응을 zone
+  정찰보다 앞세운다.
+
+파생된 priority는 정수 **1..10**이며(`core/task.py`의 `Task.__post_init__`가 강제, D-008 —
+CBBA 보상이 0·음수에서 음수 bid·미할당을 내지 않도록), audit hash(§14 `graph_hash`)의
+node payload에 포함된다.
+
+MissionPatch(`AddTask`, §10)의 priority 처리는 RQ3(P8) 구현 시 같은 파생 규칙으로 정렬한다.
+그때까지 `AddTask.priority`는 유지하되 end-to-end로 쓰이지 않는다(D-006).
 
 `Task.status`는 YAML에 독립적으로 기록하지 않고 graph의 predecessor 상태로부터 계산한다
 (§9의 whole-graph recompute).
@@ -368,6 +391,11 @@ aerial-only 임무, (b) full-response 명령인데 나머지 task를 누락한 �
 이 표는 **최종 후보 graph** 위에서 도는 whole-graph Validator다. patch의 raw operation 목록
 self-일관성 검사(중복 op, 같은 edge Add+Remove 등, 오류코드 `E_PATCH_CONFLICT`)는 이 검증
 이전 단계이며 §10 처리 절차 2단계에서 별도로 수행한다.
+
+**적용 범위**: §12 LLM candidate 경로(P5/P6)가 받는 검사는 **#1~#12**다(그중 #1은 candidate
+schema — top-level `{tasks, edges}`, task entry `{task_type, target}`). **#13~#14는
+MissionPatch 경로 전용**이며 RQ3(P8) 전에는 end-to-end로 도달하지 않는다(D-006). "승인된
+candidate graph가 14개 invariant를 만족한다"고 서술하지 않는다 — "#1~#12를 만족한다".
 
 **#13은 RQ3(P8)를 염두에 둔 것**: "화재 재발 위험 보고" 시나리오는 `SUPPRESSANT_DROP_F2`(이미
 COMPLETED)의 outgoing edge를 `GROUND_INSPECTION_F2`에서 신규 `THERMAL_RECHECK_F2`로 재배선해야
@@ -510,7 +538,7 @@ CBBA를 새로운 알고리즘 기여로 표현하지 않는다.
 **파이프라인**:
 
 ```
-자연어 명령 → Step 1(task 목록: task_type/target/priority만) → schema validation
+자연어 명령 → Step 1(task 목록: task_type/target만) → schema validation
 → Step 2(dependency edge 제안) → whole-graph Validator → 구조화 오류 기반 repair 최대 1회
 → 전체 재검증 → 승인 또는 명시적 거부(reference로 조용히 fallback하지 않음)
 ```
@@ -531,7 +559,7 @@ Step 2 backend 호출 자체가 일어나지 않는다 — mock 테스트는 이
 
 **schema는 정확히 제한한다(D-019)**: `llm/schemas.py`의 모든 pydantic 모델은
 `model_config = ConfigDict(extra="forbid", strict=True)`를 쓴다. 모델이 허용 안 된 키를
-내거나(`position`, top-level `notes` 등) 타입을 벗어나면(`priority="3"`, `priority=True`)
+내거나(`priority`, `position`, top-level `notes` 등) 타입을 벗어나면(`target=123` 등)
 조용히 버리거나 강제 변환하지 않고 `pydantic.ValidationError`로 거부되어야 한다.
 
 **backend 예외는 명시적 SCHEMA 거부로 변환한다(D-019)**: Step 1/2/repair 중 어느 backend
@@ -584,17 +612,29 @@ false positive로 처리한다. 소표본 결과는 백분율만 말고 원시 �
   `recon_zones: [...]` + `incident_chains: {FIRE_SITE_x: [<§4 workflow의 연속 prefix>]}` 또는
   명시적 `tasks`/`edges`로 적는다. **LLM을 처음 호출하기 전에 커밋한다** — git 이력이 순서를
   증명한다.
-- **task_key/edge_key 비교**: `task_key = (task_type, target)`(priority 제외 — priority는
-  §7에서 incident로부터 결정). 예측 graph를 `allowed_graphs` 중 (task F1, edge F1) 최대인
-  것 하나와 대조해 task/edge precision·recall·exact match를 낸다. 정답이 없는 예측 task는
-  task precision의 FP, 정답에 있는데 없는 예측은 recall의 FN.
+- **task_key/edge_key 비교**: `task_key = (task_type, target)` — LLM 출력이 이제
+  `{task_type, target}`뿐이므로(D-022) 이게 곧 LLM이 생성하는 것 전부다. 예측 graph를
+  `allowed_graphs` 중 (task F1, edge F1) 최대인 것 하나와 대조해 task/edge precision·recall·
+  exact match를 낸다. 정답이 없는 예측 task는 task precision의 FP, 정답에 있는데 없는 예측은
+  recall의 FN. 정답 edge가 0개인 case(family B)의 edge precision/recall은 백분율 대신 **N/A
+  (0 reference edges)**로 표기하고 성공 여부는 exact match로 본다.
 - **raw와 final 둘 다 측정**: `raw_candidate`(repair 이전)와 최종 `candidate` 각각에 대해
   지표를 낸다. schema 실패로 candidate가 없으면 그 지표는 N/A(집계에서 분모 제외).
-- **집계**: schema-valid·raw/repair 후 whole-graph-valid·approved를 `X/9`로, task·edge
-  precision/recall은 candidate가 있는 case의 평균 + 원시 분자/분모, exact match count,
-  failure category 히스토그램, latency(초) 통계, family별 분해.
+- **감사 기록(§14, §16 — 축소 금지)**: 결과 JSON에 case별로 raw·final 후보의
+  `tasks`(task_type/target/파생 priority)·`edges`, raw·final `graph_hash`, `accepted`,
+  `error_codes`, `repaired_schema_valid`를 저장한다. 제3자가 `task_type`/`target`만으로
+  precision·recall·exact match를 독립 재계산할 수 있어야 한다. 가능하면 모델의 structured
+  output 원문도 남긴다.
+- **집계**: schema-valid·raw/repair 후 whole-graph-valid·approved를 `X/N`(N = 실행한 case
+  수, 하드코딩 금지)로, task·edge precision/recall은 candidate가 있는 case의 평균 + 원시
+  분자/분모, exact match count, failure category 히스토그램, latency(초) 통계, family별 분해.
+  repair는 "attempted / recovered / first-pass approved"를 분리해 적는다(attempted 0이면
+  "repair는 mock·negative 테스트로만 검증"이라고 명시).
 - **재현성**(§14): 결과에 `scene_hash`, `validator_version`, 명령별 `resolved_models`(실제
-  `completion.model`), backend 종류를 기록한다.
+  `completion.model`), backend 종류를 기록한다. 하네스 자체 예외(네트워크·인증·backend
+  raise)는 `failure_category`(모델 출력 실패 분류)와 섞지 않고 별도 `harness_error`로 적는다.
+- **위 감사 필드를 저장하지 않은 실행은 결과로 인정하지 않는다** — 필드를 추가한 뒤 9개
+  라이브 평가를 다시 실행한다.
 - 실제 LLM 평가는 `OpenAIBackend`, 하네스 self-test는 `MockBackend`(스크립트 응답).
 
 ---
@@ -629,6 +669,10 @@ Validator 실행 결과에는 최소한 `graph_hash`, `scene_hash`, `validator_v
 **`validator_version` bump 규칙(D-008)**: 판정 규칙이 바뀌면(invariant 추가·제거·의미 변경,
 schema 허용 범위 변경, hash payload 형식 변경) 반드시 올린다. 같은 버전 아래에서 동일 입력의
 `accepted`/`error_codes`가 달라지면 안 된다. 테스트는 의도한 버전 literal을 확인한다.
+현재 `VALIDATOR_VERSION = "1.3"` — 1.2 → 1.3 (D-022): candidate schema task entry 키가
+`{task_type, target, priority}` → `{task_type, target}`, `priority`는 compiler가 파생.
+`graph_hash` node payload는 여전히 `(task_type, target, priority)` triple이며 priority는
+`derive_priority`가 채운다.
 
 **rejected patch의 `graph_hash` 범위(D-008)**: `E_SCHEMA`/`E_PATCH_CONFLICT`로 whole-graph
 단계 이전에 거부된 patch는 최종 graph가 존재하지 않으므로 `graph_hash`가 빈 문자열이다. 이

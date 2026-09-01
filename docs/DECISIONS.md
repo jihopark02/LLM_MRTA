@@ -705,3 +705,59 @@ family A의 canonical reference는 P1 `scenarios/reference_fixture.yaml`(12 task
 **영향** 신규 `data/reference_annotations/{A1..C3}.yaml`(9), `evaluation/` 패키지
 (`annotations.py`, `metrics.py`, `harness.py`, `report.py`), `tests/test_evaluation.py`.
 `pyproject.toml` packages.find에 `evaluation*` 추가.
+## D-022: priority를 LLM 출력에서 제거, 결정론적 파생 + P6 감사 보강 (계약 v1.21)
+
+**배경** P6 Codex 검토에서 승인 보류. 8개 지적 중 3개 차단:
+
+1. **priority를 "생성"한다면서 평가에서 완전히 제외.** 계약 §1 RQ1은 priority 포함 graph
+   생성을 평가한다고 했는데 P6 `task_key`는 `(task_type, target)`뿐 — priority가 전부 틀려도
+   exact match. 게다가 내부 기준이 불일치: prompt는 "incident task는 incident priority"라고
+   지시하지만 P1 fixture의 GROUND_INSPECTION은 8/6(incident는 9/7), AREA_RECON은 fixture
+   4/5/3/4 · annotation 5로 임의. "9/9 exact match"가 priority 정확도를 전혀 증명 못 함.
+2. **결과 JSON에 실제 LLM 후보 graph와 Validator 감사 기록이 없음.** `CaseResult`가 점수만
+   저장하고 raw/final 후보·validation을 버림. 제3자가 9/9를 독립 재계산 불가인데
+   `P6_RESULTS.md`는 이를 "원자료"라 부름.
+3. **"14개 invariant 만족"은 사실과 다름.** #13~#14는 MissionPatch 전용(`whole_graph.py`),
+   candidate 경로는 #1~#12만.
+
+비차단 5개: repair 0/9가 실패처럼 보임(attempted vs recovered), family B edge P/R 1.00은
+빈 집합 관례, annotation 명시형 schema가 `int()` 강제 변환(P5에서 고친 문제 재발),
+`_N=9` 하드코딩, 하네스 예외가 `failure_category`와 섞임.
+
+**결정** priority 정책 = **Option A**(LLM 출력에서 제거, 결정론적 파생):
+
+- **schema**(`llm/schemas.py`): `LLMTask`는 `{task_type, target}`. `to_candidate_dict`도
+  priority 없음. candidate schema(`validator/candidate.py`)의 task entry 허용 키는
+  `{task_type, target}` — `priority`가 있으면 `E_SCHEMA`. `CandidateTask`는 priority 필드
+  제거(구조 뷰).
+- **파생**(`scenarios/compiler.py`): `derive_priority(scene, task_type, target)` —
+  incident target → `scene.incidents[target].priority`(9/7), AREA_RECON → 상수
+  `AREA_RECON_PRIORITY = 4`(zone은 심각도 없어 균일, 두 incident보다 낮음).
+  `compile_reference_graph`는 `(task_type, target)` 2-tuple 목록을 받아 내부에서 파생.
+  `compile_task`는 저수준 프리미티브로 남아 `priority` 인자 유지(패치 경로가 사용).
+- **prompt**(`llm/prompts.py`): Step1에서 priority 지시 삭제.
+- **hash**(`validator/validate.py`): `validate_candidate`가 각 candidate task의 priority를
+  `derive_priority`로 채워 `graph_hash` triple에 넣음(감사 hash는 그대로 의미 유지).
+- **fixture**: `reference_fixture.yaml`에서 `priority:` 키 제거, `fixture.py`는 2-tuple.
+  파생 결과 — incident task 9/7, AREA_RECON 4(기존 fixture의 GROUND_INSPECTION 8/6,
+  AREA_RECON 4/5/3/4에서 변경). P3/P4는 절대 makespan을 test에 하드코딩하지 않으므로
+  (violation 0 · 결정성만 검사) golden test는 유지, CLAUDE.md의 참고 수치만 갱신.
+- **`VALIDATOR_VERSION` 1.2 → 1.3**.
+- **MissionPatch 경로**(`AddTask.priority`)는 손대지 않음 — RQ3(P8)에서 같은 파생 규칙으로
+  정렬한다(D-006: patch 경로는 P2 단위테스트만, end-to-end 미도달).
+
+P6 감사 보강:
+
+- **JSON에 case별 저장**: raw·final 후보 `tasks`(task_type/target/파생 priority)·`edges`,
+  raw·final `graph_hash`·`accepted`·`error_codes`, `repaired_schema_valid`. 제3자 재계산 가능.
+- **집계**: `X/N`(N 동적), repair는 attempted/recovered/first-pass approved 분리, family B
+  edge P/R은 `N/A (0 reference edges)`.
+- **하네스 예외**: `failure_category`(모델 출력 실패)와 분리된 `harness_error` 필드.
+- **annotation 명시형 schema**: bool 제외 실제 int·범위 검사 복원(현재 9개는 shorthand만
+  써서 기존 결과엔 영향 없음).
+- **"#1~#12"로 문구 정정**(`P6_RESULTS.md`, `CLAUDE.md`).
+- **감사 필드 추가 후 9개 라이브 평가 재실행** — 기존 실행(`456e826`)은 후보 미저장이라 무효.
+
+**영향** `llm/{schemas,prompts,pipeline}.py`, `validator/{candidate,validate,hashing}.py`,
+`scenarios/{compiler,fixture}.py` + `reference_fixture.yaml`, `evaluation/{annotations,
+harness,metrics,report,plots}.py`, 12개 test 파일. `docs/P6_RESULTS.md` 재작성. 라이브 재실행.
