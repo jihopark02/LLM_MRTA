@@ -14,6 +14,7 @@ from interaction.session import (
     REFERENT_WINDOW_TURNS,
     MissionSession,
     Referent,
+    ReferentKind,
     SessionPhase,
     build_context_summary,
     fresh_session_state,
@@ -22,7 +23,8 @@ from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.fixture import load_reference_fixture
 from scenarios.scene import load_scene
 
-SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
+SCEN = Path(__file__).parents[1] / "scenarios"
+SCENE = SCEN / "industrial_park.yaml"
 
 
 @pytest.fixture(scope="module")
@@ -113,7 +115,66 @@ def test_note_referent_records_the_current_turn(scene):
     s = session(scene)
     s.turn_count = 2
     s.note_referent("incident", "FIRE_SITE_1")
-    assert s.recent_referents == [Referent("incident", "FIRE_SITE_1", 2)]
+    assert s.recent_referents == [Referent(ReferentKind.INCIDENT, "FIRE_SITE_1", 2)]
+
+
+# -- referent integrity: this list is quoted into the LLM context ----
+
+
+@pytest.mark.parametrize(
+    ("kind", "entity_id"),
+    [
+        ("robot", "G1"),            # not a referent kind at all
+        ("incident", "UNKNOWN"),    # not in scene.incidents
+        ("zone", "UNKNOWN"),        # not in scene.zones
+        ("incident", "ZONE_A"),     # right id, wrong kind
+        ("zone", "FIRE_SITE_1"),    # right id, wrong kind
+        ("incident", ""),           # empty id
+    ],
+)
+def test_invalid_referent_is_rejected_without_mutation(scene, kind, entity_id):
+    s = session(scene)
+    s.note_referent("incident", "FIRE_SITE_1")  # one good entry to protect
+    before = list(s.recent_referents)
+
+    with pytest.raises(ValueError):
+        s.note_referent(kind, entity_id)
+    assert s.recent_referents == before
+
+
+def test_invalid_referent_never_reaches_the_llm_context(scene):
+    s = session(scene)
+    with pytest.raises(ValueError):
+        s.note_referent("robot", "NOT_IN_SCENE")
+    assert "NOT_IN_SCENE" not in build_context_summary(s)
+    assert "RECENT REFERENTS: none" in build_context_summary(s)
+
+
+@pytest.mark.parametrize("bad_turn", [-1, True, 1.0, "2"])
+def test_non_negative_int_turn_is_required(scene, bad_turn):
+    s = session(scene)
+    s.turn_count = bad_turn
+    with pytest.raises(ValueError, match="turn_count"):
+        s.note_referent("incident", "FIRE_SITE_1")
+    assert s.recent_referents == []
+
+    with pytest.raises(ValueError, match="introduced_turn"):
+        Referent(ReferentKind.INCIDENT, "FIRE_SITE_1", bad_turn)
+
+
+def test_referent_requires_the_enum_not_a_bare_string():
+    with pytest.raises(ValueError, match="ReferentKind"):
+        Referent("incident", "FIRE_SITE_1", 0)
+
+
+def test_note_referent_accepts_the_enum_or_its_value(scene):
+    s = session(scene)
+    s.note_referent(ReferentKind.ZONE, "ZONE_C")
+    s.note_referent("incident", "FIRE_SITE_2")
+    assert [r.entity_kind for r in s.recent_referents] == [
+        ReferentKind.ZONE,
+        ReferentKind.INCIDENT,
+    ]
 
 
 def test_referents_expire_after_the_window(scene):
@@ -162,6 +223,36 @@ def test_no_referents_yields_no_candidates(scene):
 def test_context_summary_is_deterministic(scene, fixture_graph):
     s = session(scene, state=fresh_session_state(fixture_graph, scene))
     assert build_context_summary(s) == build_context_summary(s)
+
+
+def test_context_summary_ignores_scene_dict_insertion_order(scene, fixture_graph):
+    from dataclasses import replace as dc_replace
+
+    reversed_scene = dc_replace(
+        scene,
+        zones=dict(reversed(list(scene.zones.items()))),
+        incidents=dict(reversed(list(scene.incidents.items()))),
+    )
+    a = session(scene, state=fresh_session_state(fixture_graph, scene))
+    b = session(reversed_scene, state=fresh_session_state(fixture_graph, reversed_scene))
+    assert build_context_summary(a) == build_context_summary(b)
+
+
+def test_context_summary_ignores_task_insertion_order(scene):
+    import yaml
+
+    from scenarios.compiler import compile_reference_graph
+    from scenarios.fixture import _parse_endpoint
+
+    raw = yaml.safe_load((SCEN / "reference_fixture.yaml").read_text())
+    specs = [(TaskType(t["type"]), t["target"]) for t in raw["tasks"]]
+    edges = [(_parse_endpoint(p), _parse_endpoint(s)) for p, s in raw["edges"]]
+
+    forward = compile_reference_graph(scene, specs, edges)
+    backward = compile_reference_graph(scene, list(reversed(specs)), list(reversed(edges)))
+    a = session(scene, state=fresh_session_state(forward, scene))
+    b = session(scene, state=fresh_session_state(backward, scene))
+    assert build_context_summary(a) == build_context_summary(b)
 
 
 def test_context_summary_without_a_mission(scene):

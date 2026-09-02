@@ -40,11 +40,36 @@ class SessionPhase(str, Enum):
     EXECUTION_FAILED = "EXECUTION_FAILED"
 
 
+class ReferentKind(str, Enum):
+    INCIDENT = "incident"
+    ZONE = "zone"
+
+
+def _require_turn(value: object, label: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise ValueError(f"{label} must be a non-negative int, got {value!r}")
+
+
 @dataclass(frozen=True, slots=True)
 class Referent:
-    entity_kind: str  # "incident" | "zone"
+    """An entity the operator can later point at with a pronoun.
+
+    Validated on construction: whatever ends up here is quoted verbatim into
+    the LLM context (§18.3), so a made-up kind or id must never get this far.
+    Scene membership is checked by ``MissionSession.note_referent``, which is
+    the only place that knows the scene.
+    """
+
+    entity_kind: ReferentKind
     entity_id: str
     introduced_turn: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.entity_kind, ReferentKind):
+            raise ValueError(f"entity_kind must be a ReferentKind, got {self.entity_kind!r}")
+        if not isinstance(self.entity_id, str) or not self.entity_id:
+            raise ValueError(f"entity_id must be a non-empty str, got {self.entity_id!r}")
+        _require_turn(self.introduced_turn, "introduced_turn")
 
 
 def fresh_session_state(graph: TaskGraph, scene: Scene) -> MissionState:
@@ -84,12 +109,23 @@ class MissionSession:
         return build_context_summary(self)
 
     # -- referents (§18.5) ---------------------------------------------
-    def note_referent(self, entity_kind: str, entity_id: str) -> None:
+    def note_referent(self, entity_kind: ReferentKind | str, entity_id: str) -> None:
         """Record a successfully grounded entity. Callers must only do this for
         a successful REPORT / a properly grounded UPDATE / a QUERY on an
         explicit incident — never for a clarification, an UNSUPPORTED turn, an
-        ambiguous referent, or a failed operation (§18.5)."""
-        self.recent_referents.append(Referent(entity_kind, entity_id, self.turn_count))
+        ambiguous referent, or a failed operation (§18.5).
+
+        The entity must exist in the current scene: this list is quoted into
+        the LLM context, so it is an input boundary, not a scratch pad. Raises
+        ``ValueError`` and leaves ``recent_referents`` untouched otherwise.
+        """
+        kind = ReferentKind(entity_kind)  # ValueError on anything else
+        known = self.scene.incidents if kind is ReferentKind.INCIDENT else self.scene.zones
+        if entity_id not in known:
+            raise ValueError(f"unknown {kind.value} referent: {entity_id!r}")
+        _require_turn(self.turn_count, "turn_count")
+
+        self.recent_referents.append(Referent(kind, entity_id, self.turn_count))
         self._prune_referents()
 
     def _prune_referents(self) -> None:
@@ -177,7 +213,8 @@ def build_context_summary(session: MissionSession) -> str:
         lines.append(
             "RECENT REFERENTS: "
             + ", ".join(
-                f"{r.entity_id} ({r.entity_kind}, turn {r.introduced_turn})" for r in live
+                f"{r.entity_id} ({r.entity_kind.value}, turn {r.introduced_turn})"
+                for r in live
             )
         )
     else:
@@ -188,6 +225,7 @@ def build_context_summary(session: MissionSession) -> str:
 __all__ = [
     "REFERENT_WINDOW_TURNS",
     "SessionPhase",
+    "ReferentKind",
     "Referent",
     "MissionSession",
     "fresh_session_state",
