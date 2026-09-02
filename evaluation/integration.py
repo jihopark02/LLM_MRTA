@@ -51,6 +51,7 @@ class FullRun:
     execution: ExecutionResult | None
     resolved_models: tuple[str, ...]
     harness_error: str | None = None
+    failed_stage: str | None = None  # "generate" | "allocate" | "execute" on a harness error
 
     @property
     def approved(self) -> bool:
@@ -85,25 +86,38 @@ class FullRun:
 
 
 def run_full(ann: Annotation, scene: Scene, backend, *, on_error: str = "record") -> FullRun:
+    """Run one command through the whole fork. Any stage raising (backend
+    network/auth, or an allocate/executor bug) is isolated per command: the
+    FullRun keeps whatever completed, with ``harness_error`` and ``failed_stage``
+    set, so the other commands still run."""
     before = len(getattr(backend, "resolved_models", ()))
+    gen: GenerationResult | None = None
+    final_snapshot: GraphSnapshot | None = None
+    score: GraphScore | None = None
+    allocation: AllocationResult | None = None
+    execution: ExecutionResult | None = None
+    stage = "generate"
     try:
         gen = generate_mission(ann.command, scene, backend)
+        final_snapshot = snapshot(scene, gen.candidate, gen.validation)
+        if gen.candidate is not None:
+            score = score_graph(gen.candidate, ann.allowed_graphs)
+        if gen.approved and gen.graph is not None:
+            fleet = {a.agent_id: a for a in scene.fleet}
+            stage = "allocate"
+            allocation = allocate(MissionState(gen.graph, fleet), scene)
+            stage = "execute"
+            execution = SimExecutor(MissionState(gen.graph, fleet), scene).run()
     except Exception as exc:  # noqa: BLE001 - one bad command must not kill the run
         if on_error == "raise":
             raise
         resolved = tuple(getattr(backend, "resolved_models", ())[before:])
-        return FullRun(ann.id, ann.command, _empty_gen(ann.command), None, None,
-                       None, None, resolved, harness_error=f"{type(exc).__name__}: {exc}")
+        return FullRun(
+            ann.id, ann.command, gen or _empty_gen(ann.command), final_snapshot, score,
+            allocation, execution, resolved,
+            harness_error=f"{type(exc).__name__}: {exc}", failed_stage=stage,
+        )
     resolved = tuple(getattr(backend, "resolved_models", ())[before:])
-
-    final_snapshot = snapshot(scene, gen.candidate, gen.validation)
-    score = score_graph(gen.candidate, ann.allowed_graphs) if gen.candidate is not None else None
-    if not gen.approved or gen.graph is None:
-        return FullRun(ann.id, ann.command, gen, final_snapshot, score, None, None, resolved)
-
-    fleet = {a.agent_id: a for a in scene.fleet}
-    allocation = allocate(MissionState(gen.graph, fleet), scene)
-    execution = SimExecutor(MissionState(gen.graph, fleet), scene).run()
     return FullRun(ann.id, ann.command, gen, final_snapshot, score, allocation, execution, resolved)
 
 
@@ -123,7 +137,7 @@ def run_commands(anns: list[Annotation], scene: Scene, backend, *, on_error: str
 
 def _row(r: FullRun) -> str:
     if r.harness_error:
-        return f"  {r.id:<4} HARNESS_ERROR ({r.harness_error})"
+        return f"  {r.id:<4} HARNESS_ERROR @{r.failed_stage} ({r.harness_error})"
     if not r.approved:
         return f"  {r.id:<4} REJECTED ({r.gen.failure_category})"
     a, e = r.allocation, r.execution
@@ -161,6 +175,7 @@ def _run_dict(r: FullRun) -> dict:
         "operationally_clean": r.operationally_clean,
         "demo_pass": r.demo_pass,
         "harness_error": r.harness_error,
+        "failed_stage": r.failed_stage,
         "resolved_models": list(r.resolved_models),
     }
     if r.final_snapshot is not None:

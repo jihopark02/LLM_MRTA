@@ -160,7 +160,7 @@ def test_rejected_mission_stops_before_allocation(scene, annotations):
     assert not r.operationally_clean and not r.demo_pass
 
 
-def test_harness_error_is_recorded_not_raised(scene, annotations):
+def test_generate_harness_error_is_recorded_not_raised(scene, annotations):
     class Boom:
         def complete(self, *a, **k):
             raise RuntimeError("network down")
@@ -168,5 +168,21 @@ def test_harness_error_is_recorded_not_raised(scene, annotations):
     (a1,) = _by_id(annotations, "A1")
     r = run_full(a1, scene, Boom())
     assert r.harness_error is not None and "network down" in r.harness_error
+    assert r.failed_stage == "generate"
     assert not r.approved and not r.demo_pass
     assert r.allocation is None and r.execution is None
+
+
+def test_allocate_failure_is_isolated_and_keeps_the_generation(scene, annotations, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("allocate blew up")
+
+    monkeypatch.setattr("evaluation.integration.allocate", boom)
+    (a1,) = _by_id(annotations, "A1")
+    r = run_full(a1, scene, _mock_backend([a1]))
+
+    assert r.approved and r.exact_match          # RQ1 output is preserved + audited
+    assert r.final_snapshot is not None
+    assert r.harness_error is not None and r.failed_stage == "allocate"
+    assert r.allocation is None and r.execution is None
+    assert not r.operationally_clean and not r.demo_pass

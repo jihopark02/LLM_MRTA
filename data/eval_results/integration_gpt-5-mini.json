@@ -50,6 +50,7 @@
           "S2": 3
         }
       },
+      "failed_stage": null,
       "generation": {
         "accepted": true,
         "edges": [
@@ -239,6 +240,7 @@
           "S2": 3
         }
       },
+      "failed_stage": null,
       "generation": {
         "accepted": true,
         "edges": [],
@@ -370,6 +372,7 @@
           "S2": 3
         }
       },
+      "failed_stage": null,
       "generation": {
         "accepted": true,
         "edges": [
@@ -493,10 +496,10 @@
     }
   ],
   "meta": {
-    "finished_at": "2026-09-02T11:23:04+00:00",
+    "finished_at": "2026-09-02T11:29:50+00:00",
     "requested_model": "gpt-5-mini",
     "scene_hash": "0e8f098cd95aba26f1384fc6ad5c89ad047ec84912cf595936a7b56d75672c6d",
-    "started_at": "2026-09-02T11:22:27+00:00",
+    "started_at": "2026-09-02T11:29:04+00:00",
     "structure": "fork: validated graph -> allocate (plan-time) AND SimExecutor (event-driven); allocate result is not fed to the executor",
     "validator_version": "1.3"
   }
