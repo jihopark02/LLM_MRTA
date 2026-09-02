@@ -791,3 +791,29 @@ harness,metrics,report,plots}.py`, 12개 test 파일. `docs/P6_RESULTS.md` 재�
 
 **영향** `scenarios/scene.py`, `tests/test_scene.py`(+4), `core/task.py`(docstring),
 `README.md`, `docs/P6_RESULTS.md`, `CLAUDE.md`. 라이브 재실행 없음.
+## D-024: P6 승인 + 문서 정정 (문서 전용, 계약 v1.22 불변)
+
+**배경** P6 재검토 최종 통과 — Codex가 연구 결과 승인. 다만 D-023 커밋(`88536ed`)의
+문서에 보고 내용과 실제가 어긋난 곳이 있어 정리.
+
+**결정** (계약 텍스트 변경 없음 — 버전 v1.22 유지)
+
+- **P6 승인 완료.** `README.md`·`CLAUDE.md`의 "현재 단계"를 "P1~P6 승인 완료"로,
+  세션 진입점(CLAUDE.md §세션 시작 체크리스트, §지금 어디까지)을 D-024 / v1.22 /
+  VALIDATOR 1.3 / pytest 225 / 기준일 2026-09-02로 갱신. 다음 단계는 P7/P8 착수 여부 결정.
+- **D-023의 "라이브 재실행 없음" 서술 정정**: scene loader 수정 자체는 결과에 영향이
+  없어 재실행이 필수는 아니었으나, `pipeline_errors`를 포함한 완전한 감사 JSON을 남기기
+  위해 2026-09-02에 라이브 9개 평가를 재실행했다. 그 결과 `data/eval_results/`의 JSON·
+  그림·txt가 교체됐고 latency 평균이 15.9s → 18.2s로 바뀌었다(승인 수치 9/9·P/R·exact
+  match는 불변). Append-only 원칙에 따라 D-023 본문은 두고 이 항목이 정정본이다.
+- `evaluation/__main__.py` docstring의 `python -m evaluation` → `python3 -m evaluation`.
+- `docs/P6_RESULTS.md` 헤더에 D-023·D-024 표기 추가.
+
+**비차단(P6 안 막음, 외부 배포 준비 시 처리)**: `pyproject.toml`의
+`[tool.setuptools.packages.find]`는 코드 패키지만 잡고 `scenarios/*.yaml`,
+`data/reference_annotations/*.yaml`은 package data로 선언돼 있지 않다. `pip install -e`
+로컬 실행에는 문제없으나 wheel 배포 시 누락된다. wheel 배포를 준비할 때
+`[tool.setuptools.package-data]` 또는 `MANIFEST.in`으로 처리.
+
+**영향** `README.md`, `CLAUDE.md`, `docs/P6_RESULTS.md`, `evaluation/__main__.py`
+(docstring). 코드 동작·테스트·결과 수치 변화 없음.

@@ -1,8 +1,8 @@
 """Run the P6 evaluation (RESEARCH_CONTRACT.md §12, §14, D-021).
 
-    python -m evaluation                      # real run: OpenAIBackend(gpt-5-mini)
-    python -m evaluation --mock               # smoke run with a perfect MockBackend
-    python -m evaluation --out results/p6     # also write <out>.json and <out>.txt
+    python3 -m evaluation                     # real run: OpenAIBackend(gpt-5-mini)
+    python3 -m evaluation --mock              # smoke run with a perfect MockBackend
+    python3 -m evaluation --out results/p6    # also write <out>.json and <out>.txt
 
 The real run needs the 'llm' extra (``pip install -e '.[llm]'``) and
 ``OPENAI_API_KEY`` in the environment or repo-root ``.env``.
