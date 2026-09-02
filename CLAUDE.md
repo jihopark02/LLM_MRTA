@@ -19,16 +19,27 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-026, 계약 v1.24)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-027, 계약 v1.25)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-02 기준)
 
-**P1~P6 승인 완료 + P6.5(통합 runner) 완료. 계약 v1.24 (D-026).**
+**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`). P8.0(RQ3 계약) 확정, Codex 검토 대기.
+계약 v1.25 (D-027).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
-(P6 평가 + P6.5 `integration.py`). `VALIDATOR_VERSION = "1.3"`, `λ = 0.999`. pytest 232개
-통과, ruff clean.
+(P6 평가 + P6.5 `integration.py`). `VALIDATOR_VERSION` — baseline 코드는 아직 `"1.3"`,
+D-027이 P8.1에서 `"1.4"`로 올림. `λ = 0.999`. pytest 232개 통과, ruff clean.
+
+**P8 = Operator–LLM Planning Session (§18, D-027)**: 실행 개시 전 다중 턴 자연어 계획 세션.
+5종 대화 행위(NEW_MISSION/REPORT_INCIDENT/UPDATE_MISSION/QUERY_STATUS/UNSUPPORTED). LLM은
+intent 분류 + slot 추출만, 결정론적 grounder가 referent 해석·clarification·canonical
+MissionPatch 생성, `apply_patch`(P2 기존 엔진)가 atomic commit/rollback. "실행 중 patch"·
+"선택적 재할당"·recheck 어휘는 후속. 신규 `interaction/*` + `demo/app.py`(Streamlit),
+`core/`·`allocation/`·`execution/`·`llm/pipeline.py`·`evaluation/` 무변경. 게이트 P8.0~P8.5는
+§15.
+
+다음: 이 커밋(v1.25 / D-027) Codex 검토 → P8.1 (interaction schema + grounder).
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
@@ -77,7 +88,7 @@ P6.5 (D-025, D-026): `evaluation/integration.py` `run_full` — NL → `generate
 일치 → makespan P3/P4 골든(359.8/257.9) 일치, wrong-but-valid graph는 op-clean이나
 demo_pass 아님. CLI `python3 -m evaluation.integration [--mock]`.
 
-다음: P7(platform adapter) / P8(RQ3 선택적 재할당) 착수 여부 결정.
+다음: P8.0 커밋 Codex 검토 → P8.1. P7(Gazebo)은 보류.
 
 P4 구조:
 - `execution/executor.py` `SimExecutor.run()` — clone 위 event loop: recompute → `run_epoch`

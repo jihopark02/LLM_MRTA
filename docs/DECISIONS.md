@@ -891,3 +891,86 @@ NL 명령을 두 단계에 연속으로 관통시킨 적은 없다**. P7/P8(선�
 **영향** `evaluation/integration.py` 재작성, `evaluation/harness.py`(snapshot public),
 `tests/test_integration.py` 강화, `data/eval_results/integration_gpt-5-mini.*` 재생성.
 `docs/{P6_RESULTS,RESEARCH_CONTRACT}.md`, `README.md`, `CLAUDE.md`. 새 알고리즘 없음.
+
+## D-027: Operator–LLM Planning Session (P8 착수, 계약 v1.25)
+
+**배경** P8 착수 전 설계 3회 반복(v1/v2/v3) + Codex 검토. RQ3 인프라(§10 MissionPatch +
+`apply_patch` reconciliation)는 P2에 이미 구현·단위테스트됨. 없는 것은 NL→intent→MissionPatch
+경로, 대화 문맥/grounding, planning session, UI.
+
+설계 중 확인한 제약:
+- (a) 고정 5종 task 어휘 + 엄격한 §9 #10 하에서는 어떤 유효 patch도 기존 task의 predecessor
+  집합을 못 바꿈(D-006) → "영향받은 commitment만 선택적 재할당"은 recheck 계열 어휘 없이
+  시연 불가.
+- (b) `allocation/allocate.py`는 fresh graph 전제 — `assignments` 빈 dict 시작, 완료 task를
+  unassigned로 집계. 실행 후 residual re-plan에 그대로 못 씀.
+- (c) `execution/executor.py`는 최종 MissionState도 UGV 위치(`self.access_nodes`)도
+  checkpoint도 반환 안 함. `run()` blocking. 반환형 변경은 P4/P6.5 회귀.
+- (d) `validator/patch.py`의 `AddTask.priority`가 D-022(LLM은 priority 미생성)와 불일치.
+
+**결정** P8 첫 범위를 **실행 개시 전의 다중 턴 임무 계획 세션**으로만 고정. executor·
+allocator 확장, post-execution update, 선택적 재할당은 전부 후속.
+
+- §1 RQ3 재서술: "증분 graph 수정 + 결정론적 재검증 + atomic commit/rollback + 올바른
+  clarification". "동적/선택적 재할당"은 후속.
+- 신규 §18(Operator–LLM Planning Session): 범위 / 5종 대화 행위 / session lifecycle(실행 후
+  QUERY만 허용, 나머지 UNSUPPORTED) / referent 규칙(K=3, 성공 grounding에만 추가) /
+  NO_CHANGE / LLM·결정론 경계 / session 상태 경계(`fresh_session_state`, `phase` 3종,
+  plan·execution 분리) / 감사 로그(TURN·EXECUTION event, `plan_assignment_changes` =
+  added/removed/changed) / 신규 incident 등록(zone 사전 정의 response point, priority 7) /
+  interaction eval(N=12, grounder-only + end-to-end 2분할, dialogue+turn 분모 보고).
+- §10: `AddTask` op을 `{task_type, target}`로. priority는 `apply_patch`가 `derive_priority`
+  파생(D-022 정렬). `_op_schema_error`의 priority 검사 제거.
+- §14: `VALIDATOR_VERSION` 1.3 → 1.4. 세 변경 — (i) AddTask schema, (ii) `scene_hash` zone
+  payload에 `reported_incident_position`·`reported_incident_access_node` 추가,
+  (iii) `patch_hash`(op field-level schema 통과 시 생성) + `pre_state_hash`(bundle/path
+  **내부 순서 보존**, agent만 정렬, winning_bids task_id 정렬, float 규칙 고정) 정의
+  (D-015 유보 해제). 기록 정책: field schema 오류 → patch_hash null / field schema 통과
+  이후(conflict·whole-graph·reconciliation·accepted) → patch_hash·pre_state_hash 둘 다.
+  candidate 경로(#1~#12) 판정 불변. **baseline `v0.6.5-baseline`의 P6/P6.5 결과는
+  Validator 1.3 / 옛 scene_hash(`0e8f098cd95aba26f1384fc6ad5c89ad047ec84912cf595936a7b56d75672c6d`)
+  로 보존, 라이브 재실행 없음. P8부터 1.4 / 새 scene_hash.** 전체 단위테스트 재실행.
+- §15: P8 → P8.0~P8.5 게이트 행. P7은 "(선택, 보류)".
+- §17: "P0~P7 완료 전 RQ3" → "P0~P6.5 완료 전 RQ3"(§16 cut-order·§15·§1이 P7을 선행조건으로
+  두지 않음 — 내부 모순 정정). 실행 중 patch 주입·실행 후 graph 수정·선택적 재할당을 제외
+  목록에 추가.
+
+Codex v1/v2/v3 검토에서 반영한 세부:
+- "임무 단계 사이" 표현 삭제 — 실행 버튼 이후엔 graph 수정·incident 추가·NEW/UPDATE/REPORT
+  전부 불가, 저장된 `ExecutionResult` 조회(QUERY)만. 실패 후엔 동일 graph 재시도만 허용.
+- `pre_state_hash`는 bundle/path 내부 순서 보존(정렬 시 `path=[A,B]`와 `[B,A]`가 같은 hash가
+  되어 CBBA 실행 의미가 유실).
+- `scene_hash`의 zone payload는 현재 `[z.name, list(z.recon_waypoint)]`만 해시하므로,
+  response point 2필드를 payload에 명시적으로 추가하지 않으면 scene 의미가 변해도 hash가
+  안 바뀜 → payload에 포함.
+- `fresh_session_state`는 `core/mission_state.py`가 아니라 `interaction/session.py`에 둔다
+  (`core` → `scenarios` 의존성 방지). `core/`는 무변경.
+- `register_incident`는 `incidents` dict만 새로 만들고 `zones`·`route_graph`·`fleet`은
+  구조 공유 가능. 원본 Scene 불변을 테스트로 검증(P8.1 게이트의 "route_graph·fleet 비공유"를
+  "원본 Scene 불변 검증"으로 교체).
+- 실행 버튼도 감사 대상(`event_type: EXECUTION`).
+- 반복/하위단계 UPDATE는 `NO_CHANGE`(중복 AddTask 안 만듦, "빈 patch commit" 아님, state
+  identity 유지, `allocate` 재호출 안 함).
+- session에 `execution: ExecutionResult | None` + `phase EXECUTION_FAILED` 추가. 실행은
+  결정론적 UI 버튼이지 LLM intent 아님.
+- 감사에서 `directly_released_tasks`(PatchResult, 정상 시나리오 항상 빈 목록)와
+  `plan_assignment_changes`(두 plan-time 분석 간 차이)를 분리. "reassigned" 표현 안 씀.
+- `invalid-update rejection`은 헤드라인 지표 아님 — Validator fault-injection + orchestrator
+  방어 테스트로 강등.
+- clarification 지표 2분할: grounder-only vs end-to-end. 헤드라인 = end-to-end.
+- 표본 보고 = dialogues + turns + 지표별 분모.
+- cache key = model + prompt/schema version + context hash + utterance.
+- `label` 제거, incident ID 결정론 생성. `ReportIncidentIntent`는 `zone_ref`(zone_id + name
+  alias 매칭). `UnsupportedIntent`는 고정 템플릿 응답(LLM 자유문장 노출 금지). pydantic
+  union은 `kind` discriminator 명시. `TurnResult.audit`·`patch_ops`는 typed schema.
+
+별도 `docs/P8_DESIGN.md`는 만들지 않는다 — RESEARCH_CONTRACT.md가 단일 진실 원천이고 이
+항목에 설계 근거가 충분하다(중복·불일치 위험).
+
+**영향** 신규 `interaction/*`(schemas, session, context, ground, scene_mut, interpret,
+orchestrator, prompts, eval) + `demo/app.py` + `data/interaction_dialogues/*` +
+`data/interaction_runs/*` + `tests/test_interaction_*`. 수정: `validator/{patch,patch_apply,
+hashing}.py`, `scenarios/{scene.py, industrial_park.yaml}`, `pyproject.toml`,
+`docs/{README,CLAUDE}`. **`core/`·`allocation/`·`execution/`·`validator/{validate,
+whole_graph}.py`·`llm/pipeline.py`·`evaluation/`은 무변경.** feature branch
+`feature/operator-interaction`(태그 `v0.6.5-baseline`에서 분기).

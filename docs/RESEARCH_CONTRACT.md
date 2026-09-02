@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.24 (D-026). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.25 (D-027). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,6 +62,15 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
+- v1.25 (D-027): P8 착수. §1 RQ3 재서술(증분 graph 수정 + 결정론적 재검증 + atomic
+  commit/rollback + 올바른 clarification; "동적/선택적 재할당"은 후속). 신규 §18
+  (Operator–LLM Planning Session — **실행 개시 전 다중 턴 계획 세션**으로 범위 고정, 5종
+  대화 행위, session lifecycle, referent 규칙, NO_CHANGE, LLM/결정론 경계, interaction
+  eval). §10 `AddTask` op을 `{task_type, target}`로(D-022 정렬). §14 `VALIDATOR_VERSION`
+  1.3 → 1.4 + `scene_hash` zone payload에 incident response point 2필드 +
+  `patch_hash`/`pre_state_hash` 정의(D-015 유보 해제). §15 P8.0~P8.5. §17 "P0~P7" →
+  "P0~P6.5"(내부 모순 정정). `core/`·`allocation/`·`execution/`·
+  `validator/{validate,whole_graph}.py`·`llm/pipeline.py`·`evaluation/` 무변경.
 - v1.24 (D-026): P6.5 재검토 반영. §15 P6.5의 "→ 순차 파이프라인" 서술을 **fork 구조**로
   정정(`SimExecutor`는 내부에서 CBBA를 재수행하며 실행하므로 `allocate` 결과를 받지 않는다).
   P6.5 게이트에 annotation exact-match(`score_graph`)·`termination == COMPLETED`·
@@ -116,13 +125,19 @@ scene과 고정 매핑에서 resolve한다(§7) — RQ1은 그 구조 생성 능
 **RQ2 (필수)**: 결정론적으로 검증된 task graph를 CBBA가 UAV/UGV의 capability와 플랫폼별
 이동비용을 고려하여 이종 무인체계에 실행 가능하게 할당할 수 있는가?
 
-**RQ3 (후속, 선택)**: 임무 실행 중 자연어 상황 보고로 기존 graph에 신규 prerequisite가 추가될
-때, 전체 재생성 없이 증분 수정하고 영향받은 commitment만 선택적으로 재할당할 수 있는가?
+**RQ3 (후속, 선택)**: 실행 개시 전 다중 턴 자연어 계획 대화에서, 운용자의 후속 명령과 상황
+보고를 대화 문맥·현재 임무 상태에 grounding하여 (a) 검증 가능한 atomic graph 증분
+(MissionPatch)으로 변환하고, (b) 결정론적 whole-graph Validator로 재검증하며, (c) 승인 시
+commit / 거부 시 원본 완전 보존하고, (d) 의미가 불명확하면 추측하지 않고 clarification을
+요청할 수 있는가?
 
 RQ3는 RQ1/RQ2의 모든 통과 조건이 충족되고 발표 가능한 정량 결과·시각화가 확보된 이후에만
-착수한다(P8). RQ3를 구현하지 못해도 실패로 간주하지 않으며, 후속 연구로 명시한다. RQ3가
-구현되기 전에는 제목·초록·결론·발표자료 어디에도 "동적 재할당" 또는 "dynamic reallocation"을
-완료된 결과로 주장하지 않는다.
+착수한다(P8, P0~P6.5 완료 후). RQ3를 구현하지 못해도 실패로 간주하지 않으며, 후속 연구로
+명시한다. RQ3가 구현되기 전에는 제목·초록·결론·발표자료 어디에도 "동적 재할당" 또는
+"dynamic reallocation"을 완료된 결과로 주장하지 않는다. **P8 첫 범위는 실행 개시 전의 계획
+세션이며, "임무 실행 중 자연어 업데이트"와 "영향받은 commitment의 선택적 재할당"은 §18의
+후속 과제다** — 고정 5종 task 어휘에서는 어떤 유효 patch도 기존 task의 predecessor 집합을
+바꾸지 못하므로(D-006) 선택적 재할당은 recheck 계열 어휘 확장 없이 시연되지 않는다.
 
 ---
 
@@ -427,8 +442,10 @@ transaction에서 새로 생긴 것으로 한정하면, 다른 종류의 patch�
 
 ## 10. MissionPatch와 diff 기반 reconciliation
 
-**operation**: `AddTask`, `RemoveEdge`, `AddEdge` 세 가지로 고정한다. `ReleaseAssignment`
-같은 명시적 release operation은 만들지 않는다.
+**operation**: `AddTask`, `RemoveEdge`, `AddEdge` 세 가지로 고정한다. `AddTask`는
+`{task_type, target}`만 담는다(D-027 — D-022 정렬). priority는 `apply_patch`가
+`derive_priority`(§7)로 파생한다. `ReleaseAssignment` 같은 명시적 release operation은
+만들지 않는다.
 
 **처리 절차**:
 
@@ -685,16 +702,41 @@ Validator 실행 결과에는 최소한 `graph_hash`, `scene_hash`, `validator_v
 **`validator_version` bump 규칙(D-008)**: 판정 규칙이 바뀌면(invariant 추가·제거·의미 변경,
 schema 허용 범위 변경, hash payload 형식 변경) 반드시 올린다. 같은 버전 아래에서 동일 입력의
 `accepted`/`error_codes`가 달라지면 안 된다. 테스트는 의도한 버전 literal을 확인한다.
-현재 `VALIDATOR_VERSION = "1.3"` — 1.2 → 1.3 (D-022): candidate schema task entry 키가
-`{task_type, target, priority}` → `{task_type, target}`, `priority`는 compiler가 파생.
-`graph_hash` node payload는 여전히 `(task_type, target, priority)` triple이며 priority는
-`derive_priority`가 채운다.
+현재 `VALIDATOR_VERSION = "1.4"` — 1.3 → 1.4 (D-027): (i) MissionPatch `AddTask` op schema
+`{task_type, target, priority}` → `{task_type, target}`, priority는 `apply_patch`가
+`derive_priority`로 파생, (ii) `scene_hash`의 zone payload에 `reported_incident_position`·
+`reported_incident_access_node` 추가(§18.10 신규 incident 등록에 필요), (iii) `patch_hash` +
+`pre_state_hash` 정의(아래, D-015 유보 해제). candidate 경로(#1~#12)의 판정은 불변이나 patch
+schema와 scene payload가 바뀌었으므로 bump. **baseline 태그 `v0.6.5-baseline`의 P6/P6.5
+결과는 Validator 1.3 / 옛 `scene_hash`
+(`0e8f098cd95aba26f1384fc6ad5c89ad047ec84912cf595936a7b56d75672c6d`)로 보존하고 라이브
+재실행하지 않는다. P8부터 1.4 / 새 `scene_hash`로 기록한다.** 1.2 → 1.3 (D-022): candidate
+schema task entry 키가 `{task_type, target, priority}` → `{task_type, target}`. `graph_hash`
+node payload는 여전히 `(task_type, target, priority)` triple이며 priority는 `derive_priority`가
+채운다.
 
 **rejected patch의 `graph_hash` 범위(D-008)**: `E_SCHEMA`/`E_PATCH_CONFLICT`로 whole-graph
 단계 이전에 거부된 patch는 최종 graph가 존재하지 않으므로 `graph_hash`가 빈 문자열이다. 이
-경우 `scene_hash` + `validator_version` + `error_codes`가 감사 기록이다. raw operation을
-해시하는 `patch_hash` 도입은 **P8로 유보한다(D-015)** — MissionPatch는 P5 candidate 검증
-경로에 쓰이지 않고 RQ3(P8)에서 실제로 사용되므로, P8 문서 개정 시 함께 확정한다.
+경우 `scene_hash` + `validator_version` + `error_codes`가 감사 기록이다.
+
+**`patch_hash` / `pre_state_hash`(D-027 — D-015 유보 해제)**:
+
+- `patch_hash` = sha256 canonical of `{base_graph_hash, pre_scene_hash,
+  operations(canonical 정렬), validator_version}`. **op의 field-level schema 검증을 통과한
+  patch 시도에만** 생성한다(schema-invalid op은 안전한 canonical 직렬화가 불가능).
+- `pre_state_hash` = sha256 canonical of `{ per task: (task_id, status, assigned_agent);
+  per agent(agent_id 정렬): (agent_id, bundle, path, current_task) — **bundle·path 내부
+  순서는 보존한다**(순서가 CBBA 실행 의미이므로 정렬 금지); winning_bids(task_id 정렬);
+  float 직렬화 고정규칙 }`. patch 판정은 graph 구조뿐 아니라 대상 task의 status에 의존하므로
+  (READY → 승인·release, RUNNING → `E_RUNNING_LOCKED`, COMPLETED → terminal 규칙)
+  `patch_hash`만으로는 판정을 재현할 수 없다.
+- 기록 정책:
+  - field-level schema 오류 → `patch_hash = null`, `pre_state_hash`는 선택.
+  - field-level schema 통과(이후 conflict든 통과든) → `patch_hash`·`pre_state_hash` **둘 다** 기록.
+  - `E_PATCH_CONFLICT` / whole-graph 거부 / reconciliation 거부 / accepted → 둘 다 기록.
+  - `validate_patch_ops()`가 현재 schema 오류와 conflict를 한 함수에서 처리하므로, 구현 시
+    hash 생성 시점을 field-level validation과 conflict 검사 **사이**로 분리한다.
+
 
 이전 저장소에서 재사용하는 것은 전부 `docs/PROVENANCE.md`에 원본 경로·source commit·재사용
 이유를 기록한다. 재사용 후보: TaskGraph 연산 패턴, 상태 전이(READY/PENDING recompute) 패턴,
@@ -758,8 +800,14 @@ invariant를 통과해야 한다.
 | P5 | LLM Step1/Step2/repair(mock 테스트) | mock 기반 파이프라인 테스트 통과 |
 | P6 | 최소 9개 입력 평가 + 결과 시각화 | precision/recall/원시개수 표 산출 |
 | P6.5 | 통합 runner: 검증된 LLM graph를 plan-time CBBA(`allocate`)와 event-driven executor(`SimExecutor`)로 **각각** 실행 (fork — allocate 결과는 executor에 전달되지 않음) | 대표 명령 A1/B1/C1: annotation exact-match + 무위반 완주(`termination == COMPLETED`) + graph/hash/model/assignment 감사 JSON (D-025, D-026) |
-| P7 (선택) | Gazebo integration | 20~30초 대표 클립 |
-| P8 (선택) | RQ3: MissionPatch 재배선 + 선택적 재할당 비교 | 별도 게이트, 착수 전 이 문서 개정 |
+| P7 (선택, 보류) | Gazebo integration | 20~30초 대표 클립 |
+| P8.0 | RQ3 계약: §1 재서술, §18, `VALIDATOR_VERSION` 1.4 + `patch_hash`/`pre_state_hash`, zone response point + priority 7, `allocate` 사용 규정, §17 정정 | v1.25 / D-027 커밋 |
+| P8.1 | interaction schema + `Referent` state + 결정론적 grounder + `register_incident`(scene 트랜잭션) + canonical patch builder + `AddTask` op priority 제거 | referent 해석 단위테스트 / 모든 (incident, step)에 유효 `MissionPatch` / `register_incident`가 Validator-loadable Scene + **원본 Scene 불변 검증**(scene_hash·모든 필드) / `VALIDATOR_VERSION == "1.4"` / 전체 단위테스트 green |
+| P8.2 | orchestrator + intent interpreter (게이트 `MockBackend`) | I1~I8 headless / session lifecycle·NO_CHANGE·referent 규칙 강제 / CLARIFICATION·QUERY·UNSUPPORTED 턴에 `session.state`·`session.scene` identity 불변 / 턴별 감사 JSON |
+| P8.3 | 최소 Streamlit UI | 수동: §18.9 패널 렌더 / 실제 API 3턴 / PLANNING↔EXECUTED↔EXECUTION_FAILED / 실행은 결정론 버튼(LLM intent 아님) / live 실패 시 cached·mock + 모드 배너(cached를 live로 표시 금지) |
+| P8.4 | N=12 정량 평가 (live) | grounder-only + end-to-end 표 / dialogue + turn + 지표별 분모 보고 / gold 사전 커밋 / 감사 JSON |
+| P8.5 | UI graph·2D 실행 시각화 폴리싱 | — |
+| 후속 (선택) | post-execution update, `executor.snapshot()`/checkpoint-resume, incremental allocation, recheck 어휘 | 별도 계약 개정 |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
 
@@ -795,6 +843,155 @@ heterogeneous capability allocation, platform-aware travel cost, 2D end-to-end �
 실제 RGB/thermal perception, 자동 화재 탐지, 물리적 화재 안정성 판정, `WATER_LOAD`,
 suppressant 잔량과 재보급, same-agent resource coupling, obstacle removal, relay deployment,
 target tracking, 일반 조건부 task graph, SLAM, 동적 장애물 회피, 일반 road planner, LLM 직접
-agent 할당, 새로운 CBBA 알고리즘 제안, P0~P7 완료 전 RQ3 구현, MP4MR A~G 체계 복제, 모든
+agent 할당, 새로운 CBBA 알고리즘 제안, P0~P6.5 완료 전 RQ3 구현(P7 Gazebo는 RQ3의
+선행조건이 아님 — §16 cut-order·§15·§1 참고, D-027), MP4MR A~G 체계 복제, 모든
 agent가 최소 1개 task를 받아야 한다는 제약, bundle 길이 ≥2를 Phase 1 invariant나 완료 게이트로
-쓰는 것(P8에서는 실험 precondition으로 재검토 가능 — §15 P8).
+쓰는 것(P8에서는 실험 precondition으로 재검토 가능 — §15 P8), 임무 실행 중 자연어 patch 주입
+및 실행 후 graph 수정(§18 후속), 영향받은 commitment의 선택적 재할당(recheck 어휘 필요, §18
+후속).
+
+---
+
+## 18. Operator–LLM Planning Session (P8, D-027)
+
+### 18.1 범위
+
+실행 개시 전의 다중 턴 임무 계획 세션. 대화·graph 수정·incident 등록은 전부 실행 전.
+"실행" 버튼(결정론적 UI 동작, LLM intent 아님) 이후 첫 버전에서: graph 수정 불가, incident
+추가 불가, `NEW_MISSION`/`REPORT_INCIDENT`/`UPDATE_MISSION` 전부 `UNSUPPORTED`, 저장된
+`ExecutionResult` 조회(`QUERY_STATUS`)만 가능. 실패 시 동일 graph 재시도만 허용하고 graph
+변경은 금지한다.
+
+"임무 실행 중 자연어 업데이트"는 주장하지 않는다(checkpoint/resume 후속). perception·자동
+화재 탐지 없음(§3 재확인) — 신규 incident는 운용자의 명시적 보고로만 시스템에 진입한다.
+고정 5종 task 어휘에서는 어떤 유효 patch도 기존 task의 predecessor 집합을 바꾸지 못하므로
+(D-006), 정상 대화에서 기존 assignment의 release·재할당은 발생하지 않는다.
+
+### 18.2 지원 대화 행위 (5종 고정)
+
+`NEW_MISSION` / `REPORT_INCIDENT` / `UPDATE_MISSION` / `QUERY_STATUS` / `UNSUPPORTED`.
+미지원(→ `UNSUPPORTED`, 고정 템플릿 응답): 자유 채팅, task/incident 취소·삭제, 재우선순위,
+agent 지정 할당, 비-canonical graph 편집, incident 위치 변경, mid/post-execution patch.
+
+### 18.3 파이프라인
+
+```
+LLM intent classifier (kind + slot 추출; CLARIFICATION·task 생성 안 함)
+→ 결정론적 grounder (referent 해석, slot 완전성 → RESOLVED | CLARIFICATION_REQUIRED)
+→ NEW: generate_mission(raw utterance) / REPORT: register_incident /
+  UPDATE: canonical patch builder → apply_patch / QUERY: MissionState·Result 읽기
+→ graph 변경 턴이면 allocate() plan-time re-analysis
+→ TurnResult + 감사 로그
+```
+
+`context_for_llm()`은 원문 대화 전체가 아니라 structured session에서 매번 생성한 요약
+(scene + 현재 상태 + `recent_referents`)만 넘긴다.
+
+### 18.4 session lifecycle
+
+| intent | 전제 | 위반 시 | commit |
+|---|---|---|---|
+| NEW_MISSION | `state is None` AND `phase == PLANNING` | 기존 mission 있음 → CLARIFICATION(교체 안 함) / 실행됨 → UNSUPPORTED(새 session 안내) | 성공 시 `state` 최초 설정 |
+| REPORT_INCIDENT | zone_ref가 scene zone에 매칭. mission 무관 / `phase == PLANNING` | 미지 zone → CLARIFICATION / 실행됨 → UNSUPPORTED | 성공 시 `scene`만 |
+| UPDATE_MISSION | `state ≠ None` AND incident grounding됨 AND `phase == PLANNING` | mission 없음 → CLARIFICATION / 모호 → candidate 목록 / 실행됨 → UNSUPPORTED | `apply_patch` accepted 시 `state`만 |
+| QUERY_STATUS | 없음 (mission·실행 무관) | — | 없음 |
+| UNSUPPORTED | — | 고정 템플릿 응답 | 없음 |
+
+- 한 턴 = 최대 한 commit(scene 또는 graph, 둘 다 아님). 무효 턴 = 어떤 것도 commit 안 함.
+  이전 등록 incident는 유지.
+- 같은 zone에 incident 복수 등록 허용. ID = `FIRE_SITE_<next n>` 결정론 생성.
+- `CLARIFICATION_REQUIRED`·`QUERY_STATUS`·`UNSUPPORTED` 턴은 `apply_patch`/`generate_mission`/
+  `register_incident`/`allocate`를 호출하지 않는다(명시 invariant + `session.state`·
+  `session.scene` identity 불변 테스트).
+
+### 18.5 referent 규칙
+
+`recent_referents`(K = 3, 최근 3턴)에 추가: 성공한 `REPORT_INCIDENT` / 명시 incident로 정상
+grounding된 `UPDATE_MISSION` / 명시 incident 대상 `QUERY_STATUS`. 추가 안 함: clarification,
+unsupported, 모호 referent, 미지 zone·incident, 실패한 REPORT·UPDATE. 같은 최신 턴에 후보
+≥2 → 무조건 `CLARIFICATION_REQUIRED`.
+
+### 18.6 NO_CHANGE
+
+`UPDATE_MISSION` 요청의 task·edge가 이미 전부 존재 → `NO_CHANGE`: 중복 `AddTask` 생성 안 함,
+"빈 patch commit" 아님, `state` identity 유지, `allocate` 재호출 안 함, "해당 대응 단계는
+이미 계획에 포함돼 있습니다" 응답. 요청 step이 현재 chain보다 낮음(task 제거 필요) → 첫
+버전엔 제거 없음 → `NO_CHANGE`, chain 축소 안 함.
+
+### 18.7 LLM / 결정론 경계
+
+LLM: kind 분류 + slot 추출만. state·scene·graph 미변경, task_id·agent·priority·좌표 미생성.
+결정론적 코드: grounder(referent — scene zone_id + name alias 매칭), canonical patch builder,
+`register_incident`(response point는 zone 사전 정의값), `apply_patch`, `allocate`.
+clarification·NO_CHANGE·거부·UNSUPPORTED 응답은 전부 결정론적 코드의 결과다. 운용자가
+미지원 graph 변경을 요구하면 LLM/grounder 단계에서 `UNSUPPORTED` 또는 clarification으로
+끝나야지, invalid patch를 만들어 Validator에 전달하지 않는다.
+
+### 18.8 session 상태 경계
+
+Scene = 환경 + fleet 정의(interaction 과정에서 불변 취급). `MissionSession.state`는
+`interaction/session.py`의 `fresh_session_state(graph, scene)`로 생성 — graph·fleet 명시
+복제, scene의 mutable `Agent` 객체 공유 금지(`core/`는 `Scene`을 몰라야 하므로 이 helper는
+interaction 계층에 둔다). `phase` ∈ {`PLANNING`, `EXECUTED`, `EXECUTION_FAILED`}.
+`plan: AllocationResult | None`과 `execution: ExecutionResult | None`을 분리 저장. 실행
+실패 시 `EXECUTED`로 두지 않고 `EXECUTION_FAILED`.
+
+`register_incident`는 새 `incidents` dict만 만들고 `zones`·`route_graph`·`fleet`은 구조적으로
+공유할 수 있다. 단 이 객체들은 interaction 과정에서 불변으로 취급하며, **호출 후 원본 Scene의
+`scene_hash`와 모든 필드가 변하지 않았음을 테스트한다.** `MissionSession`의 `Agent`만
+`fresh_session_state`가 별도 복제한다.
+
+### 18.9 감사 로그 (`data/interaction_runs/<session_id>.json`)
+
+턴별(`event_type: TURN`): `session_id`, `turn_id`, `utterance`, `mode`(live|cached|mock),
+`intent_kind`, `extracted_slots`, `grounding`{status, incident_id, up_to_step, clarification},
+`pre_scene_hash`, `post_scene_hash`, `pre_graph_hash`, `pre_state_hash`, `patch_hash`,
+`post_graph_hash`,
+`patch_result`{accepted, error_codes, directly_released_tasks, status_changes},
+`generation`{approved, failure_category, graph_hash}|null(NEW_MISSION),
+`plan_assignment_changes`{`added`, `removed`, `changed`}, `resolved_models`.
+
+실행(`event_type: EXECUTION`): `pre_graph_hash`, `pre_scene_hash`, `plan_assignments`,
+`execution_termination`, `execution_assignments`, `makespan`, `capability_violations`,
+`precedence_violations`, `mode`, `started_at`, `finished_at`. 성공 → `phase = EXECUTED`,
+실패 → `phase = EXECUTION_FAILED`.
+
+- `plan_assignment_changes`: `added`(이전 plan에 없고 새 plan에 존재), `removed`(이전에
+  있고 새 plan에 없음), `changed`(둘 다 존재하나 agent가 달라짐). **이는 실행 중 재할당이
+  아니라 두 plan-time 분석 결과의 차이다.** "reassigned"라는 표현은 쓰지 않는다.
+- `directly_released_tasks`는 `PatchResult` 값이며 정상 시나리오(canonical chain 연장)에서는
+  항상 빈 목록이다.
+- hash 정책은 §14 참고. cache key = `model` + `prompt/schema version` + `context hash` +
+  `utterance`(동일 문장이라도 session context가 다르면 응답이 달라진다).
+
+### 18.10 신규 incident 등록
+
+`REPORT_INCIDENT(zone_ref)` → grounder가 scene `zone_id` + name alias를 결정론적으로 매칭 →
+그 zone의 사전 정의 `reported_incident_position`(UAV target)과
+`reported_incident_access_node`(UGV route node)를 compiler가 선택한다. **LLM은 좌표를 만들지
+않는다.** ID = `FIRE_SITE_<next n>`. priority = **고정 7**(NL urgency 추출은 후속 평가 항목).
+zone별 response point는 `scenarios/industrial_park.yaml`에 사전 고정하고 `scene_hash`의 zone
+payload에 포함한다(§14). 무효 `REPORT` → scene 불변.
+
+### 18.11 평가 (interaction eval — P6/P6.5와 별개 실험)
+
+`data/interaction_dialogues/*.yaml` — N = 12(family당 4: NEW-only / REPORT+UPDATE / QUERY /
+ambiguous), 2~5턴. **LLM 첫 호출 전 gold 커밋.** 턴별 gold: 기대 intent kind, 기대 slots,
+기대 grounding(RESOLVED+incident 또는 CLARIFICATION), 기대 patch ops, 기대 `apply_patch`
+판정, 기대 released(canonical chain이면 항상 없음).
+
+두 평가:
+- **grounder-only**: gold intent + gold slot 입력 → referent resolution accuracy,
+  grounder-only clarification precision/recall, canonical patch op exact-match(**compiler
+  회귀 게이트**이며 LLM 성능 지표가 아니다 — grounder가 결정론적이므로 ≈1.0).
+- **end-to-end**: raw utterance(실제 LLM) → intent classification accuracy, slot extraction
+  accuracy, end-to-end clarification precision/recall, 잘못된 추측 비율, state-mutation 없이
+  끝난 clarification 비율, final graph exact match.
+
+발표 헤드라인 = **end-to-end**. `invalid-update rejection correctness`는 헤드라인 지표가
+아니다 — Validator fault-injection 회귀 테스트 + orchestrator 방어 테스트로 다룬다(정상
+end-to-end 경로에서 canonical builder는 invalid patch를 만들지 않는다).
+
+표본 보고: `12 dialogues / 총 XX turns / intent 평가 XX / referent 평가 XX /
+clarification-positive XX / clarification-negative XX` — 지표별 분모를 전부 명시한다.
+소표본이므로 원시 개수를 함께 제시한다.
