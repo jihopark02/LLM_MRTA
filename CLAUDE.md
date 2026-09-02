@@ -19,15 +19,15 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-025, 계약 v1.23)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-026, 계약 v1.24)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-02 기준)
 
-**P1~P6 승인 완료 + P6.5(통합 runner) 완료. 계약 v1.23 (D-025).**
+**P1~P6 승인 완료 + P6.5(통합 runner) 완료. 계약 v1.24 (D-026).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
-(P6 평가 + P6.5 `integration.py`). `VALIDATOR_VERSION = "1.3"`, `λ = 0.999`. pytest 228개
+(P6 평가 + P6.5 `integration.py`). `VALIDATOR_VERSION = "1.3"`, `λ = 0.999`. pytest 231개
 통과, ruff clean.
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
@@ -68,10 +68,14 @@ P6 실측 (gpt-5-mini-2025-08-07, 2026-09-02, validator 1.3): 9/9 approved, task
 18.2s. `docs/P6_RESULTS.md`, `data/eval_results/`. 승인된 candidate는 invariant
 **#1~#12** 만족(#13~#14는 patch 전용).
 
-P6.5 (D-025): `evaluation/integration.py` `run_full` — NL → `generate_mission`(RQ1)
-→ `allocate` + `SimExecutor`(RQ2). 대표 명령 A1/B1/C1, MockBackend 게이트
-(`tests/test_integration.py`). 실측 3/3 clean, A1 graph = P1 fixture이므로 makespan
-P3/P4 골든(359.8/257.9) 일치. CLI `python3 -m evaluation.integration`.
+P6.5 (D-025, D-026): `evaluation/integration.py` `run_full` — NL → `generate_mission`
+(RQ1) → 검증된 graph가 **fork**로 `allocate`(plan-time)와 `SimExecutor`(event-driven,
+내부에서 CBBA 재수행 — allocate 결과 안 받음)에 각각. `FullRun`: `exact_match`(P6
+`score_graph`) / `operationally_clean` / `demo_pass`. 감사 JSON = `GraphSnapshot`
+(harness에서 공유) + graph_hash + resolved_models + plan·exec assignment(task→agent).
+게이트(`tests/test_integration.py`): A1/B1/C1 demo_pass, A1은 graph_hash가 P1 fixture와
+일치 → makespan P3/P4 골든(359.8/257.9) 일치, wrong-but-valid graph는 op-clean이나
+demo_pass 아님. CLI `python3 -m evaluation.integration [--mock]`.
 
 다음: P7(platform adapter) / P8(RQ3 선택적 재할당) 착수 여부 결정.
 

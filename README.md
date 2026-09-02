@@ -14,20 +14,22 @@ Unmanned Systems
 
 **P1~P6.5 완료** — `validator/`(P2) + `allocation/`(P3) + `execution/`(P4:
 `SimExecutor`) + `llm/`(P5: Step1/Step2/repair 파이프라인 §12) + `evaluation/`(P6:
-9개 입력 평가 하네스 + 감사 JSON + 시각화; P6.5: 얇은 통합 runner). 테스트 228개 통과.
+9개 입력 평가 하네스 + 감사 JSON + 시각화; P6.5: 통합 runner). 테스트 231개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
 [`docs/P6_RESULTS.md`](docs/P6_RESULTS.md), 원자료 `data/eval_results/`.
 재현: `python3 -m evaluation --out data/eval_results/p6 --plot`.
 
-P6.5 통합 runner(D-025): 대표 명령 3개(A1/B1/C1)를 NL → `generate_mission` →
-`allocate` → `SimExecutor`로 관통. 3/3 clean, A1(=P1 fixture graph)은 P3/P4 골든
-makespan(359.8/257.9)과 일치. `python3 -m evaluation.integration [--mock]`.
+P6.5 통합 runner(D-025, D-026): 대표 명령 A1/B1/C1. NL → `generate_mission`(RQ1) →
+검증된 graph가 `allocate`(plan-time CBBA)와 `SimExecutor`(event-driven 실행)로 **각각**
+들어간다(fork — allocate 결과는 executor에 전달 안 됨). 3/3 demo_pass(annotation
+exact-match + 무위반 완주), A1(=P1 fixture graph)은 P3/P4 골든 makespan(359.8/257.9)과
+graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.23 / 최신 결정 D-025. 단계 게이트 정의는
+workflow (D-016). 계약 버전 v1.24 / 최신 결정 D-026. 단계 게이트 정의는
 [`docs/RESEARCH_CONTRACT.md`](docs/RESEARCH_CONTRACT.md) §15 참고.
 
 새로운 LLM 모델이나 CBBA 알고리즘을 제안하는 연구가 아니다. 검증된 구성요소를 통합하고

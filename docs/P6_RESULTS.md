@@ -89,5 +89,11 @@ family별 (final):
   넣어 실행하지는 않았다. RQ2(검증된 graph → CBBA → 2D 실행)는 **P3/P4에서 reference
   fixture(family A, 12 task/6 edge)로** 완주·검증됐다(makespan ~359.8 / ~257.9, violation 0).
 - 따라서 "P6에서 자연어부터 CBBA까지 전부 end-to-end 평가했다"고 서술하지 않는다.
-  RQ1(P6)과 RQ2(P3/P4)는 각각의 입력으로 검증된 상태이며, 둘을 한 번에 관통하는 얇은
-  통합 runner(NL → generate_mission → allocate → SimExecutor → 지표)는 후속 작업이다.
+
+**이후 P6.5(D-025, D-026)**에서 A1/B1/C1을 대상으로 RQ1 출력 graph를 RQ2에 연결했다.
+연결은 **fork**다: 검증된 graph가 `allocate`(plan-time CBBA 분석)와 `SimExecutor`
+(event-driven CBBA 실행)로 **각각** 들어간다 — `SimExecutor`는 내부에서 CBBA를 재수행하므로
+`allocate`의 할당 결과를 받지 않는다. 정확한 서술: "자연어에서 생성·검증된 graph를 plan-time
+CBBA로 분석하고, 동일 graph를 event-driven CBBA executor에서 2D 실행했다." P6의 9개 입력
+평가와 P6.5의 3개 통합 실행은 서로 다른 실험이다. 결과는 `data/eval_results/
+integration_gpt-5-mini.{json,txt}` — case별 graph_hash·score·plan/exec assignment(task→agent).

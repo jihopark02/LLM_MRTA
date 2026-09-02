@@ -164,7 +164,7 @@ def _sum_prf(prfs) -> PRF:
     return total
 
 
-def _snapshot(
+def snapshot(
     scene: Scene, candidate: MissionCandidate | None, validation: ValidationResult | None
 ) -> GraphSnapshot | None:
     if candidate is None:
@@ -214,8 +214,8 @@ def _case_from_generation(
             for e in gen.errors
         ],
         latency_s=latency, resolved_models=resolved,
-        raw=_snapshot(scene, gen.raw_candidate, gen.raw_validation),
-        final=_snapshot(scene, gen.candidate, gen.validation),
+        raw=snapshot(scene, gen.raw_candidate, gen.raw_validation),
+        final=snapshot(scene, gen.candidate, gen.validation),
         raw_score=_score(gen.raw_candidate, ann),
         final_score=_score(gen.candidate, ann),
     )
@@ -266,4 +266,7 @@ def run_all(
     )
 
 
-__all__ = ["CaseResult", "GraphSnapshot", "AxisMetrics", "EvalRun", "run_case", "run_all"]
+__all__ = [
+    "CaseResult", "GraphSnapshot", "AxisMetrics", "EvalRun",
+    "run_case", "run_all", "snapshot",
+]
