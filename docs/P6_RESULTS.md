@@ -79,4 +79,15 @@ family별 (final):
   관대하다(glossary 포함). repair 경로는 라이브로 실증되지 않았다. 더 어려운 조건 —
   glossary 제거, 모호한 명령, 다중 scene, 반복 실행으로 분산 측정, 더 약한 모델 — 은
   후속(P8 또는 확장 평가)으로 남긴다.
-- RQ1(LLM task graph **구조** 생성) 파이프라인은 이 표본에서 end-to-end로 동작함을 확인.
+
+## 범위 — 무엇이 평가됐고 무엇은 아닌가
+
+- **P6이 평가한 것 (RQ1)**: 자연어 명령 → `generate_mission`(Step1/Step2/repair) →
+  whole-graph Validator **승인까지**. 9개 명령 각각에 대해 raw·final graph를 canonical
+  reference와 대조.
+- **P6이 평가하지 않은 것**: 이 9개 LLM graph를 `allocate`(CBBA)·`SimExecutor`에 직접
+  넣어 실행하지는 않았다. RQ2(검증된 graph → CBBA → 2D 실행)는 **P3/P4에서 reference
+  fixture(family A, 12 task/6 edge)로** 완주·검증됐다(makespan ~359.8 / ~257.9, violation 0).
+- 따라서 "P6에서 자연어부터 CBBA까지 전부 end-to-end 평가했다"고 서술하지 않는다.
+  RQ1(P6)과 RQ2(P3/P4)는 각각의 입력으로 검증된 상태이며, 둘을 한 번에 관통하는 얇은
+  통합 runner(NL → generate_mission → allocate → SimExecutor → 지표)는 후속 작업이다.
