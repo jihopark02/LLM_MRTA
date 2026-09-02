@@ -25,8 +25,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-02 기준)
 
-**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`). P8.0(RQ3 계약) 확정, Codex 검토 대기.
-계약 v1.25 (D-027).**
+**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`). P8.0(RQ3 계약) 승인 완료. 계약 v1.25 (D-027).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`). `VALIDATOR_VERSION` — baseline 코드는 아직 `"1.3"`,
 D-027이 P8.1에서 `"1.4"`로 올림. `λ = 0.999`. pytest 232개 통과, ruff clean.
@@ -39,7 +38,9 @@ MissionPatch 생성, `apply_patch`(P2 기존 엔진)가 atomic commit/rollback. 
 `core/`·`allocation/`·`execution/`·`llm/pipeline.py`·`evaluation/` 무변경. 게이트 P8.0~P8.5는
 §15.
 
-다음: 이 커밋(v1.25 / D-027) Codex 검토 → P8.1 (interaction schema + grounder).
+다음: **P8.1** — `interaction/` schema + `Referent` state + 결정론적 grounder +
+`register_incident`(scene 트랜잭션) + canonical patch builder + `AddTask` op priority 제거
+(`VALIDATOR_VERSION` 1.3 → 1.4). 게이트는 §15.
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
@@ -88,7 +89,7 @@ P6.5 (D-025, D-026): `evaluation/integration.py` `run_full` — NL → `generate
 일치 → makespan P3/P4 골든(359.8/257.9) 일치, wrong-but-valid graph는 op-clean이나
 demo_pass 아님. CLI `python3 -m evaluation.integration [--mock]`.
 
-다음: P8.0 커밋 Codex 검토 → P8.1. P7(Gazebo)은 보류.
+다음: P8.1 (interaction schema + grounder). P7(Gazebo)은 보류.
 
 P4 구조:
 - `execution/executor.py` `SimExecutor.run()` — clone 위 event loop: recompute → `run_epoch`
@@ -114,8 +115,10 @@ P2 구조:
 - `validator/patch.py` `validate_patch_ops()`: §10 2단계(`E_PATCH_CONFLICT`), `post_patch_keys`.
 - `validator/patch_apply.py` `apply_patch()`: §10 전체 절차, 트랜잭션(거부 시 원본 객체 그대로
   반환). `_reconcile`/`_predecessor_diff`/`_terminal_immutable_errors`는 단위테스트용 분리.
-- **D-006**: reconciliation release 경로는 P2에서 단위테스트만, end-to-end는 RQ3(P8)까지 도달
-  안 함. #13 terminal incoming 불변은 P2에서 도달.
+- **D-006**: reconciliation release 경로는 P2에서 단위테스트만. 고정 5종 어휘에선 어떤 유효
+  patch도 기존 predecessor 집합을 못 바꾸므로 P8 첫 범위(§18)에서도 end-to-end 도달 안 함
+  — recheck 계열 어휘 후속 확장 전까지는 도달하지 않는다(D-027). #13 terminal incoming
+  불변은 P2에서 도달.
 - **D-007**: assignment consistency invariant(§10 7단계, 규칙 1~4)를 `_assignment_invariant_errors`가
   강제. graph_hash payload에 priority 포함. `validate_patch_ops`가 op 필드를 런타임 검증.
   candidate schema가 허용 키를 정확히 제한.
@@ -130,8 +133,11 @@ exact graph match, failure category, latency — 원시 개수 함께 제시. `d
 `unnecessary_task_rate`는 별도 지표 안 씀(task precision의 FP). Validator가 "자연어 의미
 충실도"를 보장한다고 서술하지 않는다(§9 — 그건 §12 precision/recall).
 
-RQ1(LLM 복합 task graph 생성)과 RQ2(이종 UAV/UGV CBBA 할당)가 필수 범위다. RQ3(선택적
-재할당)는 P8 후속이며, 구현되기 전까지는 어디에도 "동적 재할당"을 완료된 결과로 쓰지 않는다.
+RQ1(LLM 복합 task graph 생성)과 RQ2(이종 UAV/UGV CBBA 할당)가 필수 범위다. RQ3(D-027):
+P8 첫 범위는 **실행 개시 전 다중 턴 자연어 계획 세션**(§18) — 증분 graph 수정 + 결정론적
+재검증 + atomic commit/rollback + clarification. "임무 실행 중 자연어 업데이트"와 "영향받은
+commitment의 선택적 재할당"은 §18 후속(recheck 어휘 필요). 구현 전까지는 어디에도 "동적
+재할당"을 완료된 결과로 쓰지 않는다.
 
 **검토 구조**: Claude가 커밋 단위로 코드를 구현하면 Codex가 독립 검토한다. 커밋은 작게
 쪼개고, 각 커밋 메시지에 어떤 게이트 항목을 만족시키는지 적는다.
@@ -173,5 +179,6 @@ score 수식, 평가 지표, 단계 게이트·범위 변경, 외부에 보이�
   왜 도메인 무관한 패턴인지 스스로 답하고 PROVENANCE.md에 기록
 - Validator가 "자연어 의미 충실도"까지 보장한다고 서술하기 (RESEARCH_CONTRACT.md §9 참고 —
   이건 §12 평가 지표의 역할)
-- RQ3 관련 기능을 P0~P7 완료 전에 구현하거나, 구현 안 됐는데 구현된 것처럼 서술하기
+- RQ3 관련 기능을 P0~P6.5 완료 전에 구현하거나(D-027 — P7 Gazebo는 RQ3 선행조건 아님),
+  구현 안 됐는데 구현된 것처럼 서술하기
 - 실행하지 않은 실험 수치를 문서/주석에 넣기

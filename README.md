@@ -30,7 +30,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
 workflow (D-016). 계약 버전 v1.25 / 최신 결정 D-027 (P8 = 실행 전 다중 턴 자연어 계획
-세션, §18 — Codex 검토 대기). 단계 게이트 정의는
+세션, §18 — P8.0 승인 완료, 다음 P8.1). 단계 게이트 정의는
 [`docs/RESEARCH_CONTRACT.md`](docs/RESEARCH_CONTRACT.md) §15 참고.
 
 새로운 LLM 모델이나 CBBA 알고리즘을 제안하는 연구가 아니다. 검증된 구성요소를 통합하고

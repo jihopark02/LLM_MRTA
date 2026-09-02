@@ -341,8 +341,10 @@ compile 단계에서 깨질 수 있다. `core/task.py`의 `Task.__post_init__`�
 같은 범위를 재확인한다(D-008 — CBBA 보상이 0·음수에서 음수 bid·미할당을 내지 않도록).
 파생된 priority는 audit hash(§14 `graph_hash`)의 node payload에 포함된다.
 
-MissionPatch(`AddTask`, §10)의 priority 처리는 RQ3(P8) 구현 시 같은 파생 규칙으로 정렬한다.
-그때까지 `AddTask.priority`는 유지하되 end-to-end로 쓰이지 않는다(D-006).
+MissionPatch(`AddTask`, §10)의 priority 처리: §10이 `AddTask = {task_type, target}`로
+확정했다(D-027). P8.0 문서 시점의 코드에는 `AddTask.priority`가 임시로 남아 있으나, **P8.1
+게이트에서 제거하고 `derive_priority`로 정렬한다.** P8.1 완료 후 patch schema의 진실 원천은
+§10이다.
 
 `Task.status`는 YAML에 독립적으로 기록하지 않고 graph의 predecessor 상태로부터 계산한다
 (§9의 whole-graph recompute).
@@ -804,7 +806,7 @@ invariant를 통과해야 한다.
 | P8.0 | RQ3 계약: §1 재서술, §18, `VALIDATOR_VERSION` 1.4 + `patch_hash`/`pre_state_hash`, zone response point + priority 7, `allocate` 사용 규정, §17 정정 | v1.25 / D-027 커밋 |
 | P8.1 | interaction schema + `Referent` state + 결정론적 grounder + `register_incident`(scene 트랜잭션) + canonical patch builder + `AddTask` op priority 제거 | referent 해석 단위테스트 / 모든 (incident, step)에 유효 `MissionPatch` / `register_incident`가 Validator-loadable Scene + **원본 Scene 불변 검증**(scene_hash·모든 필드) / `VALIDATOR_VERSION == "1.4"` / 전체 단위테스트 green |
 | P8.2 | orchestrator + intent interpreter (게이트 `MockBackend`) | I1~I8 headless / session lifecycle·NO_CHANGE·referent 규칙 강제 / CLARIFICATION·QUERY·UNSUPPORTED 턴에 `session.state`·`session.scene` identity 불변 / 턴별 감사 JSON |
-| P8.3 | 최소 Streamlit UI | 수동: §18.9 패널 렌더 / 실제 API 3턴 / PLANNING↔EXECUTED↔EXECUTION_FAILED / 실행은 결정론 버튼(LLM intent 아님) / live 실패 시 cached·mock + 모드 배너(cached를 live로 표시 금지) |
+| P8.3 | 최소 Streamlit UI | 수동: §18.12 최소 표시 항목 전부 렌더 / 실제 API 3턴 / PLANNING↔EXECUTED↔EXECUTION_FAILED / 실행은 결정론 버튼(LLM intent 아님) / live 실패 시 cached·mock + 모드 배너(cached를 live로 표시 금지) |
 | P8.4 | N=12 정량 평가 (live) | grounder-only + end-to-end 표 / dialogue + turn + 지표별 분모 보고 / gold 사전 커밋 / 감사 JSON |
 | P8.5 | UI graph·2D 실행 시각화 폴리싱 | — |
 | 후속 (선택) | post-execution update, `executor.snapshot()`/checkpoint-resume, incremental allocation, recheck 어휘 | 별도 계약 개정 |
@@ -920,12 +922,17 @@ unsupported, 모호 referent, 미지 zone·incident, 실패한 REPORT·UPDATE. �
 
 ### 18.7 LLM / 결정론 경계
 
-LLM: kind 분류 + slot 추출만. state·scene·graph 미변경, task_id·agent·priority·좌표 미생성.
+**interaction intent classifier**의 LLM 역할은 kind 분류와 slot 추출로 제한한다 —
+state·scene·graph 미변경, task_id·agent·priority·좌표·MissionPatch·CLARIFICATION 미생성.
+단 `NEW_MISSION`으로 확정된 경우에는 기존 **RQ1 `generate_mission()`**(§12)이 별도로
+task_type·target·dependency edge를 생성한다(이건 P5/P6에서 이미 검증된 경로이며 그대로
+재사용).
+
 결정론적 코드: grounder(referent — scene zone_id + name alias 매칭), canonical patch builder,
 `register_incident`(response point는 zone 사전 정의값), `apply_patch`, `allocate`.
 clarification·NO_CHANGE·거부·UNSUPPORTED 응답은 전부 결정론적 코드의 결과다. 운용자가
-미지원 graph 변경을 요구하면 LLM/grounder 단계에서 `UNSUPPORTED` 또는 clarification으로
-끝나야지, invalid patch를 만들어 Validator에 전달하지 않는다.
+미지원 graph 변경을 요구하면 intent classifier/grounder 단계에서 `UNSUPPORTED` 또는
+clarification으로 끝나야지, invalid patch를 만들어 Validator에 전달하지 않는다.
 
 ### 18.8 session 상태 경계
 
@@ -995,3 +1002,22 @@ end-to-end 경로에서 canonical builder는 invalid patch를 만들지 않는�
 표본 보고: `12 dialogues / 총 XX turns / intent 평가 XX / referent 평가 XX /
 clarification-positive XX / clarification-negative XX` — 지표별 분모를 전부 명시한다.
 소표본이므로 원시 개수를 함께 제시한다.
+
+### 18.12 UI 최소 표시 항목 (P8.3 게이트)
+
+Streamlit UI는 최소한 다음을 표시한다(순수 view — orchestrator만 호출, 연구 로직 복제
+금지):
+
+1. 운용자–LLM 대화 기록
+2. 현재 semantic scene(zones) + known incidents(id, zone, status)
+3. 현재 TaskGraph(task_type/target, incident별 workflow 진행 단계)
+4. 이번 utterance의 intent kind + 추출된 slot
+5. grounder 결과: RESOLVED(적용 incident id 명시) 또는 CLARIFICATION_REQUIRED(질문 + 후보)
+6. MissionPatch 적용 전후 diff(추가된 task/edge) 또는 NO_CHANGE
+7. Validator 판정: accepted / rejected + error code
+8. plan-time CBBA 할당 표(task → agent) + estimated makespan
+9. `plan_assignment_changes`(added/removed/changed — "이전 계획 대비 차이", 재할당 아님)
+10. `phase`(PLANNING / EXECUTED / EXECUTION_FAILED) 명시 표시
+11. 실행 버튼(결정론적 동작) — 최종 graph를 P6.5 방식으로 실행
+12. 실행 후: `ExecutionResult`(termination, task → agent, makespan, violation 수)
+13. 실행 모드 배너(live / cached / mock) — cached·mock을 live로 표시하지 않는다
