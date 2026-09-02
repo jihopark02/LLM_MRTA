@@ -27,7 +27,7 @@ viz = [
 [tool.setuptools.packages.find]
 include = [
     "core*", "scenarios*", "validator*", "allocation*", "execution*", "llm*",
-    "evaluation*",
+    "evaluation*", "interaction*",
 ]
 
 [tool.pytest.ini_options]
