@@ -12,16 +12,17 @@ RESEARCH_CONTRACT.md §12 / §15, D-021, D-022. 소표본(9개) 평가이므로 
 | 모델 (실제 resolved, 전 호출) | `gpt-5-mini-2025-08-07` |
 | scene_hash | `0e8f098cd95aba26f1384fc6ad5c89ad047ec84912cf595936a7b56d75672c6d` |
 | validator_version | `1.3` (candidate 경로 invariant **#1~#12**) |
-| 실행 시각 (UTC) | 2026-09-01 17:27:22 – 17:29:45 |
+| 실행 시각 (UTC) | 2026-09-02 09:39:33 – 09:42:17 |
 | 입력 | `data/reference_annotations/{A1..C3}.yaml` (LLM 호출 전 커밋: `c3ed0f3`) |
 | 원자료 | `data/eval_results/p6_gpt-5-mini.{json,txt}`, 그림 `.png/.pdf` |
 
 `p6_gpt-5-mini.json`은 case별로 raw·final 후보의 `tasks`(task_type/target/파생 priority)·
-`edges`·`graph_hash`·`accepted`·`error_codes`를 담는다. 제3자는 `task_type`/`target`만으로
+`edges`·`graph_hash`·`accepted`·`error_codes`, 그리고 schema/구조 실패 시 구조화된
+`pipeline_errors`(code/subject/detail)를 담는다. 제3자는 `task_type`/`target`만으로
 task·edge precision/recall·exact match를 독립 재계산할 수 있다.
 
 재현: `pip install -e '.[llm,viz]'` 후
-`python -m evaluation --model gpt-5-mini --out data/eval_results/p6_gpt-5-mini --plot`.
+`python3 -m evaluation --model gpt-5-mini --out data/eval_results/p6_gpt-5-mini --plot`.
 
 ## 집계 (X/9)
 
@@ -57,8 +58,8 @@ family별 (final):
 
 ## Latency
 
-명령당 벽시계(Step1+Step2, repair 없음): min 10.1s / mean 15.9s / max 29.8s.
-최대는 B1(29.8s), family B(6 task/0 edge)의 나머지 둘은 가장 빠름.
+명령당 벽시계(Step1+Step2, repair 없음): min 10.7s / mean 18.2s / max 22.7s.
+가장 빠른 건 family B(6 task/0 edge).
 
 ## 해석
 

@@ -761,3 +761,33 @@ P6 감사 보강:
 **영향** `llm/{schemas,prompts,pipeline}.py`, `validator/{candidate,validate,hashing}.py`,
 `scenarios/{compiler,fixture}.py` + `reference_fixture.yaml`, `evaluation/{annotations,
 harness,metrics,report,plots}.py`, 12개 test 파일. `docs/P6_RESULTS.md` 재작성. 라이브 재실행.
+## D-023: scene loader priority 강제 + D-022 정정 (계약 v1.22)
+
+**배경** P6 재검토(D-022 반영분). 원래 지적 8개는 모두 해결됐고 제3자가 JSON으로 9 case를
+독립 재계산해 일치 확인. 다만 새 차단 버그 1개:
+
+- **scene priority 검증이 너무 늦음.** D-022가 priority의 진실 원천을 semantic scene으로
+  옮겼는데 `scenarios/scene.py`는 여전히 `int(i["priority"])`로 강제 변환. 재현:
+  `priority: 11` → scene 로드 성공 → `validate_candidate` accepted=True → compiler에서
+  `ValueError` 크래시. `priority: true` → 1로 변환 승인. `priority: "9"` → 9로 변환 승인.
+  계약 §7 "파생 priority는 정수 1..10"을 scene 입력 경계가 보장하지 않았다.
+
+**결정**
+
+- `scenarios/scene.py`에 `_priority(value, label)` — `isinstance(int)` and not `bool` and
+  `1 <= v <= 10`이 아니면 `ValueError`. `int()` 강제 변환 제거. incident 로드 시 적용.
+  회귀 테스트 4값(`0`, `11`, `True`, `"9"`).
+- **D-022 본문 정정**: "annotation 명시형 schema에 bool 제외 int·범위 검사 복원"이라고
+  적었으나 실제 구현·의도는 **annotation도 `{task_type, target}`만 허용하고 priority 키를
+  거부**하는 것이다(`evaluation/annotations.py` `_expand`, 테스트
+  `test_annotation_explicit_task_with_priority_key_is_rejected`). Append-only이므로 D-022
+  본문은 두고 이 항목이 정정본이다.
+- **문서**: `README.md`·`docs/P6_RESULTS.md`의 재현 명령을 `python3 -m evaluation`으로 통일
+  (이 환경에 `python` 없음). `core/task.py` docstring과 `CLAUDE.md`의 옛 LLM schema 서술
+  (priority 생성) 갱신.
+- `VALIDATOR_VERSION`은 올리지 않는다 — scene load 경계 강화이지 Validator 판정 규칙
+  변경이 아니며, `industrial_park.yaml`은 이미 9/7로 유효해 기존 결과·JSON에 영향 없음.
+  라이브 API 재실행 불필요.
+
+**영향** `scenarios/scene.py`, `tests/test_scene.py`(+4), `core/task.py`(docstring),
+`README.md`, `docs/P6_RESULTS.md`, `CLAUDE.md`. 라이브 재실행 없음.

@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.21 (D-022). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.22 (D-023). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,6 +62,12 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
+- v1.22 (D-023): P6 재검토 반영. §7 — incident `priority` 1..10 강제를 **scene loader**로
+  이동(D-022는 compiler 파생만 명시해 scene 입력 경계가 비어 있었음 — `int()` 강제 변환으로
+  잘못된 값이 Validator를 통과 후 compile에서 크래시). D-022 본문의 "annotation 명시형
+  schema에 int·범위 검사 복원" 서술 정정 — annotation도 `{task_type, target}`만 허용하고
+  priority 키를 거부한다. 문서: `python` → `python3` 통일, `core/task.py`·`CLAUDE.md` 옛
+  LLM schema 서술 갱신. VALIDATOR_VERSION 불변(scene load 경계, 판정 규칙 아님).
 - v1.21 (D-022): P6 Codex 검토 반영. §7 — LLM 출력에서 `priority` 제거, task entry는
   `{task_type, target}`; `derive_priority`(incident → incident.priority, AREA_RECON →
   상수 4)가 파생. §1 RQ1을 "구조 생성"으로 재서술. §9 — candidate 경로는 invariant
@@ -306,9 +312,12 @@ schema 검증(§9 #1)은 이를 강제한다 — top-level 키는 정확히 `{ta
   없으므로 균일하며, 두 incident priority(7·9)보다 낮아 CBBA가 진행 중 사건 대응을 zone
   정찰보다 앞세운다.
 
-파생된 priority는 정수 **1..10**이며(`core/task.py`의 `Task.__post_init__`가 강제, D-008 —
-CBBA 보상이 0·음수에서 음수 bid·미할당을 내지 않도록), audit hash(§14 `graph_hash`)의
-node payload에 포함된다.
+incident priority의 진실 원천은 semantic scene이므로, **scene loader가 로드 시점에**
+각 incident `priority`가 정수 **1..10**임을 강제한다(D-023 — bool·문자열 `int()` 강제
+변환 없음). compiler는 scene을 신뢰하므로 이 검사가 없으면 Validator가 승인한 graph가
+compile 단계에서 깨질 수 있다. `core/task.py`의 `Task.__post_init__`가 최종 방어선으로
+같은 범위를 재확인한다(D-008 — CBBA 보상이 0·음수에서 음수 bid·미할당을 내지 않도록).
+파생된 priority는 audit hash(§14 `graph_hash`)의 node payload에 포함된다.
 
 MissionPatch(`AddTask`, §10)의 priority 처리는 RQ3(P8) 구현 시 같은 파생 규칙으로 정렬한다.
 그때까지 `AddTask.priority`는 유지하되 end-to-end로 쓰이지 않는다(D-006).

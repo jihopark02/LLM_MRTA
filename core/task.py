@@ -1,9 +1,11 @@
 """Task data model (RESEARCH_CONTRACT.md §7).
 
-The LLM produces only ``task_type`` + ``target`` + ``priority``. Everything else
-(``task_id``, ``position``, ``required_capabilities``, ``eligible_platforms``,
-``duration``) is resolved deterministically by ``scenarios/compiler.py`` from
-the semantic scene and the default capability table.
+The LLM produces only ``task_type`` + ``target`` (D-022). Everything else
+(``task_id``, ``position``, ``priority``, ``required_capabilities``,
+``eligible_platforms``, ``duration``) is resolved deterministically by
+``scenarios/compiler.py`` from the semantic scene and the default capability
+table — ``priority`` via ``derive_priority`` (incident tasks inherit the
+incident priority; AREA_RECON gets a fixed constant).
 
 ``status`` is NOT stored independently in YAML; it is recomputed from the
 predecessor state in the task graph (see ``core/task_graph.py``).

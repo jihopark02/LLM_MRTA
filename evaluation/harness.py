@@ -55,6 +55,7 @@ class CaseResult:
     repaired_whole_graph_valid: bool | None
     failure_category: str | None
     harness_error: str | None
+    pipeline_errors: list[dict]  # structured GenerationResult.errors (code/subject/detail)
     latency_s: float
     resolved_models: tuple[str, ...]
     raw: GraphSnapshot | None
@@ -208,6 +209,10 @@ def _case_from_generation(
         repaired_schema_valid=gen.repaired_schema_valid,
         repaired_whole_graph_valid=gen.repaired_whole_graph_valid,
         failure_category=gen.failure_category, harness_error=None,
+        pipeline_errors=[
+            {"code": e.code.value, "subject": e.subject, "detail": e.detail}
+            for e in gen.errors
+        ],
         latency_s=latency, resolved_models=resolved,
         raw=_snapshot(scene, gen.raw_candidate, gen.raw_validation),
         final=_snapshot(scene, gen.candidate, gen.validation),
@@ -230,7 +235,7 @@ def run_case(ann: Annotation, scene: Scene, backend, *, on_error: str = "record"
             approved=False, attempts=0, repaired=False, raw_schema_valid=False,
             raw_whole_graph_valid=False, repaired_schema_valid=None,
             repaired_whole_graph_valid=None, failure_category=None,
-            harness_error=f"{type(exc).__name__}: {exc}",
+            harness_error=f"{type(exc).__name__}: {exc}", pipeline_errors=[],
             latency_s=time.perf_counter() - t0, resolved_models=resolved,
             raw=None, final=None, raw_score=None, final_score=None,
         )

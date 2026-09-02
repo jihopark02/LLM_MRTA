@@ -86,6 +86,15 @@ def _positive_finite(value: float, label: str) -> float:
     return v
 
 
+def _priority(value: object, label: str) -> int:
+    # The scene is the source of truth for priority (§7, D-022); the compiler
+    # trusts it, so the range check has to happen here, not be laundered by
+    # int() coercion (bool is not accepted; "9" is not accepted).
+    if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 10:
+        raise ValueError(f"{label} must be an int in 1..10, got {value!r}")
+    return value
+
+
 def load_scene(path: str | Path) -> Scene:
     raw = yaml.safe_load(Path(path).read_text())
 
@@ -97,7 +106,7 @@ def load_scene(path: str | Path) -> Scene:
         iid: Incident(
             incident_id=iid,
             zone=i["zone"],
-            priority=int(i["priority"]),
+            priority=_priority(i["priority"], f"{iid}.priority"),
             position=_xy(i["position"]),
             access_node=i["access_node"],
             status=IncidentStatus(i["status"]),

@@ -67,6 +67,22 @@ def test_invalid_incident_status_is_rejected(tmp_path):
         load_scene(bad)
 
 
+@pytest.mark.parametrize("bad", ["0", "11", "true", '"9"'])
+def test_incident_priority_out_of_1_to_10_or_non_int_is_rejected(tmp_path, bad):
+    # D-022: the scene is the source of truth for priority; the compiler trusts
+    # it, so the scene loader must reject anything that is not an int in 1..10 —
+    # no int() coercion (bool -> 1, "9" -> 9 must NOT slip through).
+    s = tmp_path / "s.yaml"
+    s.write_text(
+        _minimal_scene_yaml(
+            f"F1: {{zone: ZONE_A, priority: {bad}, position: [1, 1], access_node: N0,"
+            " status: RESPONSE_REQUIRED}"
+        )
+    )
+    with pytest.raises(ValueError, match="priority"):
+        load_scene(s)
+
+
 def test_incident_access_node_missing_from_route_graph_is_rejected(tmp_path):
     bad = tmp_path / "s.yaml"
     bad.write_text(

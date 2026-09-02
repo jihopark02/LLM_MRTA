@@ -19,15 +19,15 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-021, 계약 v1.20)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-022, 계약 v1.21)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-01 기준)
 
-**P1~P5 승인 완료 + P6 구현 완료 (Codex 검토 대기). 계약 v1.20 (D-021).**
+**P1~P5 승인 완료 + P6 구현 완료 (Codex 재검토 대기, D-022 반영). 계약 v1.21 (D-022).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`(P6).
-`VALIDATOR_VERSION = "1.2"`, `λ = 0.999`. pytest 214개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.3"`, `λ = 0.999`. pytest 225개 통과, ruff clean.
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
@@ -60,11 +60,11 @@ P6 구조 (D-021, D-022):
   attempted/recovered/first-pass 분리, family 분해, 재현성 triple, backend 예외는
   `harness_error`(≠ `failure_category`).
 - `evaluation/report.py`(표+감사 JSON), `evaluation/plots.py`(3-panel 그림, `viz` extra).
-- 실행: `python -m evaluation [--mock] [--out PREFIX] [--plot]`.
+- 실행: `python3 -m evaluation [--mock] [--out PREFIX] [--plot]`.
 
-P6 실측 (gpt-5-mini-2025-08-07, 2026-09-01, validator 1.3): 9/9 approved, task P/R
+P6 실측 (gpt-5-mini-2025-08-07, 2026-09-02, validator 1.3): 9/9 approved, task P/R
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact match 9/9, repair 0회, latency mean
-15.9s. `docs/P6_RESULTS.md`, `data/eval_results/`. 승인된 candidate는 invariant
+18.2s. `docs/P6_RESULTS.md`, `data/eval_results/`. 승인된 candidate는 invariant
 **#1~#12** 만족(#13~#14는 patch 전용).
 
 다음: Codex의 P6 재검토(D-022 반영분) → 이후 P7(platform adapter) / P8.

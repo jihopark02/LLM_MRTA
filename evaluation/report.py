@@ -185,6 +185,7 @@ def to_dict(run: EvalRun) -> dict:
                 "repaired_whole_graph_valid": c.repaired_whole_graph_valid,
                 "failure_category": c.failure_category,
                 "harness_error": c.harness_error,
+                "pipeline_errors": c.pipeline_errors,
                 "latency_s": c.latency_s,
                 "resolved_models": list(c.resolved_models),
                 "raw": _snapshot_dict(c.raw),

@@ -258,6 +258,8 @@ def test_harness_schema_failure_leaves_score_none(scene, annotations):
     assert case.harness_error is None
     assert case.raw is None and case.final is None
     assert case.raw_score is None and case.final_score is None
+    # the specific schema error is kept for auditing, not just the category
+    assert case.pipeline_errors and case.pipeline_errors[0]["code"] == "E_SCHEMA"
 
 
 def test_harness_survives_a_raising_backend(scene, annotations):
