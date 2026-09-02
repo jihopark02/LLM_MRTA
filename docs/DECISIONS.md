@@ -817,3 +817,32 @@ harness,metrics,report,plots}.py`, 12개 test 파일. `docs/P6_RESULTS.md` 재�
 
 **영향** `README.md`, `CLAUDE.md`, `docs/P6_RESULTS.md`, `evaluation/__main__.py`
 (docstring). 코드 동작·테스트·결과 수치 변화 없음.
+## D-025: P6.5 얇은 통합 runner (계약 v1.23)
+
+**배경** P6 승인 후 Codex 권고. RQ1(NL → LLM graph → Validator 승인)은 P6에서,
+RQ2(검증된 graph → CBBA → 2D 실행)는 P3/P4에서 각각의 입력으로 검증됐으나, **하나의
+NL 명령을 두 단계에 연속으로 관통시킨 적은 없다**. P7/P8(선택 단계)에 들어가기 전에,
+발표에서 "전체 파이프라인 시연"이라고 말할 수 있도록 기존 모듈을 연결하는 얇은 runner를
+둔다. 새 알고리즘 없음.
+
+**결정** `evaluation/integration.py`:
+
+- `run_full(command, scene, backend) -> FullRun`: `generate_mission`(RQ1) → 승인 시
+  `gen.graph`(compiled TaskGraph)로 `MissionState` 구성 → `allocate`(CBBA plan-time) +
+  `SimExecutor.run`(2D 실행) → `GenerationResult` + `AllocationResult` +
+  `ExecutionResult`를 그대로 보존. 미승인이면 allocation/execution은 `None`.
+- 대표 명령: A1(FULL_RESPONSE, 12 task/6 edge — P1 fixture와 동일 graph), B1(AERIAL_ONLY,
+  6 task/0 edge), C1(SELECTIVE_RESPONSE, 9 task/3 edge). reference annotation의 command를
+  그대로 사용.
+- **게이트**(`tests/test_integration.py`, MockBackend): 세 명령 모두
+  (1) `generate_mission` 승인,
+  (2) `allocate` — capability/precedence violation 0, unassigned 0,
+  (3) `SimExecutor` — 완주(deadlock 없음), violation 0,
+  (4) A1은 LLM graph가 P1 fixture와 동일하므로 makespan이 P3/P4 골든(~359.8 / ~257.9)과
+      일치.
+- CLI: `python3 -m evaluation.integration [--mock] [--command ID ...] [--out PREFIX]` —
+  실제 backend는 `OpenAIBackend`, 결과 표 + JSON.
+
+**영향** 신규 `evaluation/integration.py`, `tests/test_integration.py`. `README.md`·
+`CLAUDE.md` "현재 단계". P6.5 완료 시 발표 문구를 "NL → CBBA → 실행 전체 시연"으로
+정정 가능.
