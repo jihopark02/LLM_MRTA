@@ -14,7 +14,7 @@ Unmanned Systems
 
 **P1~P6.5 완료** — `validator/`(P2) + `allocation/`(P3) + `execution/`(P4:
 `SimExecutor`) + `llm/`(P5: Step1/Step2/repair 파이프라인 §12) + `evaluation/`(P6:
-9개 입력 평가 하네스 + 감사 JSON + 시각화; P6.5: 통합 runner). 테스트 231개 통과.
+9개 입력 평가 하네스 + 감사 JSON + 시각화; P6.5: 통합 runner). 테스트 232개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는

@@ -27,7 +27,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P6 승인 완료 + P6.5(통합 runner) 완료. 계약 v1.24 (D-026).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
-(P6 평가 + P6.5 `integration.py`). `VALIDATOR_VERSION = "1.3"`, `λ = 0.999`. pytest 231개
+(P6 평가 + P6.5 `integration.py`). `VALIDATOR_VERSION = "1.3"`, `λ = 0.999`. pytest 232개
 통과, ruff clean.
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
