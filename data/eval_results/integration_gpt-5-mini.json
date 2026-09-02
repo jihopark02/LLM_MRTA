@@ -1,0 +1,171 @@
+[
+  {
+    "allocation": {
+      "capability_violations": [],
+      "consensus_rounds": [
+        6,
+        4,
+        4,
+        4
+      ],
+      "estimated_makespan": 359.83851329477545,
+      "idle_agents": [],
+      "precedence_violations": [],
+      "success": true,
+      "uav_flight_distance": 999.5458160224249,
+      "ugv_route_distance": 346.3414122447589,
+      "unassigned": [],
+      "workload": {
+        "G1": 2,
+        "G2": 2,
+        "R1": 1,
+        "R2": 1,
+        "S1": 3,
+        "S2": 3
+      }
+    },
+    "approved": true,
+    "clean": true,
+    "command": "We have active fires at FIRE_SITE_1 and FIRE_SITE_2. Run a full disaster response: survey every zone from the air, and take each fire all the way through the response workflow from the thermal check to ground suppression.",
+    "execution": {
+      "capability_violations": [],
+      "completed": 12,
+      "epochs": 7,
+      "idle_agents": [],
+      "makespan": 257.85045511830117,
+      "precedence_violations": [],
+      "termination": "COMPLETED",
+      "unfinished_tasks": [],
+      "workload": {
+        "G1": 2,
+        "G2": 2,
+        "R1": 1,
+        "R2": 1,
+        "S1": 3,
+        "S2": 3
+      }
+    },
+    "graph": {
+      "edges": 6,
+      "tasks": 12
+    },
+    "id": "A1"
+  },
+  {
+    "allocation": {
+      "capability_violations": [],
+      "consensus_rounds": [
+        6
+      ],
+      "estimated_makespan": 156.68908295278675,
+      "idle_agents": [
+        "G1",
+        "G2",
+        "R1",
+        "R2"
+      ],
+      "precedence_violations": [],
+      "success": true,
+      "uav_flight_distance": 648.5492219014134,
+      "ugv_route_distance": 0.0,
+      "unassigned": [],
+      "workload": {
+        "G1": 0,
+        "G2": 0,
+        "R1": 0,
+        "R2": 0,
+        "S1": 3,
+        "S2": 3
+      }
+    },
+    "approved": true,
+    "clean": true,
+    "command": "Aerial assessment only for now. Have the scout UAVs survey all four zones and do a pre-response heat-source check over FIRE_SITE_1 and FIRE_SITE_2. Do not commit any suppressant drop or ground units yet.",
+    "execution": {
+      "capability_violations": [],
+      "completed": 6,
+      "epochs": 1,
+      "idle_agents": [
+        "G1",
+        "G2",
+        "R1",
+        "R2"
+      ],
+      "makespan": 156.68908295278675,
+      "precedence_violations": [],
+      "termination": "COMPLETED",
+      "unfinished_tasks": [],
+      "workload": {
+        "G1": 0,
+        "G2": 0,
+        "R1": 0,
+        "R2": 0,
+        "S1": 3,
+        "S2": 3
+      }
+    },
+    "graph": {
+      "edges": 0,
+      "tasks": 6
+    },
+    "id": "B1"
+  },
+  {
+    "allocation": {
+      "capability_violations": [],
+      "consensus_rounds": [
+        6,
+        4,
+        3,
+        3
+      ],
+      "estimated_makespan": 329.12916061443354,
+      "idle_agents": [
+        "G1",
+        "R2"
+      ],
+      "precedence_violations": [],
+      "success": true,
+      "uav_flight_distance": 801.9376178119255,
+      "ugv_route_distance": 136.58234902329247,
+      "unassigned": [],
+      "workload": {
+        "G1": 0,
+        "G2": 2,
+        "R1": 1,
+        "R2": 0,
+        "S1": 3,
+        "S2": 3
+      }
+    },
+    "approved": true,
+    "clean": true,
+    "command": "FIRE_SITE_1 is the priority - take it through the full response workflow to ground suppression. FIRE_SITE_2 only needs a thermal recon for now. Also survey all four zones from the air.",
+    "execution": {
+      "capability_violations": [],
+      "completed": 9,
+      "epochs": 4,
+      "idle_agents": [
+        "G1",
+        "R2"
+      ],
+      "makespan": 221.61362715046084,
+      "precedence_violations": [],
+      "termination": "COMPLETED",
+      "unfinished_tasks": [],
+      "workload": {
+        "G1": 0,
+        "G2": 2,
+        "R1": 1,
+        "R2": 0,
+        "S1": 3,
+        "S2": 3
+      }
+    },
+    "graph": {
+      "edges": 3,
+      "tasks": 9
+    },
+    "id": "C1"
+  }
+]

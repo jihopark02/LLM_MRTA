@@ -1,0 +1,7 @@
+end-to-end integration (NL -> generate_mission -> allocate -> SimExecutor)
+======================================================================
+  A1   approved  tasks 12/6e  alloc mk   359.8  exec mk   257.9  viol 0/0  OK
+  B1   approved  tasks 6/0e  alloc mk   156.7  exec mk   156.7  viol 0/0  OK
+  C1   approved  tasks 9/3e  alloc mk   329.1  exec mk   221.6  viol 0/0  OK
+
+3/3 commands ran clean through the full pipeline
