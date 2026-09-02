@@ -846,3 +846,48 @@ NL 명령을 두 단계에 연속으로 관통시킨 적은 없다**. P7/P8(선�
 **영향** 신규 `evaluation/integration.py`, `tests/test_integration.py`. `README.md`·
 `CLAUDE.md` "현재 단계". P6.5 완료 시 발표 문구를 "NL → CBBA → 실행 전체 시연"으로
 정정 가능.
+## D-026: P6.5 통합 runner 정정 — fork 구조 + 감사 게이트 (계약 v1.24)
+
+**배경** P6.5 재검토. 코드는 돌고 P1~P6 회귀 없으나, runner가 주장하는 데이터 흐름과
+게이트가 검증하는 내용이 실제 구현에 못 미쳤다:
+
+1. **`generate_mission → allocate → SimExecutor` 순차 서술이 사실과 다름.** `SimExecutor`는
+   input state를 clone하고 `agent.current_task`를 초기화한 뒤 `_run_epoch`가 READY frontier
+   에서 **자체적으로 `run_epoch`(CBBA)를 재수행**한다. `allocate`의 assignment는 executor에
+   전달되지 않는다. 올바른 구조는 fork: 검증된 graph → (a) `allocate` plan-time 분석,
+   (b) `SimExecutor` event-driven 실행. 이건 버그가 아니라 §13(estimated makespan ≠ 실행
+   makespan) 설계대로다 — 문제는 문서·네이밍의 화살표다.
+2. **`clean`이 명령 충실도를 안 봄.** validator 승인 + 할당 성공 + 무위반 + 완주만 검사하고
+   annotation `allowed_graphs` 대조는 없다. `run_commands`가 정답 graph를 버렸다. C1 명령에
+   C2 graph(둘 다 9 task/3 edge)를 생성해도 통과.
+3. **감사 JSON이 너무 얇음.** task/edge 개수·makespan·violation·workload만 저장. 실제
+   task/edge, graph_hash, scene_hash, validator_version, resolved_models, 그리고 MRTA의
+   핵심인 **task→agent assignment(plan·exec 각각)**가 없어 독립 검증 불가.
+4. **A1 fixture 동일성 테스트가 동일성을 안 봄.** task 12·edge 6·makespan 일치만 assert.
+   우연히 같은 makespan인 다른 graph도 통과.
+5. `P6_RESULTS.md`가 P6.5를 아직 "후속 작업"이라 서술.
+
+**결정**
+
+- **문서/서술**: §15 P6.5를 fork 구조로 정정. `integration.py` docstring·D-025 화살표,
+  `README`·`CLAUDE`, `P6_RESULTS.md`의 표현을 "검증된 graph를 plan-time CBBA 분석과
+  event-driven CBBA executor로 각각 실행"으로 통일. "allocate가 만든 계획을 SimExecutor가
+  실행" 서술 금지.
+- **`FullRun`**: `exact_match`(P6 `score_graph`로 최종 candidate ↔ annotation `allowed_graphs`
+  대조) 추가. `operationally_clean`(기존 clean 조건, 단 `not deadlocked` → `termination ==
+  COMPLETED`)와 `demo_pass`(= operationally_clean and exact_match) 분리.
+- **`run_commands`**: `Annotation`을 그대로 넘겨 `run_full`이 `score_graph`를 쓸 수 있게.
+  case별 `harness_error`(네트워크·인증 예외) 저장 — 한 case 실패가 나머지를 죽이지 않음.
+- **감사 JSON**: `meta`(scene_hash, validator_version, requested/resolved model, 시각) +
+  case별 `generation`(P6 `GraphSnapshot` 재사용: tasks[task_type/target/derived priority]·
+  edges·graph_hash·accepted·error_codes, exact_match) + `plan_analysis`(assignments
+  task→agent, estimated_makespan, consensus_rounds) + `execution`(termination, assignments
+  task→agent, makespan, winning_bids). P6의 `GraphSnapshot`을 공유하도록 `evaluation.harness`
+  의 snapshot 빌더를 public화.
+- **A1 테스트**: `graph_hash` 또는 `(task_type, target)` 집합 + edge 집합 직접 비교로 graph
+  동일성을 실제 검사. + fixture와 동일하므로 makespan이 P3/P4 골든과 일치함을 유지.
+- **라이브 A1/B1/C1 재실행** — 기존 실행은 감사 필드 미저장이라 무효.
+
+**영향** `evaluation/integration.py` 재작성, `evaluation/harness.py`(snapshot public),
+`tests/test_integration.py` 강화, `data/eval_results/integration_gpt-5-mini.*` 재생성.
+`docs/{P6_RESULTS,RESEARCH_CONTRACT}.md`, `README.md`, `CLAUDE.md`. 새 알고리즘 없음.

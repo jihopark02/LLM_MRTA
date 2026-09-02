@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.23 (D-025). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.24 (D-026). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,9 +62,13 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
-- v1.23 (D-025): §15에 P6.5(얇은 통합 runner) 게이트 추가 — NL 명령을
-  `generate_mission` → `allocate` → `SimExecutor`로 관통시켜 RQ1(P6)과 RQ2(P3/P4)가
-  실제로 연결됨을 대표 명령 1~3개로 시연. 새 알고리즘·계약 무결성 규칙 변경 없음.
+- v1.24 (D-026): P6.5 재검토 반영. §15 P6.5의 "→ 순차 파이프라인" 서술을 **fork 구조**로
+  정정(`SimExecutor`는 내부에서 CBBA를 재수행하며 실행하므로 `allocate` 결과를 받지 않는다).
+  P6.5 게이트에 annotation exact-match(`score_graph`)·`termination == COMPLETED`·
+  실제 graph/graph_hash/scene_hash/validator_version/resolved_models/plan·exec assignment을
+  담은 감사 JSON을 추가. 새 알고리즘 없음.
+- v1.23 (D-025): §15에 P6.5(통합 runner) 게이트 추가 — NL 명령을 `generate_mission`(RQ1)
+  → `allocate`·`SimExecutor`(RQ2)에 연결해 대표 명령 1~3개로 시연. 새 알고리즘 없음.
 - v1.22 (D-023): P6 재검토 반영. §7 — incident `priority` 1..10 강제를 **scene loader**로
   이동(D-022는 compiler 파생만 명시해 scene 입력 경계가 비어 있었음 — `int()` 강제 변환으로
   잘못된 값이 Validator를 통과 후 compile에서 크래시). D-022 본문의 "annotation 명시형
@@ -753,7 +757,7 @@ invariant를 통과해야 한다.
 | P4 | 2D executor, end-to-end reference mission | 완주 + 위반 0 + deadlock 최소 재현 테스트 통과 |
 | P5 | LLM Step1/Step2/repair(mock 테스트) | mock 기반 파이프라인 테스트 통과 |
 | P6 | 최소 9개 입력 평가 + 결과 시각화 | precision/recall/원시개수 표 산출 |
-| P6.5 | 얇은 통합 runner: NL → `generate_mission` → `allocate` → `SimExecutor` | 대표 명령 1~3개 완주, RQ1↔RQ2 연결 시연 (D-025) |
+| P6.5 | 통합 runner: 검증된 LLM graph를 plan-time CBBA(`allocate`)와 event-driven executor(`SimExecutor`)로 **각각** 실행 (fork — allocate 결과는 executor에 전달되지 않음) | 대표 명령 A1/B1/C1: annotation exact-match + 무위반 완주(`termination == COMPLETED`) + graph/hash/model/assignment 감사 JSON (D-025, D-026) |
 | P7 (선택) | Gazebo integration | 20~30초 대표 클립 |
 | P8 (선택) | RQ3: MissionPatch 재배선 + 선택적 재할당 비교 | 별도 게이트, 착수 전 이 문서 개정 |
 
