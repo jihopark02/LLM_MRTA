@@ -141,6 +141,71 @@ def test_shared_fields_are_shared_but_never_mutated(scene):
     assert new_scene.scene_id == scene.scene_id
 
 
+def _deep_snapshot(sc) -> dict:
+    """Every Scene field, including the ones scene_hash does not cover.
+
+    scene_hash hashes ``initial_position`` but not the agents' live
+    ``position``/``bundle``/``path``/``current_task``, so a hash comparison
+    alone would miss a mutation of those.
+    """
+    return {
+        "scene_id": sc.scene_id,
+        "zones": {
+            zid: (
+                z.zone_id,
+                z.name,
+                z.recon_waypoint,
+                z.reported_incident_position,
+                z.reported_incident_access_node,
+            )
+            for zid, z in sc.zones.items()
+        },
+        "incidents": {
+            iid: (i.incident_id, i.zone, i.priority, i.position, i.access_node, i.status)
+            for iid, i in sc.incidents.items()
+        },
+        "route_nodes": {n: sc.route_graph.position(n) for n in sc.route_graph.nodes},
+        "route_lanes": sorted(sc.route_graph.lanes),
+        "fleet": [
+            (
+                a.agent_id,
+                a.platform_kind,
+                sorted(c.value for c in a.capabilities),
+                a.initial_position,
+                a.position,
+                a.speed,
+                list(a.bundle),
+                list(a.path),
+                a.current_task,
+            )
+            for a in sc.fleet
+        ],
+        "agent_access_nodes": dict(sc.agent_access_nodes),
+    }
+
+
+def test_no_scene_field_changes_including_live_agent_state(scene):
+    # Put the fleet in a non-default state first, so the snapshot would catch a
+    # mutation of exactly the fields scene_hash cannot see.
+    scene.fleet[0].position = (1.0, 2.0)
+    scene.fleet[0].bundle = ["AREA_RECON__ZONE_A"]
+    scene.fleet[0].path = ["AREA_RECON__ZONE_A"]
+    scene.fleet[0].current_task = "AREA_RECON__ZONE_A"
+    before = _deep_snapshot(scene)
+
+    new_scene, iid = register_incident(scene, "ZONE_B")
+
+    assert _deep_snapshot(scene) == before
+    assert iid in new_scene.incidents and iid not in scene.incidents
+
+
+def test_no_scene_field_changes_on_a_failed_registration(scene):
+    before = _deep_snapshot(scene)
+    with pytest.raises(ValueError):
+        register_incident(scene, "ZONE_Z")
+    assert _deep_snapshot(scene) == before
+
+
 def test_registration_is_deterministic(scene):
     a, ia = register_incident(scene, "ZONE_C")
     b, ib = register_incident(scene, "ZONE_C")
