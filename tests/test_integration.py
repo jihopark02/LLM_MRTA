@@ -128,7 +128,7 @@ def test_audit_json_carries_graph_hash_and_both_assignment_maps(scene, annotatio
     runs = run_commands(anns, scene, _mock_backend(anns))
     d = to_dict(runs, scene, requested_model=None, started_at="t0", finished_at="t1")
 
-    assert d["meta"]["validator_version"] == "1.3"
+    assert d["meta"]["validator_version"] == "1.4"
     assert d["meta"]["scene_hash"]
     a1 = d["cases"][0]
     assert len(a1["generation"]["tasks"]) == 12 and len(a1["generation"]["edges"]) == 6

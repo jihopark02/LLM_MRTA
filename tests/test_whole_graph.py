@@ -40,7 +40,7 @@ def codes(result):
 
 def test_validator_version_is_the_intended_literal():
     # Bump this literal deliberately whenever a verdict rule changes (§14, D-008).
-    assert VALIDATOR_VERSION == "1.3"
+    assert VALIDATOR_VERSION == "1.4"
 
 
 def test_reference_family_a_candidate_is_accepted(scene):
@@ -156,7 +156,8 @@ def test_unreachable_ugv_task_is_flagged(tmp_path):
     bad = tmp_path / "iso.yaml"
     bad.write_text(
         "scene_id: iso\n"
-        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0]}}\n"
+        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0],"
+        " reported_incident_position: [1, 1], reported_incident_access_node: DEPOT}}\n"
         "incidents: {F1: {zone: ZONE_A, priority: 1, position: [1, 1], access_node: ISO,"
         " status: RESPONSE_REQUIRED}}\n"
         "route_graph: {nodes: {DEPOT: [0, 0], ISO: [9, 9]}, lanes: []}\n"
@@ -183,7 +184,8 @@ def test_infeasible_when_no_agent_has_capability(tmp_path):
     bad = tmp_path / "nocap.yaml"
     bad.write_text(
         "scene_id: nocap\n"
-        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0]}}\n"
+        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0],"
+        " reported_incident_position: [1, 1], reported_incident_access_node: N0}}\n"
         "incidents: {F1: {zone: ZONE_A, priority: 1, position: [1, 1], access_node: N0,"
         " status: RESPONSE_REQUIRED}}\n"
         "route_graph: {nodes: {N0: [0, 0]}, lanes: []}\n"

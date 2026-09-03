@@ -51,7 +51,7 @@ def test_conflicting_patch_rejected_state_untouched(scene):
 def test_unknown_add_task_target_is_flagged(scene):
     state = mini_state(scene, [AR_A])
     _, result = apply_patch(
-        state, MissionPatch([AddTask(TaskType.AREA_RECON, "ZONE_Z", 3)]), scene
+        state, MissionPatch([AddTask(TaskType.AREA_RECON, "ZONE_Z")]), scene
     )
     assert not result.accepted
     assert ErrorCode.E_UNKNOWN_REF in result.error_codes
@@ -71,7 +71,7 @@ def test_multi_transaction_bypass_is_blocked(scene):
 
     s1, r1 = apply_patch(
         state,
-        MissionPatch([AddTask(*GI_F1, 5), AddEdge(SD_F1, GI_F1)]),
+        MissionPatch([AddTask(*GI_F1), AddEdge(SD_F1, GI_F1)]),
         scene,
     )
     assert r1.accepted, r1.rejection_errors
@@ -87,16 +87,16 @@ def test_multi_transaction_bypass_is_blocked(scene):
 def test_sequential_valid_patches_accumulate(scene):
     state = mini_state(scene, [TR_F1], [])
     s1, r1 = apply_patch(
-        state, MissionPatch([AddTask(*SD_F1, 5), AddEdge(TR_F1, SD_F1)]), scene
+        state, MissionPatch([AddTask(*SD_F1), AddEdge(TR_F1, SD_F1)]), scene
     )
     s2, r2 = apply_patch(
-        s1, MissionPatch([AddTask(*GI_F1, 5), AddEdge(SD_F1, GI_F1)]), scene
+        s1, MissionPatch([AddTask(*GI_F1), AddEdge(SD_F1, GI_F1)]), scene
     )
     assert r1.accepted and r2.accepted
     assert len(s2.graph) == 3
     assert len(state.graph) == 1  # original never mutated
     assert r2.added_tasks == ("GROUND_INSPECTION__FIRE_SITE_1",)
-    assert len(r2.graph_hash) == 64 and r2.validator_version == "1.3"
+    assert len(r2.graph_hash) == 64 and r2.validator_version == "1.4"
 
 
 def test_orphaning_a_workflow_task_is_rejected(scene):
@@ -112,7 +112,7 @@ def test_terminal_incoming_edge_change_is_rejected(scene):
     state = mini_state(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
     state.graph[tid(SD_F1)].status = TaskStatus.COMPLETED
     # Try to add GROUND_INSPECTION and wire it *into* the completed SD (incoming).
-    patch = MissionPatch([AddTask(*GI_F1, 5), AddEdge(GI_F1, SD_F1)])
+    patch = MissionPatch([AddTask(*GI_F1), AddEdge(GI_F1, SD_F1)])
     _, result = apply_patch(state, patch, scene)
     assert not result.accepted
     assert ErrorCode.E_TERMINAL_IMMUTABLE in result.error_codes

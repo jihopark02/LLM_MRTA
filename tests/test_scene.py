@@ -49,7 +49,8 @@ def test_incidents_carry_response_required_status(scene):
 def _minimal_scene_yaml(incident_line: str, fleet_line: str = "fleet: []") -> str:
     return (
         "scene_id: t\n"
-        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0]}}\n"
+        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0],"
+        " reported_incident_position: [1, 1], reported_incident_access_node: N0}}\n"
         f"incidents: {{{incident_line}}}\n"
         "route_graph: {nodes: {N0: [0, 0], N1: [3, 4]}, lanes: [[N0, N1]]}\n"
         f"{fleet_line}\n"
@@ -144,3 +145,112 @@ def test_incident_referencing_unknown_zone_is_rejected(tmp_path):
     )
     with pytest.raises(ValueError, match="unknown zone"):
         load_scene(bad)
+
+
+# -- zone response points (§18.10, D-027) -----------------------------
+
+
+def test_zone_response_points_load(scene):
+    for zone in scene.zones.values():
+        assert len(zone.reported_incident_position) == 2
+        assert zone.reported_incident_access_node in scene.route_graph
+
+
+def test_every_zone_response_node_is_reachable_from_every_ugv_start(scene):
+    # An operator may report an incident in ANY zone, so GROUND_* there must be
+    # routable. Checked at scene load; assert it explicitly as a gate item.
+    errors = scene.reachability_errors(
+        {zid: z.reported_incident_access_node for zid, z in scene.zones.items()}
+    )
+    assert errors == []
+
+
+def test_missing_zone_response_point_is_rejected(tmp_path):
+    bad = tmp_path / "s.yaml"
+    bad.write_text(
+        "scene_id: t\n"
+        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0]}}\n"
+        "incidents: {}\n"
+        "route_graph: {nodes: {N0: [0, 0]}, lanes: []}\n"
+        "fleet: []\n"
+    )
+    with pytest.raises(KeyError):
+        load_scene(bad)
+
+
+def test_zone_response_node_outside_the_route_graph_is_rejected(tmp_path):
+    bad = tmp_path / "s.yaml"
+    bad.write_text(
+        "scene_id: t\n"
+        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0],"
+        " reported_incident_position: [1, 1], reported_incident_access_node: GHOST}}\n"
+        "incidents: {}\n"
+        "route_graph: {nodes: {N0: [0, 0]}, lanes: []}\n"
+        "fleet: []\n"
+    )
+    with pytest.raises(ValueError, match="reported_incident_access_node"):
+        load_scene(bad)
+
+
+def test_zone_response_node_unreachable_from_a_ugv_start_is_rejected(tmp_path):
+    # ISO has no lane to DEPOT, so a reported incident in ZONE_A could never
+    # receive a GROUND_* task — reject the scene rather than fail later.
+    bad = tmp_path / "s.yaml"
+    bad.write_text(
+        "scene_id: t\n"
+        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0],"
+        " reported_incident_position: [9, 9], reported_incident_access_node: ISO}}\n"
+        "incidents: {}\n"
+        "route_graph: {nodes: {DEPOT: [0, 0], ISO: [9, 9]}, lanes: []}\n"
+        "fleet:\n"
+        "  - {agent_id: G1, platform_kind: UGV,"
+        " capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: DEPOT, speed: 3}\n"
+    )
+    with pytest.raises(ValueError, match="reachability failed"):
+        load_scene(bad)
+
+
+@pytest.mark.parametrize("bad", ["[.nan, 172.0]", "[1.0, .inf]", "[-.inf, 0.0]"])
+def test_non_finite_zone_response_position_is_rejected(tmp_path, bad):
+    # This point becomes a UAV task target in §18.10, so it must be a real point.
+    s = tmp_path / "s.yaml"
+    s.write_text(
+        "scene_id: t\n"
+        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0],"
+        f" reported_incident_position: {bad}, reported_incident_access_node: N0}}}}\n"
+        "incidents: {}\n"
+        "route_graph: {nodes: {N0: [0, 0]}, lanes: []}\n"
+        "fleet: []\n"
+    )
+    with pytest.raises(ValueError, match="two finite numbers"):
+        load_scene(s)
+
+
+def test_scene_hash_covers_the_response_point(tmp_path):
+    # D-027 (ii): the zone payload includes both response-point fields, so a
+    # scene that only differs there must not collide.
+    from dataclasses import replace as dc_replace
+
+    from validator.hashing import scene_hash
+
+    base = load_scene(SCENE_PATH)
+    moved = dc_replace(
+        base,
+        zones={
+            **base.zones,
+            "ZONE_A": dc_replace(
+                base.zones["ZONE_A"], reported_incident_position=(99.0, 99.0)
+            ),
+        },
+    )
+    renoded = dc_replace(
+        base,
+        zones={
+            **base.zones,
+            "ZONE_A": dc_replace(
+                base.zones["ZONE_A"], reported_incident_access_node="R_C"
+            ),
+        },
+    )
+    assert scene_hash(base) != scene_hash(moved)
+    assert scene_hash(base) != scene_hash(renoded)

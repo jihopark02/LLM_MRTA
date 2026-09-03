@@ -26,6 +26,11 @@ class Zone:
     zone_id: str
     name: str
     recon_waypoint: tuple[float, float]
+    # Where an operator-reported incident in this zone is placed (§18.10).
+    # Fixed in the scene so the LLM never invents coordinates: the UAV target
+    # position and the UGV route node are both predefined per zone.
+    reported_incident_position: tuple[float, float]
+    reported_incident_access_node: str
 
 
 @dataclass(slots=True)
@@ -79,6 +84,19 @@ def _xy(pair) -> tuple[float, float]:
     return (float(pair[0]), float(pair[1]))
 
 
+def _finite_xy(pair, label: str) -> tuple[float, float]:
+    """A coordinate that will become a task target must be a real point.
+
+    Only the §18.10 response point is checked here — the older coordinate
+    fields (recon_waypoint, incident position, route nodes) still go through
+    the unchecked ``_xy`` and are left as they are.
+    """
+    xy = _xy(pair)
+    if not all(math.isfinite(v) for v in xy):
+        raise ValueError(f"{label} must be two finite numbers, got {pair!r}")
+    return xy
+
+
 def _positive_finite(value: float, label: str) -> float:
     v = float(value)
     if not math.isfinite(v) or v <= 0.0:
@@ -99,7 +117,15 @@ def load_scene(path: str | Path) -> Scene:
     raw = yaml.safe_load(Path(path).read_text())
 
     zones = {
-        zid: Zone(zid, z["name"], _xy(z["recon_waypoint"]))
+        zid: Zone(
+            zone_id=zid,
+            name=z["name"],
+            recon_waypoint=_xy(z["recon_waypoint"]),
+            reported_incident_position=_finite_xy(
+                z["reported_incident_position"], f"{zid}.reported_incident_position"
+            ),
+            reported_incident_access_node=z["reported_incident_access_node"],
+        )
         for zid, z in raw["zones"].items()
     }
     incidents = {
@@ -126,6 +152,16 @@ def load_scene(path: str | Path) -> Scene:
         if incident.access_node not in rg:
             raise ValueError(
                 f"{incident.incident_id}: access_node {incident.access_node} not in route graph"
+            )
+
+    # §18.10: an operator may report an incident in ANY zone, so every zone's
+    # response access node must be a route node too. Reachability from the UGV
+    # starts is checked below, once the fleet is loaded.
+    for zone in zones.values():
+        if zone.reported_incident_access_node not in rg:
+            raise ValueError(
+                f"{zone.zone_id}: reported_incident_access_node "
+                f"{zone.reported_incident_access_node} not in route graph"
             )
 
     fleet: list[Agent] = []
@@ -162,4 +198,17 @@ def load_scene(path: str | Path) -> Scene:
     if unknown:
         raise ValueError(f"incident references unknown zone(s): {sorted(unknown)}")
 
-    return Scene(raw["scene_id"], zones, incidents, rg, fleet, access_nodes)
+    scene = Scene(raw["scene_id"], zones, incidents, rg, fleet, access_nodes)
+
+    # §18.10 + §8 (c): a reported incident in any zone must be able to receive
+    # GROUND_INSPECTION / GROUND_SUPPRESSION, so its response node must be
+    # reachable from every UGV start. Unlike the task-level check this needs no
+    # task list, so it belongs at scene load.
+    reach_errors = scene.reachability_errors(
+        {f"{zid}.reported_incident": z.reported_incident_access_node for zid, z in zones.items()}
+    )
+    if reach_errors:
+        raise ValueError(
+            "zone response point reachability failed:\n  " + "\n  ".join(reach_errors)
+        )
+    return scene

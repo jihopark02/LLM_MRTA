@@ -196,7 +196,7 @@ def test_harness_all_perfect(scene, annotations):
     assert final.scored == 9 and final.exact_match == 9
     assert final.task_micro.fp == 0 and final.task_micro.fn == 0
     assert final.edge_micro.fp == 0 and final.edge_micro.fn == 0
-    assert run.validator_version == "1.3" and run.scene_hash
+    assert run.validator_version == "1.4" and run.scene_hash
     assert run.backend_kind == "MockBackend"
 
 

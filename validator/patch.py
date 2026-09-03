@@ -7,6 +7,12 @@ list is self-consistent, applying the ops in canonical order
 ``AddTask -> RemoveEdge -> AddEdge`` yields a graph independent of the caller's
 op ordering.
 
+The check is split in two (D-027) because the audit hashes sit between them:
+``validate_patch_field_schema`` first, then — only if every op is well formed
+and therefore canonically serializable — ``patch_hash``/``pre_state_hash``, then
+``validate_patch_conflicts``. ``validate_patch_ops`` runs both in order and
+stays the convenience entry point.
+
 Graph mutation + reconciliation (steps 3-8) is validator/patch_apply.py.
 """
 
@@ -23,9 +29,12 @@ _EdgeKey = tuple[TaskKey, TaskKey]
 
 @dataclass(frozen=True, slots=True)
 class AddTask:
+    """§10 / D-027: ``{task_type, target}`` only — priority is derived by
+    ``apply_patch`` via ``derive_priority``, exactly as for LLM candidates
+    (§7, D-022)."""
+
     task_type: TaskType
     target: str
-    priority: int
 
     @property
     def key(self) -> TaskKey:
@@ -100,12 +109,6 @@ def _op_schema_error(op: object, i: int) -> ValidationError | None:
             return ValidationError(ErrorCode.E_SCHEMA, where, f"task_type {op.task_type!r}")
         if not isinstance(op.target, str):
             return ValidationError(ErrorCode.E_SCHEMA, where, "target must be str")
-        if not isinstance(op.priority, int) or isinstance(op.priority, bool):
-            return ValidationError(ErrorCode.E_SCHEMA, where, "priority must be int")
-        if not 1 <= op.priority <= 10:  # contract §7 / D-008
-            return ValidationError(
-                ErrorCode.E_SCHEMA, where, f"priority {op.priority} not in 1..10"
-            )
         return None
     if isinstance(op, (AddEdge, RemoveEdge)):
         if not _valid_endpoint(op.predecessor) or not _valid_endpoint(op.successor):
@@ -114,22 +117,38 @@ def _op_schema_error(op: object, i: int) -> ValidationError | None:
     return ValidationError(ErrorCode.E_SCHEMA, where, f"unknown op {type(op).__name__}")
 
 
-def validate_patch_ops(patch: MissionPatch, base: TaskGraph) -> list[ValidationError]:
+def validate_patch_field_schema(patch: MissionPatch) -> list[ValidationError]:
+    """Field-level shape of every operation, independent of any graph (D-027).
+
+    Callers may only hash a patch (``patch_hash``) once this returns no errors:
+    a malformed op has no safe canonical serialization.
+    """
+    if not isinstance(patch.operations, list):
+        return [ValidationError(ErrorCode.E_SCHEMA, "operations", "must be a list")]
+    return [
+        error
+        for i, op in enumerate(patch.operations)
+        if (error := _op_schema_error(op, i)) is not None
+    ]
+
+
+def validate_patch_conflicts(patch: MissionPatch, base: TaskGraph) -> list[ValidationError]:
+    """Raw op-list self-consistency against the starting graph (§10 step 2).
+
+    Assumes ``validate_patch_field_schema`` already passed; ops that failed it
+    are skipped rather than dereferenced.
+    """
     errors: list[ValidationError] = []
 
     def conflict(subject: str, detail: str) -> None:
         errors.append(ValidationError(ErrorCode.E_PATCH_CONFLICT, subject, detail))
 
     if not isinstance(patch.operations, list):
-        return [ValidationError(ErrorCode.E_SCHEMA, "operations", "must be a list")]
+        return []
 
-    ops: list[MissionOp] = []
-    for i, op in enumerate(patch.operations):
-        schema_error = _op_schema_error(op, i)
-        if schema_error is not None:
-            errors.append(schema_error)
-        else:
-            ops.append(op)  # only field-valid ops reach the conflict checks
+    ops: list[MissionOp] = [
+        op for i, op in enumerate(patch.operations) if _op_schema_error(op, i) is None
+    ]
 
     base_task_keys = graph_task_keys(base)
     base_edges = graph_edge_keys(base)
@@ -159,6 +178,11 @@ def validate_patch_ops(patch: MissionPatch, base: TaskGraph) -> list[ValidationE
             conflict(pair_str(edge), "RemoveEdge targets an edge that does not exist")
 
     return errors
+
+
+def validate_patch_ops(patch: MissionPatch, base: TaskGraph) -> list[ValidationError]:
+    """Both §10 step 2 checks in order — field schema, then conflicts."""
+    return validate_patch_field_schema(patch) + validate_patch_conflicts(patch, base)
 
 
 def post_patch_keys(

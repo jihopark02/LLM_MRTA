@@ -281,7 +281,8 @@ def test_context_summary_reports_an_empty_incident_list(tmp_path):
     empty = tmp_path / "empty.yaml"
     empty.write_text(
         "scene_id: t\n"
-        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0]}}\n"
+        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0],"
+        " reported_incident_position: [1, 1], reported_incident_access_node: N0}}\n"
         "incidents: {}\n"
         "route_graph: {nodes: {N0: [0, 0]}, lanes: []}\n"
         "fleet:\n"

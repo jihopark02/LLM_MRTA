@@ -7,11 +7,32 @@
 
 scene_id: industrial_park
 
+# `reported_incident_*` is the fixed response point for an incident the operator
+# reports in this zone (contract §18.10): the UAV target position and the UGV
+# route node are predefined here so the LLM never invents coordinates. Both are
+# validated at scene load — the node must exist in the route graph and be
+# reachable from every UGV start.
 zones:
-  ZONE_A: { name: Warehouse,       recon_waypoint: [30.0, 180.0] }
-  ZONE_B: { name: Processing Area, recon_waypoint: [120.0, 115.0] }
-  ZONE_C: { name: Utility Yard,    recon_waypoint: [30.0, 40.0] }
-  ZONE_D: { name: Tank Farm,       recon_waypoint: [200.0, 45.0] }
+  ZONE_A:
+    name: Warehouse
+    recon_waypoint: [30.0, 180.0]
+    reported_incident_position: [32.0, 172.0]
+    reported_incident_access_node: R_A
+  ZONE_B:
+    name: Processing Area
+    recon_waypoint: [120.0, 115.0]
+    reported_incident_position: [118.0, 118.0]
+    reported_incident_access_node: R_B
+  ZONE_C:
+    name: Utility Yard
+    recon_waypoint: [30.0, 40.0]
+    reported_incident_position: [34.0, 44.0]
+    reported_incident_access_node: R_C
+  ZONE_D:
+    name: Tank Farm
+    recon_waypoint: [200.0, 45.0]
+    reported_incident_position: [196.0, 50.0]
+    reported_incident_access_node: R_D
 
 # Incidents are given as RESPONSE_REQUIRED by the scene; nothing in the system
 # decides whether a fire exists (contract §3).

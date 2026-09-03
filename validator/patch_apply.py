@@ -17,10 +17,16 @@ from dataclasses import dataclass
 from core.enums import TaskStatus
 from core.mission_state import MissionState
 from core.task_graph import TaskGraph
-from scenarios.compiler import compile_task, task_id_for
+from scenarios.compiler import compile_task, derive_priority, task_id_for
 from scenarios.scene import Scene
 from validator.errors import ErrorCode, ValidationError
-from validator.hashing import VALIDATOR_VERSION, graph_hash, scene_hash
+from validator.hashing import (
+    VALIDATOR_VERSION,
+    graph_hash,
+    patch_hash,
+    pre_state_hash,
+    scene_hash,
+)
 from validator.patch import (
     AddEdge,
     AddTask,
@@ -30,7 +36,8 @@ from validator.patch import (
     graph_hash_nodes,
     pair_str,
     post_patch_keys,
-    validate_patch_ops,
+    validate_patch_conflicts,
+    validate_patch_field_schema,
 )
 from validator.whole_graph import validate_structure
 
@@ -50,18 +57,24 @@ class PatchResult:
     graph_hash: str = ""
     scene_hash: str = ""
     validator_version: str = ""
+    # §14/D-027 audit pair. ``patch_hash`` is None when the operations failed the
+    # field-level schema check and could not be canonically serialized.
+    patch_hash: str | None = None
+    pre_state_hash: str = ""
 
     @property
     def error_codes(self) -> list[ErrorCode]:
         return sorted({e.code for e in self.rejection_errors})
 
 
-def _reject(errors, scene) -> PatchResult:
+def _reject(errors, scene, *, p_hash: str | None = None, s_hash: str = "") -> PatchResult:
     return PatchResult(
         accepted=False,
         rejection_errors=tuple(errors),
         scene_hash=scene_hash(scene),
         validator_version=VALIDATOR_VERSION,
+        patch_hash=p_hash,
+        pre_state_hash=s_hash,
     )
 
 
@@ -74,10 +87,27 @@ def apply_patch(
 ) -> tuple[MissionState, PatchResult]:
     base = state.graph
 
-    # Step 2: raw op-list self-consistency.
-    op_errors = validate_patch_ops(patch, base)
+    # Step 2a: field-level op schema. A malformed op has no canonical
+    # serialization, so it is the one rejection with no patch_hash (D-027).
+    schema_errors = validate_patch_field_schema(patch)
+    if schema_errors:
+        return state, _reject(schema_errors, scene, p_hash=None, s_hash=pre_state_hash(state))
+
+    # Every op is well formed from here on: the audit pair is computable, and
+    # every later rejection records both (D-027).
+    pre_scene = scene_hash(scene)
+    p_hash = patch_hash(
+        graph_hash(graph_hash_nodes(base), sorted(graph_edge_keys(base))),
+        pre_scene,
+        patch.operations,
+        VALIDATOR_VERSION,
+    )
+    s_hash = pre_state_hash(state)
+
+    # Step 2b: raw op-list self-consistency against the starting graph.
+    op_errors = validate_patch_conflicts(patch, base)
     if op_errors:
-        return state, _reject(op_errors, scene)
+        return state, _reject(op_errors, scene, p_hash=p_hash, s_hash=s_hash)
 
     # Steps 3-4: symbolic canonical apply -> whole-graph invariants, before any
     # Task is materialised (a bad AddTask target is E_UNKNOWN_REF, not a crash).
@@ -89,11 +119,11 @@ def apply_patch(
     # informative failure than the #10 workflow break it also triggers.
     terminal_errors = _terminal_immutable_errors(base, base_edge_keys, final_edge_keys)
     if terminal_errors:
-        return state, _reject(terminal_errors, scene)
+        return state, _reject(terminal_errors, scene, p_hash=p_hash, s_hash=s_hash)
 
     struct_errors = validate_structure(nodes, edges, scene)
     if struct_errors:
-        return state, _reject(struct_errors, scene)
+        return state, _reject(struct_errors, scene, p_hash=p_hash, s_hash=s_hash)
 
     # Materialise on a clone.
     work = state.clone()
@@ -114,11 +144,11 @@ def apply_patch(
     changed = _predecessor_diff(base, g)
     released, status_changes, recon_errors = _reconcile(work, base, changed)
     if recon_errors:
-        return state, _reject(recon_errors, scene)
+        return state, _reject(recon_errors, scene, p_hash=p_hash, s_hash=s_hash)
 
     assign_errors = _assignment_invariant_errors(work)
     if assign_errors:
-        return state, _reject(assign_errors, scene)
+        return state, _reject(assign_errors, scene, p_hash=p_hash, s_hash=s_hash)
 
     # Step 8: commit the clone.
     result = PatchResult(
@@ -129,8 +159,10 @@ def apply_patch(
         directly_released_tasks=tuple(sorted(released)),
         status_changes=tuple(status_changes),
         graph_hash=graph_hash(graph_hash_nodes(g), sorted(final_edge_keys)),
-        scene_hash=scene_hash(scene),
+        scene_hash=pre_scene,
         validator_version=VALIDATOR_VERSION,
+        patch_hash=p_hash,
+        pre_state_hash=s_hash,
     )
     return work, result
 
@@ -139,7 +171,9 @@ def apply_patch(
 
 
 def _materialise_add_task(g: TaskGraph, scene: Scene, op: AddTask) -> str:
-    task = compile_task(scene, op.task_type, op.target, op.priority)
+    # priority is scene-derived, never carried by the op (§7, §10, D-027).
+    priority = derive_priority(scene, op.task_type, op.target)
+    task = compile_task(scene, op.task_type, op.target, priority)
     g.add_task(task)
     return task.task_id
 
