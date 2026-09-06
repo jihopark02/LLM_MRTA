@@ -25,11 +25,11 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 ## 지금 어디까지 왔는지 (2026-09-06 기준)
 
-**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0·P8.1 승인 완료
-(브랜치 `feature/operator-interaction`). 계약 v1.26 (D-028).**
+**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0·P8.1·P8.2 승인 완료
+(브랜치 `feature/operator-interaction`). 계약 v1.28 (D-030).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
-(P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1). `VALIDATOR_VERSION = "1.4"`
-(D-027), `λ = 0.999`. pytest 426개 통과, ruff clean.
+(P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 530개 통과, ruff clean.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 실행 개시 전 다중 턴 자연어 계획 세션.
 5종 대화 행위(NEW_MISSION/REPORT_INCIDENT/UPDATE_MISSION/QUERY_STATUS/UNSUPPORTED). LLM은
@@ -58,22 +58,35 @@ P8.1 구조 (D-027, D-028):
 - Validator 1.4(P8.1b atomic cut): `AddTask` op `{task_type,target}`, field schema/conflict
   분리, `patch_hash`+`pre_state_hash`, zone response point가 `scene_hash`에 포함.
 
-다음: **P8.2** — orchestrator + intent interpreter(게이트는 `MockBackend`). I1~I8 headless,
-session lifecycle·NO_CHANGE·referent 규칙 강제, 턴별 감사 JSON. 게이트는 §15.
+P8.2 구조 (D-029, D-030):
+- `interaction/audit.py`: `TurnAudit`/`ExecutionAudit`/`GroundingAudit`/`PatchAudit`/
+  `GenerationAudit`/`PlanAssignmentChanges` typed schema (`turn_log: list[TurnAudit]`).
+- `interaction/orchestrator.py`: `handle_turn` — **턴 전체** 예외 격리(backend가
+  `generate_mission` Step1/2/repair나 `allocate` 안에서 죽어도 `TURN_ERROR`, 세션 불변),
+  NEW/UPDATE는 candidate state+plan을 만든 뒤 **한 번에** 교체, `resolved_models`는 그 턴
+  모든 backend 호출, 지시어 QUERY는 referent window 미갱신(D-029). backend mode는
+  `_mode_of`가 `backend.mode`를 읽음(클래스명 비교 X) — 미선언은 배선 버그라 turn 소비 전
+  `ValueError`.
+- `interaction/audit_io.py`: `session_audit_payload`/`session_audit_json`/
+  `write_session_audit` → `data/interaction_runs/<session_id>.json`. `event_type`으로
+  구분되는 event stream(P8.3 `ExecutionAudit` 동일 스트림), `ensure_ascii=False`,
+  `sort_keys`로 결정론.
+- `llm/backend.py`: `LLMBackend` Protocol에 `mode: str`, `MockBackend`="mock",
+  `OpenAIBackend`="live".
+- `interaction/session.py`: `SESSION_ID_PATTERN` + `valid_session_id`(fullmatch) — id가
+  파일명이 되므로 생성자에서 강제(D-030), `audit_path`도 공유.
 
-P8.3 이월(검토 지적):
-- `session_audit_payload`는 turn 전체 → execution 전체 순으로 event를 쌓는다. execution이
-  마지막인 동안만 실제 시간 순서와 같다 — P8.3이 실행 후 turn을 허용하면
-  `t1 t2 EXECUTION t3`이 `t1 t2 t3 EXECUTION`으로 기록된다. session에 단일 순서 event log를
-  두거나 모든 event에 단조 증가 index를 부여해 병합 정렬할 것.
+다음: **P8.3** — 최소 Streamlit UI + 실행 버튼 + `ExecutionAudit` 생산자 + live/cached/mock.
+게이트는 §15 / §18.12(UI 최소 표시 13항목).
 
-P8.2 이월(검토 지적):
-- referent 추가는 `note_referent()` 경유만 / `turn_count` 턴마다 단조 증가 /
-  clarification·UNSUPPORTED·실패 턴은 referent 추가 없고 state 불변 — **end-to-end 테스트로 고정**.
-- `MissionSession.turn_log: list[dict]` → `TurnAudit`/`ExecutionAudit` typed schema.
-- clarification 후보로 제시된 **정규화가 비는 malformed ID**는 사용자가 그 문자열을 다시
-  입력해도 명시 매칭이 안 된다. UI 후보 선택을 grounder 재경유 없이 **구조화된 `entity_id`로**
-  처리하거나, scene 입력 단계에서 그런 ID를 금지할 것.
+P8.3 이월(검토 지적, 착수 전 D-031로 계약 확정할 것):
+- **event 시간 순서**: `session_audit_payload`가 turn 전체 → execution 전체 순으로 쌓아,
+  execution이 마지막인 동안만 실제 순서와 같다. 실행 후 turn(`t1 t2 EXECUTION t3`)이
+  `t1 t2 t3 EXECUTION`으로 뒤바뀐다 — session에 단일 순서 `event_log` 또는 모든 event에
+  단조 증가 `event_index`.
+- **clarification 후보 선택**: 정규화가 비는 malformed ID는 사용자가 그 문자열을 다시 입력해도
+  명시 매칭이 안 된다. UI 후보 선택은 grounder 재경유 없이 **구조화된 `entity_id`로** 처리
+  (또는 scene 입력 단계에서 그런 ID 금지).
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
