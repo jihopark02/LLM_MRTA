@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.27 (D-029). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.28 (D-030). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,6 +62,9 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
+- v1.28 (D-030): P8.2 재검토 반영. §18.9에 `session_id` 문법을 고정 — 이 값이 곧 파일명이므로
+  경로 구분자·상대 경로 요소가 섞이면 감사 기록이 계약이 고정한 `data/interaction_runs/` 밖에
+  쓰인다. `MissionSession` 생성 시점에 강제한다. `VALIDATOR_VERSION` 불변.
 - v1.27 (D-029): P8.2 검토 반영. §18.9의 turn 감사 레코드를 실제 `TurnAudit` 형상과 정렬 —
   `grounding`을 incident·zone 공통으로 일반화(`entity_kind`/`entity_id`/`via`), `patch_result`
   → `patch`, `up_to_step` 등 slot은 `extracted_slots`에 위치, `outcome`·`scene_changed`·
@@ -994,6 +997,11 @@ interaction 계층에 둔다). `phase` ∈ {`PLANNING`, `EXECUTED`, `EXECUTION_F
 `fresh_session_state`가 별도 복제한다.
 
 ### 18.9 감사 로그 (`data/interaction_runs/<session_id>.json`)
+
+`session_id`는 `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`를 만족해야 하며, `MissionSession` 생성
+시점에 강제한다(D-030). session id는 파일명이 되므로 이것이 자유 문자열이면 `../`나 절대
+경로가 위 디렉터리 밖의 파일을 덮어쓸 수 있다 — 즉 이 문법 제약이 "감사 기록은 항상
+`data/interaction_runs/` 안에 있다"는 위 경로 보장의 근거다.
 
 턴별(`event_type: TURN`) — `TurnAudit`(D-029): `session_id`, `turn_id`, `utterance`,
 `mode`(live|cached|mock), `outcome`(COMMITTED|NO_CHANGE|ANSWERED|CLARIFICATION|UNSUPPORTED|

@@ -1059,3 +1059,33 @@ about=incidents`)이라 코드로만 고친다. 나머지 2개는 계약과 코�
 `interaction/orchestrator.py`(예외 격리·atomic commit·모델 delta·QUERY 분기),
 `tests/test_interaction_{ground,orchestrator}.py`. `VALIDATOR_VERSION` 불변, 계약 무결성 규칙·
 hash·평가 하네스 변화 없음.
+
+## D-030: session_id는 입력 경계다 (계약 v1.28)
+
+**배경** P8.2 재검토. `interaction/audit_io.py`의 `audit_path()`가 `session_id`를 파일명에
+그대로 결합한다(`Path(directory) / f"{session_id}.json"`). 재현:
+
+```
+session_id="../escape"     → data/interaction_runs/../escape.json
+session_id="../../outside" → data/interaction_runs/../../outside.json
+session_id="/tmp/absolute" → /tmp/absolute.json   (Path 결합이 절대 경로에 흡수된다)
+```
+
+§18.9는 감사 기록의 경로를 `data/interaction_runs/<session_id>.json`으로 **고정**하는데,
+session id가 자유 문자열이면 그 문장이 보장이 아니라 희망사항이 된다.
+
+**결정** 계약 v1.28. `session_id` 문법을 `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`로 고정하고,
+`MissionSession` 생성 시점에 강제한다.
+
+검증 위치를 `audit_path()`가 아니라 생성자로 잡은 이유: session id는 파일명에만 쓰이는 값이
+아니라 모든 `TurnAudit` 레코드에 복사되고 로그에 찍힌다. 경계에서 한 번 막으면 그 뒤로는
+어디서 쓰이든 안전하고, 파일을 쓰는 순간이 아니라 세션이 만들어지는 순간 실패하므로 여러 턴을
+진행한 뒤에야 저장이 거부되는 일이 없다.
+
+문법 자체는 의도적으로 좁다. 앞 문자를 영숫자로 제한해 `-`·`.`로 시작하는 id(플래그로 오인,
+`.`·`..`)를 막고, 64자 상한은 파일명 길이 제한을 위한 것이며, `/`·`\`·공백·빈 문자열은 모두
+거부된다. `S1`, `demo-01`, UUID 형태는 통과한다.
+
+**영향** `interaction/session.py`(`MissionSession.__post_init__`),
+`tests/test_interaction_session.py`. 이는 §18.9 경로 보장의 근거를 명시한 것이고 판정 규칙·
+hash·평가 하네스는 바뀌지 않는다 — `VALIDATOR_VERSION` 불변.
