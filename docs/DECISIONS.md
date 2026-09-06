@@ -1202,3 +1202,27 @@ pending 중 입력 차단), `interaction/ground.py`(`scenarios.naming` 사용), 
 
 **영향** §18.9 실행 전제와 P8.3 실행 action 테스트. Validator 규칙·hash·평가 하네스는
 바뀌지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.
+
+## D-034: OpenAI 호환 intent wire schema 분리 (계약 v1.32)
+
+**배경** P8.3의 실제 API 3턴 게이트 첫 호출에서 `gpt-5-mini`가 응답하기 전에 OpenAI API가
+HTTP 400을 반환했다. Pydantic `IntentEnvelope`의 `kind` discriminated union은 JSON Schema의
+중첩 `oneOf`와 `discriminator`로 직렬화되며, structured-output 경계가 이를 허용하지 않았다.
+mock은 Pydantic 객체를 직접 반환하므로 이 배선 결함을 발견하지 못했다. 세 실패 턴은 모두
+`TURN_ERROR`로 감사됐고 mission/state는 생성되지 않았다.
+
+**결정** 내부 `OperatorIntent` 5종과 `IntentEnvelope`는 strict discriminated union으로
+유지한다. API에는 별도의 평면 `IntentWireEnvelope`를 요청한다. wire object는 `kind`,
+`zone_ref`, `target_phrase`, `up_to_step`, `about`, `note`를 모두 필수 키로 가지며, 사용하지 않는
+slot은 `null`이다. Pydantic cross-field validator가 kind에 허용되지 않은 non-null slot을
+거부하고, 통과한 객체만 결정론적으로 기존 `IntentEnvelope`로 변환한다. 따라서 transport
+제약 때문에 내부 타입 안전성이나 intent 의미를 약화하지 않는다. interaction cache의
+prompt/schema version은 새 wire 형상에 맞춰 갱신한다.
+
+**대안 검토** 내부 union에서 discriminator를 제거하면 API schema는 단순해지지만 내부 판별의
+명시성과 기존 strict 테스트를 약화한다. raw JSON을 받아 수동 파싱하면 structured output의
+장점을 버린다. 두 방법 모두 채택하지 않았다.
+
+**영향** `interaction/{schemas,interpret,prompts}.py`, mock/scripted interaction 테스트,
+`llm/cache.py`의 prompt/schema version. Validator 판정 규칙·hash payload·P6 평가 하네스는
+변하지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.

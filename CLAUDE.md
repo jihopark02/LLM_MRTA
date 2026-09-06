@@ -40,8 +40,10 @@ MissionPatch 생성, `apply_patch`(P2 기존 엔진)가 atomic commit/rollback. 
 §15.
 
 P8.1 구조 (D-027, D-028):
-- `interaction/schemas.py`: strict·`kind` discriminated `OperatorIntent`(5종) +
-  `IntentEnvelope`. `NewMissionIntent`는 슬롯 없음(raw utterance → `generate_mission`),
+- `interaction/schemas.py`: 내부 진실 원천은 strict·`kind` discriminated
+  `OperatorIntent`(5종) + `IntentEnvelope`. 실제 API 경계는 D-034의 평면
+  `IntentWireEnvelope`를 거쳐 결정론적으로 내부 union으로 변환한다(OpenAI가 중첩 `oneOf`
+  거부). `NewMissionIntent`는 슬롯 없음(raw utterance → `generate_mission`),
   슬롯은 전부 optional(부분 추출), **CLARIFICATION 멤버 없음**.
 - `interaction/session.py`: `SessionPhase`{PLANNING,EXECUTED,EXECUTION_FAILED},
   `ReferentKind`/`Referent`(scene 멤버십 검증), `MissionSession`(plan·execution 분리),
@@ -79,7 +81,7 @@ P8.2 구조 (D-029, D-030):
 다음: **P8.3** — 최소 Streamlit UI + 실행 버튼 + `ExecutionAudit` 생산자 + live/cached/mock.
 게이트는 §15 / §18.12(UI 최소 표시 14항목).
 
-P8.3 설계 (D-031, D-032, 계약 v1.30 — 착수 전 확정 완료):
+P8.3 설계 (D-031~D-034, 계약 v1.32):
 - **통합 `event_log: list[TurnAudit | ExecutionAudit]`** — list 순서가 event 순서의 유일한
   진실 원천. `event_seq`는 직렬화 시 `enumerate`로 파생(dataclass 필드 아님). `turn_log`는
   제거하고 read-only property로만. execution은 `turn_count` 미소비.

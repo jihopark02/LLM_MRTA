@@ -1,8 +1,14 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.31 (D-033). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.32 (D-034). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.32 (D-034): P8.3 실제 API 검증에서 OpenAI structured output이 Pydantic
+  discriminated union의 중첩 `oneOf`를 거부함을 재현했다. 내부 진실 원천은 기존의 strict
+  `OperatorIntent` discriminated union으로 유지하되, API 경계에는 모든 slot을 nullable
+  필수 키로 가진 평면 `IntentWireEnvelope`를 사용한다. wire schema의 kind별 slot 일관성을
+  검증한 뒤 결정론적으로 내부 union으로 변환하며, 변환 전에는 grounder를 호출하지 않는다.
+  `VALIDATOR_VERSION`은 불변(1.4), interaction prompt/schema cache version은 갱신한다.
 - v1.0 (D-001): 초판.
 - v1.1 (D-002): §15 P1 완료 게이트를 P1 구현 범위 전체를 검사하도록 강화하고, reference
   fixture의 고정 형상(task 12 / edge 6 / 초기 READY 6)을 §3에 명시.
@@ -912,7 +918,8 @@ agent 지정 할당, 비-canonical graph 편집, incident 위치 변경, mid/pos
 ### 18.3 파이프라인
 
 ```
-LLM intent classifier (kind + slot 추출; CLARIFICATION·task 생성 안 함)
+LLM intent classifier (API-compatible flat wire schema로 kind + slot 추출)
+→ strict discriminated OperatorIntent로 결정론적 변환
 → 결정론적 grounder (referent 해석, slot 완전성 → RESOLVED | CLARIFICATION_REQUIRED)
 → NEW: generate_mission(raw utterance) / REPORT: register_incident /
   UPDATE: canonical patch builder → apply_patch / QUERY: MissionState·Result 읽기
@@ -996,6 +1003,12 @@ CLARIFICATION을 낸 뒤 운용자가 후보를 클릭하면, 선택된 `entity_
 
 **interaction intent classifier**의 LLM 역할은 kind 분류와 slot 추출로 제한한다 —
 state·scene·graph 미변경, task_id·agent·priority·좌표·MissionPatch·CLARIFICATION 미생성.
+내부 schema의 진실 원천은 `kind` discriminator를 가진 strict `OperatorIntent` 5종이다.
+다만 OpenAI structured-output API는 이 union이 생성하는 중첩 `oneOf`를 받지 않으므로(D-034),
+API 호출에는 평면 `IntentWireEnvelope`를 쓴다. wire 출력은 `kind`와 모든 slot 키를 갖고 쓰지
+않는 slot은 `null`이어야 한다. `extra="forbid"`·`strict=True`와 kind별 cross-field 검증으로
+무관한 slot의 비-null 값을 거부한 뒤, 결정론적 adapter가 해당 `OperatorIntent` 하나로
+변환한다. 이는 LLM 역할이나 허용 intent를 넓히지 않는 transport compatibility 계층이다.
 단 `NEW_MISSION`으로 확정된 경우에는 기존 **RQ1 `generate_mission()`**(§12)이 별도로
 task_type·target·dependency edge를 생성한다(이건 P5/P6에서 이미 검증된 경로이며 그대로
 재사용).
