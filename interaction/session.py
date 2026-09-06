@@ -18,15 +18,17 @@ because ``allocate``/``SimExecutor`` clone their input immediately.
 """
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from enum import Enum
+from types import MappingProxyType
 
 from allocation.allocate import AllocationResult
 from core.enums import TaskStatus, TaskType
 from core.mission_state import MissionState
 from core.task_graph import TaskGraph
 from execution.executor import ExecutionResult
-from interaction.audit import TurnAudit
+from interaction.audit import ExecutionAudit, TurnAudit
 from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.scene import Scene
 
@@ -63,6 +65,43 @@ class SessionPhase(str, Enum):
 class ReferentKind(str, Enum):
     INCIDENT = "incident"
     ZONE = "zone"
+
+
+@dataclass(frozen=True, slots=True)
+class PendingClarification:
+    """A resumable entity ambiguity (contract §18.13, D-031/D-032)."""
+
+    source_turn_id: str
+    intent_kind: str
+    extracted_slots: Mapping[str, str]
+    unresolved_slot: str
+    entity_kind: ReferentKind
+    candidates: tuple[str, ...]
+    original_utterance: str
+
+    def __post_init__(self) -> None:
+        if not re.fullmatch(r"t[1-9][0-9]*", self.source_turn_id):
+            raise ValueError(f"invalid source_turn_id: {self.source_turn_id!r}")
+        if self.intent_kind not in {
+            "REPORT_INCIDENT",
+            "UPDATE_MISSION",
+            "QUERY_STATUS",
+        }:
+            raise ValueError(f"intent cannot resume a clarification: {self.intent_kind!r}")
+        if self.unresolved_slot not in {"zone_ref", "target_phrase"}:
+            raise ValueError(f"invalid unresolved_slot: {self.unresolved_slot!r}")
+        if not isinstance(self.entity_kind, ReferentKind):
+            raise ValueError("entity_kind must be a ReferentKind")
+        if len(self.candidates) < 2 or len(set(self.candidates)) != len(self.candidates):
+            raise ValueError("candidates must contain at least two distinct entity ids")
+        if not all(isinstance(candidate, str) and candidate for candidate in self.candidates):
+            raise ValueError("every clarification candidate must be a non-empty str")
+        if not isinstance(self.original_utterance, str):
+            raise ValueError("original_utterance must be a str")
+        slots = dict(self.extracted_slots)
+        if not all(isinstance(k, str) and isinstance(v, str) for k, v in slots.items()):
+            raise ValueError("extracted_slots must map strings to strings")
+        object.__setattr__(self, "extracted_slots", MappingProxyType(slots))
 
 
 def _require_turn(value: object, label: str) -> None:
@@ -118,7 +157,10 @@ class MissionSession:
     phase: SessionPhase = SessionPhase.PLANNING
     recent_referents: list[Referent] = field(default_factory=list)
     turn_count: int = 0
-    turn_log: list[TurnAudit] = field(default_factory=list)
+    pending_clarification: PendingClarification | None = None
+    _event_log: list[TurnAudit | ExecutionAudit] = field(
+        default_factory=list, init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         # An input boundary, not a formatting preference (D-030): this value is
@@ -137,6 +179,24 @@ class MissionSession:
 
     def context_for_llm(self) -> str:
         return build_context_summary(self)
+
+    # -- chronological audit stream (§18.9, D-031/D-032) -------------
+    @property
+    def event_log(self) -> tuple[TurnAudit | ExecutionAudit, ...]:
+        return tuple(self._event_log)
+
+    @property
+    def turn_log(self) -> tuple[TurnAudit, ...]:
+        return tuple(event for event in self._event_log if isinstance(event, TurnAudit))
+
+    def append_event(self, event: TurnAudit | ExecutionAudit) -> None:
+        if not isinstance(event, (TurnAudit, ExecutionAudit)):
+            raise TypeError(f"unsupported session event: {type(event).__name__}")
+        if event.session_id != self.session_id:
+            raise ValueError(
+                f"event session_id {event.session_id!r} does not match {self.session_id!r}"
+            )
+        self._event_log.append(event)
 
     # -- referents (§18.5) ---------------------------------------------
     def note_referent(self, entity_kind: ReferentKind | str, entity_id: str) -> None:
@@ -259,6 +319,7 @@ __all__ = [
     "SessionPhase",
     "ReferentKind",
     "Referent",
+    "PendingClarification",
     "MissionSession",
     "fresh_session_state",
     "build_context_summary",

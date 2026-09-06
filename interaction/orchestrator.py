@@ -45,6 +45,7 @@ from interaction.audit import (
     TurnAudit,
 )
 from interaction.ground import (
+    ClarificationReason,
     GroundingOutcome,
     GroundingStatus,
     ResolutionVia,
@@ -79,6 +80,7 @@ class TurnOutcome(str, Enum):
     UNSUPPORTED = "UNSUPPORTED"              # out of scope (§18.2)
     REJECTED = "REJECTED"                    # Validator refused the change
     TURN_ERROR = "TURN_ERROR"                # backend/schema failure, session survives
+    CLARIFICATION_CANCELLED = "CLARIFICATION_CANCELLED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +124,9 @@ class _Turn:
     patch_result: PatchResult | None = None
     referent_noted: str | None = None
     answer: str | None = None
+    input_kind: str = "NATURAL_LANGUAGE"
+    resumed_from_turn_id: str | None = None
+    selected_entity_id: str | None = None
 
     def resolved_models(self) -> list[str]:
         """Every backend call this turn made — intent classification plus any
@@ -171,6 +176,7 @@ def _grounding_audit(outcome: GroundingOutcome | None) -> GroundingAudit | None:
         via=outcome.via.value if outcome.via else None,
         clarification=outcome.clarification,
         candidates=list(outcome.candidates),
+        reason=outcome.reason.value if outcome.reason else None,
     )
 
 
@@ -232,8 +238,11 @@ def _finish(
         answer=turn.answer,
         error_type=type(exc).__name__ if exc is not None else None,
         error_detail=str(exc) if exc is not None else None,
+        input_kind=turn.input_kind,
+        resumed_from_turn_id=turn.resumed_from_turn_id,
+        selected_entity_id=turn.selected_entity_id,
     )
-    session.turn_log.append(audit)
+    session.append_event(audit)
     return TurnResult(
         outcome=outcome,
         audit=audit,
@@ -282,6 +291,7 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
                     "이미 활성 임무가 있습니다. 기존 임무를 수정하려면 어느 화재 지점을 "
                     "어느 단계까지 처리할지 말씀해 주세요."
                 ),
+                reason=ClarificationReason.ACTIVE_MISSION,
             ),
         )
 
@@ -330,6 +340,7 @@ def _do_update_mission(turn: _Turn) -> TurnResult:
             GroundingOutcome(
                 GroundingStatus.CLARIFICATION_REQUIRED,
                 clarification="활성 임무가 없습니다. 먼저 임무를 생성해 주세요.",
+                reason=ClarificationReason.MISSING_MISSION,
             ),
         )
 
@@ -347,6 +358,7 @@ def _do_update_mission(turn: _Turn) -> TurnResult:
                 clarification=(
                     f"{incident.entity_id}을(를) 어느 단계까지 처리할까요? ({_WORKFLOW_STEPS})"
                 ),
+                reason=ClarificationReason.MISSING_STEP,
             ),
         )
 

@@ -13,6 +13,7 @@ from core.enums import TaskType
 from interaction.session import (
     REFERENT_WINDOW_TURNS,
     MissionSession,
+    PendingClarification,
     Referent,
     ReferentKind,
     SessionPhase,
@@ -107,6 +108,56 @@ def test_known_incident_ids_are_derived_from_the_scene(scene):
 def test_context_for_llm_delegates_to_build_context_summary(scene):
     s = session(scene)
     assert s.context_for_llm() == build_context_summary(s)
+
+
+# -- event and pending boundaries (D-031/D-032) ----------------------
+
+
+def _turn_event(session_id="S1"):
+    from interaction.audit import TurnAudit
+
+    return TurnAudit(
+        session_id=session_id,
+        turn_id="t1",
+        utterance="상태",
+        mode="mock",
+        outcome="ANSWERED",
+    )
+
+
+def test_event_log_is_append_only_through_the_session_boundary(scene):
+    s = session(scene)
+    event = _turn_event()
+    s.append_event(event)
+    assert s.event_log == (event,)
+    assert s.turn_log == (event,)
+    with pytest.raises(AttributeError):
+        s.event_log.append(event)
+
+
+def test_event_boundary_rejects_a_foreign_session_or_type(scene):
+    s = session(scene)
+    with pytest.raises(ValueError, match="does not match"):
+        s.append_event(_turn_event("OTHER"))
+    with pytest.raises(TypeError, match="unsupported"):
+        s.append_event(object())
+    assert s.event_log == ()
+
+
+def test_pending_clarification_is_frozen_including_its_slots():
+    pending = PendingClarification(
+        source_turn_id="t1",
+        intent_kind="UPDATE_MISSION",
+        extracted_slots={"target_phrase": "그 화재", "up_to_step": "GROUND_SUPPRESSION"},
+        unresolved_slot="target_phrase",
+        entity_kind=ReferentKind.INCIDENT,
+        candidates=("FIRE_SITE_1", "FIRE_SITE_2"),
+        original_utterance="그 화재 진압까지",
+    )
+    with pytest.raises(TypeError):
+        pending.extracted_slots["target_phrase"] = "FIRE_SITE_1"
+    with pytest.raises(AttributeError):
+        pending.candidates = ("FIRE_SITE_1",)
 
 
 # -- referents (§18.5) -----------------------------------------------

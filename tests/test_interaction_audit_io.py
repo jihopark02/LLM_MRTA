@@ -85,6 +85,7 @@ def test_every_turn_appears_as_an_event(seven_turn_session):
     assert payload["turn_count"] == 7
     assert len(payload["events"]) == 7
     assert [e["turn_id"] for e in payload["events"]] == [f"t{i}" for i in range(1, 8)]
+    assert [e["event_seq"] for e in payload["events"]] == list(range(7))
     assert {e["event_type"] for e in payload["events"]} == {"TURN"}
 
 
@@ -207,17 +208,14 @@ def test_an_execution_record_joins_the_same_event_stream(seven_turn_session):
         started_at="t0",
         finished_at="t1",
     )
-    payload = session_audit_payload(seven_turn_session, [execution])
+    seven_turn_session.append_event(execution)
+    payload = session_audit_payload(seven_turn_session)
     assert len(payload["events"]) == 8
     assert payload["events"][-1]["event_type"] == "EXECUTION"
     assert payload["events"][-1]["execution_termination"] == "COMPLETED"
+    assert payload["events"][-1]["event_seq"] == 7
     # every event is self-describing, so a reader can split the stream by type
     assert all("event_type" in e for e in payload["events"])
-    # Scope, stated so the shape is not mistaken for more than it is: turns come
-    # first, then executions. That is faithful only while execution is terminal.
-    # P8.3 adds post-execution turns, and interleaving them needs a single
-    # ordered event log on the session (or an event index to merge on) — this
-    # test does not cover ordering and must not be read as if it did.
 
 
 # -- the id is a path component (§18.9, D-030) ------------------------

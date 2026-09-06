@@ -38,30 +38,14 @@ from core.task_graph import TaskGraph
 from interaction.schemas import UpToStep
 from interaction.session import MissionSession, ReferentKind
 from interaction.workflow import WORKFLOW_CHAIN
+from scenarios.naming import normalize_identifier, normalize_zone_ref
 from scenarios.scene import Scene
 from validator.patch import AddEdge, AddTask, MissionPatch
 
-_ZONE_SUFFIXES = ("구역", "지역")
-
-
-def _normalize(text: str) -> str:
-    """Uppercase, drop everything but letters and digits.
-
-    A trailing Korean zone word is removed first so "A 구역" and "ZONE_A" and
-    "Warehouse" all reduce to something matchable.
-    """
-    stripped = text.strip()
-    for suffix in _ZONE_SUFFIXES:
-        if stripped.endswith(suffix):
-            stripped = stripped[: -len(suffix)]
-            break
-    return "".join(ch for ch in stripped.upper() if ch.isalnum())
-
-
 #: The only phrases that may fall back to a referent or to a lone incident
 #: (§18.5, D-028). Everything else that is non-empty clarifies. Normalized with
-#: ``_normalize``, so spacing and case do not matter. Extending this list is a
-#: contract revision.
+#: ``normalize_identifier``, so spacing and case do not matter. Extending this
+#: list is a contract revision.
 _DEIXIS_PHRASES = (
     "거기", "그것", "그거", "그 화재", "그 화재 지점", "해당 화재", "해당 화재 지점",
     "이 화재", "저 화재", "현장", "그 현장",
@@ -70,12 +54,30 @@ _DEIXIS_PHRASES = (
 )
 
 #: Normalized once; the allowlist is consulted on every UPDATE and QUERY turn.
-_DEIXIS = frozenset(_normalize(p) for p in _DEIXIS_PHRASES)
+_DEIXIS = frozenset(normalize_identifier(p) for p in _DEIXIS_PHRASES)
 
 
 class GroundingStatus(str, Enum):
     RESOLVED = "RESOLVED"
     CLARIFICATION_REQUIRED = "CLARIFICATION_REQUIRED"
+
+
+class ClarificationReason(str, Enum):
+    """Why a deterministic clarification was required (D-032).
+
+    Candidate lists are explanatory data, not an ambiguity signal.  Only
+    ``AMBIGUOUS_ENTITY`` may create a structured-selection pending state.
+    """
+
+    AMBIGUOUS_ENTITY = "AMBIGUOUS_ENTITY"
+    UNKNOWN_ENTITY = "UNKNOWN_ENTITY"
+    MISSING_ENTITY = "MISSING_ENTITY"
+    NO_ENTITIES = "NO_ENTITIES"
+    MISSING_MISSION = "MISSING_MISSION"
+    MISSING_STEP = "MISSING_STEP"
+    ACTIVE_MISSION = "ACTIVE_MISSION"
+    PENDING_SELECTION = "PENDING_SELECTION"
+    INVALID_SELECTION = "INVALID_SELECTION"
 
 
 class ResolutionVia(str, Enum):
@@ -98,6 +100,21 @@ class GroundingOutcome:
     via: ResolutionVia | None = None
     clarification: str | None = None
     candidates: tuple[str, ...] = ()
+    reason: ClarificationReason | None = None
+
+    def __post_init__(self) -> None:
+        if self.status is GroundingStatus.RESOLVED:
+            if self.entity_kind is None or self.entity_id is None or self.via is None:
+                raise ValueError("a resolved grounding needs kind, id and resolution path")
+            if self.reason is not None or self.clarification is not None:
+                raise ValueError("a resolved grounding cannot carry a clarification reason")
+        else:
+            if self.reason is None or not self.clarification:
+                raise ValueError("a clarification needs both reason and question")
+            if self.entity_id is not None or self.via is not None:
+                raise ValueError("a clarification cannot claim a resolved entity")
+        if not all(isinstance(candidate, str) and candidate for candidate in self.candidates):
+            raise ValueError("grounding candidates must be non-empty strings")
 
     @property
     def resolved(self) -> bool:
@@ -108,9 +125,18 @@ def _resolved(kind: ReferentKind, entity_id: str, via: ResolutionVia) -> Groundi
     return GroundingOutcome(GroundingStatus.RESOLVED, kind, entity_id, via)
 
 
-def _clarify(question: str, candidates: tuple[str, ...] = ()) -> GroundingOutcome:
+def _clarify(
+    question: str,
+    reason: ClarificationReason,
+    candidates: tuple[str, ...] = (),
+    entity_kind: ReferentKind | None = None,
+) -> GroundingOutcome:
     return GroundingOutcome(
-        GroundingStatus.CLARIFICATION_REQUIRED, clarification=question, candidates=candidates
+        GroundingStatus.CLARIFICATION_REQUIRED,
+        entity_kind=entity_kind,
+        clarification=question,
+        candidates=candidates,
+        reason=reason,
     )
 
 
@@ -127,10 +153,10 @@ def _zone_aliases(scene: Scene) -> dict[str, set[str]]:
     """
     aliases: dict[str, set[str]] = {}
     for zone_id, zone in scene.zones.items():
-        forms = {_normalize(zone_id), _normalize(zone.name)}
+        forms = {normalize_zone_ref(zone_id), normalize_zone_ref(zone.name)}
         _, _, suffix = zone_id.partition("_")
         if suffix:
-            forms.add(_normalize(suffix))
+            forms.add(normalize_zone_ref(suffix))
         aliases[zone_id] = {f for f in forms if f}
     return aliases
 
@@ -138,18 +164,31 @@ def _zone_aliases(scene: Scene) -> dict[str, set[str]]:
 def resolve_zone(scene: Scene, zone_ref: str | None) -> GroundingOutcome:
     """Match a raw zone phrase to a scene zone (§18.7). No LLM."""
     known = sorted(scene.zones)
-    if not zone_ref or not _normalize(zone_ref):
-        return _clarify("어느 구역입니까?", tuple(known))
+    if not zone_ref or not normalize_zone_ref(zone_ref):
+        return _clarify(
+            "어느 구역입니까?",
+            ClarificationReason.MISSING_ENTITY,
+            tuple(known),
+            ReferentKind.ZONE,
+        )
 
-    needle = _normalize(zone_ref)
+    needle = normalize_zone_ref(zone_ref)
     hits = sorted(zid for zid, forms in _zone_aliases(scene).items() if needle in forms)
     if len(hits) == 1:
         return _resolved(ReferentKind.ZONE, hits[0], ResolutionVia.EXPLICIT)
     if len(hits) > 1:  # no scene has this today; never guess if one ever does
         return _clarify(
-            f"'{zone_ref}'에 해당하는 구역이 여러 개입니다. 어느 쪽입니까?", tuple(hits)
+            f"'{zone_ref}'에 해당하는 구역이 여러 개입니다. 어느 쪽입니까?",
+            ClarificationReason.AMBIGUOUS_ENTITY,
+            tuple(hits),
+            ReferentKind.ZONE,
         )
-    return _clarify(f"'{zone_ref}'에 해당하는 구역을 찾을 수 없습니다.", tuple(known))
+    return _clarify(
+        f"'{zone_ref}'에 해당하는 구역을 찾을 수 없습니다.",
+        ClarificationReason.UNKNOWN_ENTITY,
+        tuple(known),
+        ReferentKind.ZONE,
+    )
 
 
 # -- incidents ---------------------------------------------------------
@@ -164,7 +203,7 @@ def _is_deixis(phrase: str | None) -> bool:
     """
     if phrase is None or not phrase.strip():
         return True
-    return _normalize(phrase) in _DEIXIS
+    return normalize_identifier(phrase) in _DEIXIS
 
 
 def resolve_incident(session: MissionSession, target_phrase: str | None) -> GroundingOutcome:
@@ -181,13 +220,17 @@ def resolve_incident(session: MissionSession, target_phrase: str | None) -> Grou
     #    swallows every punctuation-only phrase.
     by_normalized: dict[str, list[str]] = {}
     for iid in known:
-        normalized = _normalize(iid)
+        normalized = normalize_identifier(iid)
         if normalized:
             by_normalized.setdefault(normalized, []).append(iid)
 
     # Only a phrase that survives normalization can name an id; "!!!" and "   "
     # must fall through to the deixis check, not match an empty key.
-    needle = _normalize(target_phrase) if target_phrase and target_phrase.strip() else ""
+    needle = (
+        normalize_identifier(target_phrase)
+        if target_phrase and target_phrase.strip()
+        else ""
+    )
     if needle:
         hits = by_normalized.get(needle, [])
         if len(hits) == 1:
@@ -195,29 +238,48 @@ def resolve_incident(session: MissionSession, target_phrase: str | None) -> Grou
         if len(hits) > 1:
             return _clarify(
                 f"'{target_phrase}'에 해당하는 화재 지점이 여러 개입니다. 어느 쪽입니까?",
+                ClarificationReason.AMBIGUOUS_ENTITY,
                 tuple(sorted(hits)),
+                ReferentKind.INCIDENT,
             )
 
     # 2. anything specific but uninterpretable stops here — never guess.
     if not _is_deixis(target_phrase):
         return _clarify(
-            f"'{target_phrase}'에 해당하는 화재 지점을 찾을 수 없습니다.", tuple(known)
+            f"'{target_phrase}'에 해당하는 화재 지점을 찾을 수 없습니다.",
+            ClarificationReason.UNKNOWN_ENTITY,
+            tuple(known),
+            ReferentKind.INCIDENT,
         )
 
     if not known:
-        return _clarify("현재 등록된 화재 지점이 없습니다. 먼저 화재를 보고해 주세요.")
+        return _clarify(
+            "현재 등록된 화재 지점이 없습니다. 먼저 화재를 보고해 주세요.",
+            ClarificationReason.NO_ENTITIES,
+            entity_kind=ReferentKind.INCIDENT,
+        )
 
     candidates = session.latest_referent_candidates(ReferentKind.INCIDENT)
     if len(candidates) == 1:
         return _resolved(ReferentKind.INCIDENT, candidates[0], ResolutionVia.REFERENT)
     if len(candidates) > 1:
-        return _clarify("어느 화재 지점을 말씀하시는 것입니까?", tuple(candidates))
+        return _clarify(
+            "어느 화재 지점을 말씀하시는 것입니까?",
+            ClarificationReason.AMBIGUOUS_ENTITY,
+            tuple(candidates),
+            ReferentKind.INCIDENT,
+        )
 
     if len(known) == 1:
         return _resolved(
             ReferentKind.INCIDENT, known[0], ResolutionVia.SOLE_INCIDENT
         )
-    return _clarify("어느 화재 지점을 말씀하시는 것입니까?", tuple(known))
+    return _clarify(
+        "어느 화재 지점을 말씀하시는 것입니까?",
+        ClarificationReason.AMBIGUOUS_ENTITY,
+        tuple(known),
+        ReferentKind.INCIDENT,
+    )
 
 
 # -- canonical chain patch (§18.6) -------------------------------------
@@ -293,6 +355,7 @@ def build_chain_patch(
 
 __all__ = [
     "GroundingStatus",
+    "ClarificationReason",
     "ResolutionVia",
     "GroundingOutcome",
     "PatchPlan",

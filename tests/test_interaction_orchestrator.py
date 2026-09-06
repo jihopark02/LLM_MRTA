@@ -556,6 +556,7 @@ def test_audit_records_grounding_for_a_clarification(scene):
     assert g.status == "CLARIFICATION_REQUIRED"
     assert g.candidates == ["FIRE_SITE_1", "FIRE_SITE_2"]
     assert g.entity_id is None
+    assert g.reason == "AMBIGUOUS_ENTITY"
 
 
 def test_plan_assignment_changes_classifies_added_removed_changed():
@@ -873,4 +874,4 @@ def test_a_backend_without_a_valid_mode_is_refused(scene, declared):
     with pytest.raises(ValueError, match="mode"):
         handle_turn(s, "상태", Backend())
     # the refused turn never happened: no turn id burned, no audit record
-    assert s.turn_count == 0 and s.turn_log == []
+    assert s.turn_count == 0 and s.turn_log == ()

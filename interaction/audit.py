@@ -55,6 +55,7 @@ class GroundingAudit:
     via: str | None = None                      # §18.5 step: explicit|referent|sole_incident
     clarification: str | None = None
     candidates: list[str] = field(default_factory=list)
+    reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +111,10 @@ class TurnAudit:
     error_type: str | None = None
     error_detail: str | None = None
 
+    input_kind: str = "NATURAL_LANGUAGE"
+    resumed_from_turn_id: str | None = None
+    selected_entity_id: str | None = None
+
     event_type: str = "TURN"
 
     def to_dict(self) -> dict:
@@ -136,6 +141,8 @@ class ExecutionAudit:
     mode: str
     started_at: str
     finished_at: str
+    error_type: str | None = None
+    error_detail: str | None = None
     event_type: str = "EXECUTION"
 
     def to_dict(self) -> dict:

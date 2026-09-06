@@ -147,6 +147,19 @@ def test_incident_referencing_unknown_zone_is_rejected(tmp_path):
         load_scene(bad)
 
 
+@pytest.mark.parametrize("incident_id", ['"!!!"', '"---"', '"   "'])
+def test_incident_id_with_empty_normalized_form_is_rejected(tmp_path, incident_id):
+    bad = tmp_path / "bad-id.yaml"
+    bad.write_text(
+        _minimal_scene_yaml(
+            f"{incident_id}: {{zone: ZONE_A, priority: 7, position: [1, 1], "
+            "access_node: N0, status: RESPONSE_REQUIRED}"
+        )
+    )
+    with pytest.raises(ValueError, match="normalized form"):
+        load_scene(bad)
+
+
 # -- zone response points (§18.10, D-027) -----------------------------
 
 

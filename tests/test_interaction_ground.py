@@ -11,6 +11,8 @@ import pytest
 
 from core.enums import TaskType
 from interaction.ground import (
+    ClarificationReason,
+    GroundingOutcome,
     GroundingStatus,
     build_chain_patch,
     chain_prefix,
@@ -85,6 +87,12 @@ def test_unmatched_zone_clarifies_with_the_zone_list(scene, phrase):
     assert out.status is GroundingStatus.CLARIFICATION_REQUIRED
     assert out.entity_id is None
     assert out.candidates == ("ZONE_A", "ZONE_B", "ZONE_C", "ZONE_D")
+    expected = (
+        ClarificationReason.MISSING_ENTITY
+        if phrase is None or not str(phrase).strip() or phrase == "구역"
+        else ClarificationReason.UNKNOWN_ENTITY
+    )
+    assert out.reason is expected
 
 
 # -- incident resolution (§18.5) --------------------------------------
@@ -94,6 +102,19 @@ def test_explicit_incident_id_resolves(scene):
     out = resolve_incident(session(scene), "FIRE_SITE_2")
     assert out.resolved and out.entity_id == "FIRE_SITE_2"
     assert out.entity_kind is ReferentKind.INCIDENT
+
+
+def test_grounding_outcome_requires_an_explicit_clarification_reason():
+    with pytest.raises(ValueError, match="reason"):
+        GroundingOutcome(
+            GroundingStatus.CLARIFICATION_REQUIRED,
+            clarification="어느 지점입니까?",
+        )
+
+
+def test_incident_normalization_does_not_strip_zone_suffixes(scene):
+    out = resolve_incident(session(scene), "FIRE_SITE_1 구역")
+    assert out.reason is ClarificationReason.UNKNOWN_ENTITY
 
 
 def test_explicit_id_wins_over_a_recent_referent(scene):
@@ -126,6 +147,7 @@ def test_uninterpretable_phrase_never_falls_back_to_a_referent(scene, phrase):
     out = resolve_incident(s, phrase)
     assert out.status is GroundingStatus.CLARIFICATION_REQUIRED, phrase
     assert out.entity_id is None
+    assert out.reason is ClarificationReason.UNKNOWN_ENTITY
 
 
 @pytest.mark.parametrize("phrase", ["FIRE_SITE_9", "북쪽 화재", "the big one"])
@@ -180,6 +202,7 @@ def test_normalized_id_collision_clarifies_instead_of_picking_one(scene):
     out = resolve_incident(session(legacy), "FIRE_SITE_1")
     assert out.status is GroundingStatus.CLARIFICATION_REQUIRED
     assert out.candidates == ("FIRE SITE 1", "FIRE_SITE_1")
+    assert out.reason is ClarificationReason.AMBIGUOUS_ENTITY
 
 
 # -- a malformed id must not become a catch-all bucket (D-028) --------
@@ -272,6 +295,7 @@ def test_example_1_no_incident_registered_clarifies(tmp_path):
     assert out.status is GroundingStatus.CLARIFICATION_REQUIRED
     assert "등록된 화재 지점이 없습니다" in out.clarification
     assert out.candidates == ()
+    assert out.reason is ClarificationReason.NO_ENTITIES
 
 
 def test_example_2_a_just_reported_incident_is_the_referent(scene):
@@ -290,6 +314,7 @@ def test_example_4_two_incidents_and_no_referent_clarifies(scene):
     out = resolve_incident(session(scene), "그 화재")
     assert out.status is GroundingStatus.CLARIFICATION_REQUIRED
     assert out.candidates == ("FIRE_SITE_1", "FIRE_SITE_2")
+    assert out.reason is ClarificationReason.AMBIGUOUS_ENTITY
 
 
 def test_two_referents_on_the_same_turn_clarify(scene):

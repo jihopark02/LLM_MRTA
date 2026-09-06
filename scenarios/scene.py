@@ -19,6 +19,7 @@ import yaml
 from core.agent import Agent
 from core.enums import Capability, IncidentStatus, PlatformKind
 from core.route_graph import RouteGraph
+from scenarios.naming import normalize_identifier
 
 
 @dataclass(slots=True)
@@ -128,6 +129,10 @@ def load_scene(path: str | Path) -> Scene:
         )
         for zid, z in raw["zones"].items()
     }
+    for iid in raw["incidents"]:
+        if not isinstance(iid, str) or not normalize_identifier(iid):
+            raise ValueError(f"incident id must have a non-empty normalized form: {iid!r}")
+
     incidents = {
         iid: Incident(
             incident_id=iid,
