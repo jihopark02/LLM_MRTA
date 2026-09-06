@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.25 (D-027). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.26 (D-028). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,6 +62,12 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
+- v1.26 (D-028): P8.1d 검토 반영. §18.5에 incident referent 해석 우선순위를
+  **fail-closed**로 명시 — 해석 불가능한 비어 있지 않은 표현은 최근 referent나 단일
+  incident로 흘러내리지 않고 항상 clarification. 허용 지시어 목록을 계약에 고정(목록 확장은
+  계약 개정으로만). 정규화 형태가 충돌하는 incident id는 조용히 하나를 고르지 않고
+  clarification. 단일 incident 자동 선택을 명시적 정책으로 기록(§18.11 clarification gold의
+  전제). 새 알고리즘 없음, `VALIDATOR_VERSION` 불변.
 - v1.25 (D-027): P8 착수. §1 RQ3 재서술(증분 graph 수정 + 결정론적 재검증 + atomic
   commit/rollback + 올바른 clarification; "동적/선택적 재할당"은 후속). 신규 §18
   (Operator–LLM Planning Session — **실행 개시 전 다중 턴 계획 세션**으로 범위 고정, 5종
@@ -912,6 +918,31 @@ LLM intent classifier (kind + slot 추출; CLARIFICATION·task 생성 안 함)
 grounding된 `UPDATE_MISSION` / 명시 incident 대상 `QUERY_STATUS`. 추가 안 함: clarification,
 unsupported, 모호 referent, 미지 zone·incident, 실패한 REPORT·UPDATE. 같은 최신 턴에 후보
 ≥2 → 무조건 `CLARIFICATION_REQUIRED`.
+
+**incident referent 해석 우선순위(D-028)** — grounder는 **fail-closed**다. 해석되지 않는
+비어 있지 않은 표현은 절대 최근 referent나 단일 incident로 흘러내리지 않는다:
+
+1. 표현이 알려진 incident id와 정규화 매칭 → **RESOLVED**. 정규화 형태가 같은 id가 2개
+   이상이면(예: `FIRE_SITE_1`과 legacy `FIRE SITE 1`) 조용히 하나를 고르지 않고
+   **CLARIFICATION_REQUIRED**.
+2. 표현이 **명시적으로 허용된 지시어**(아래 목록)가 아니면 → **CLARIFICATION_REQUIRED**.
+   "FIRE_SITE_9.", "FIRE-SITE-9", "북쪽 화재"처럼 구체적이지만 해석 불가능한 표현이 여기
+   해당한다. 이것이 fail-closed의 핵심이며, §18.11의 "잘못된 추측 비율"을 0으로 유지하는
+   장치다.
+3. 등록된 incident가 없음 → **CLARIFICATION_REQUIRED**(그 사실을 알린다).
+4. 최근 live 턴의 referent 후보: 정확히 1개 → **RESOLVED**, 2개 이상 → **CLARIFICATION**.
+5. live referent 없음: 등록 incident가 **정확히 1개면 RESOLVED**(고를 대상이 없으므로
+   모호성이 존재하지 않는다), 2개 이상이면 **CLARIFICATION**.
+
+**허용 지시어 목록(D-028)**: 표현이 없거나(`None`/공백), 또는 정규화 후 다음 중 하나와
+일치할 때만 4·5단계의 fallback을 시도한다 — `거기`, `그것`, `그거`, `그 화재`, `그 화재 지점`,
+`해당 화재`, `해당 화재 지점`, `이 화재`, `저 화재`, `현장`, `그 현장`, `there`, `it`,
+`that`, `that fire`, `this fire`, `the fire`, `the incident`, `that incident`.
+목록에 없는 표현은 2단계에서 걸러진다. 목록 확장은 이 계약 개정으로만 한다.
+
+**5단계(단일 incident 자동 선택)는 명시적 정책이다**: 표현이 없거나 허용 지시어인데 등록된
+incident가 하나뿐이면 되묻지 않고 그것으로 해석한다. §18.11의 clarification precision/recall
+gold는 이 규칙을 전제로 작성한다.
 
 ### 18.6 NO_CHANGE
 

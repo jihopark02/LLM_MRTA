@@ -974,3 +974,49 @@ hashing}.py`, `scenarios/{scene.py, industrial_park.yaml}`, `pyproject.toml`,
 `docs/{README,CLAUDE}`. **`core/`·`allocation/`·`execution/`·`validator/{validate,
 whole_graph}.py`·`llm/pipeline.py`·`evaluation/`은 무변경.** feature branch
 `feature/operator-interaction`(태그 `v0.6.5-baseline`에서 분기).
+
+## D-028: incident referent 해석을 fail-closed로 (계약 v1.26)
+
+**배경** P8.1d(결정론적 grounder) 검토에서 Codex가 재현한 차단 결함. `interaction/ground.py`가
+"알려진 id와 정규화 매칭 → 아니면 incident 형태 정규식으로 미지 id 판정 → 그 외에는 최근
+referent fallback" 순서였다. 즉 **denylist**였고, 정규식에 안 걸리는 표현이 전부 추측으로
+흘러내렸다:
+
+```
+최근 referent = FIRE_SITE_1 인 상태에서
+"FIRE_SITE_9"  -> CLARIFICATION   (정상)
+"FIRE_SITE_9." -> RESOLVED FIRE_SITE_1   (오류)
+"FIRE-SITE-9"  -> RESOLVED FIRE_SITE_1   (오류)
+"북쪽 화재"     -> RESOLVED FIRE_SITE_1   (오류)
+```
+
+이는 UX 문제가 아니라 RQ3의 "불명확하면 추측하지 않는다"(§1, §18.7) 위반이며 §18.11의
+"잘못된 추측 비율"을 직접 오염시킨다.
+
+두 번째 결함: 정규화 충돌. `FIRE_SITE_1`과 legacy `FIRE SITE 1`이 둘 다 `FIRESITE1`로
+정규화되는데 `normalized -> id` dict가 하나를 임의로 덮어써 조용히 선택했다. P8.1c의
+`next_incident_id`가 malformed·legacy id의 존재를 전제하므로 현실적인 경로다.
+
+세 번째: "live referent가 없어도 등록 incident가 하나면 자동 선택"은 P8.1d 구현이 도입한
+**새 의미 규칙**인데 계약에 없었다. clarification precision/recall gold를 좌우하므로 기록해야
+한다.
+
+**결정** 계약 v1.26, §18.5에 명시:
+
+- **fail-closed 우선순위 5단계.** 해석되지 않는 비어 있지 않은 표현은 절대 fallback으로
+  내려가지 않는다(denylist → **allowlist** 전환).
+- **허용 지시어 목록을 계약에 고정.** 표현이 없거나(`None`/공백) 정규화 후 목록과 일치할
+  때만 referent·단일 incident fallback을 시도한다. 목록 확장은 계약 개정으로만.
+- **정규화 충돌 → clarification.** `normalized -> id` 가 아니라 `normalized -> id 목록`으로
+  두고, 후보 1개면 resolve, 2개 이상이면 되묻는다.
+- **단일 incident 자동 선택을 명시적 정책으로 기록.** 표현이 없거나 허용 지시어이고 등록
+  incident가 하나뿐이면 고를 대상이 없으므로 되묻지 않는다. §18.11 gold의 전제.
+
+**대안 검토** Codex는 단일 incident fallback을 "입력이 아예 없을 때"로만 제한하는 안도
+제시했다. 채택하지 않았다 — `None`과 허용 지시어("거기") 사이에 원리적 차이가 없고, 두
+경우 모두 "지시 대상이 미지정인데 후보가 하나뿐"이라는 동일 상황이기 때문이다. 대신 그
+경계를 계약에 명시해 평가 gold가 이를 전제하도록 했다.
+
+**영향** `interaction/ground.py` 재작성(해석 순서), `tests/test_interaction_ground.py` 회귀
+테스트 추가(정규식 우회 표현 3종 + 정규화 충돌). `VALIDATOR_VERSION` 불변, 코드 동작 외
+계약 무결성 규칙·hash·평가 하네스 변화 없음.
