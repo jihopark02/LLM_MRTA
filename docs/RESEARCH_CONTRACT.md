@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.26 (D-028). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.27 (D-029). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,6 +62,14 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
+- v1.27 (D-029): P8.2 검토 반영. §18.9의 turn 감사 레코드를 실제 `TurnAudit` 형상과 정렬 —
+  `grounding`을 incident·zone 공통으로 일반화(`entity_kind`/`entity_id`/`via`), `patch_result`
+  → `patch`, `up_to_step` 등 slot은 `extracted_slots`에 위치, `outcome`·`scene_changed`·
+  `state_changed`·`referent_noted`·`answer` 명시, `TURN_ERROR` 원인을 영구 기록에 남기는
+  `error_type`·`error_detail` 추가, `resolved_models`는 그 턴의 **모든** backend 호출
+  (NEW_MISSION의 Step1/Step2/repair 포함). §18.5 — **지시어로 해석된 `QUERY_STATUS`는
+  referent window를 갱신하지 않는다**(자기참조로 K=3 만료가 무한 연장되는 것을 막는다);
+  명시 id QUERY와 `UPDATE_MISSION`은 갱신한다. `VALIDATOR_VERSION` 불변.
 - v1.26 (D-028): P8.1d 검토 반영. §18.5에 incident referent 해석 우선순위를
   **fail-closed**로 명시 — 해석 불가능한 비어 있지 않은 표현은 최근 referent나 단일
   incident로 흘러내리지 않고 항상 clarification. 허용 지시어 목록을 계약에 고정(목록 확장은
@@ -914,10 +922,16 @@ LLM intent classifier (kind + slot 추출; CLARIFICATION·task 생성 안 함)
 
 ### 18.5 referent 규칙
 
-`recent_referents`(K = 3, 최근 3턴)에 추가: 성공한 `REPORT_INCIDENT` / 명시 incident로 정상
-grounding된 `UPDATE_MISSION` / 명시 incident 대상 `QUERY_STATUS`. 추가 안 함: clarification,
-unsupported, 모호 referent, 미지 zone·incident, 실패한 REPORT·UPDATE. 같은 최신 턴에 후보
-≥2 → 무조건 `CLARIFICATION_REQUIRED`.
+`recent_referents`(K = 3, 최근 3턴)에 추가: 성공한 `REPORT_INCIDENT` / 정상 grounding된
+`UPDATE_MISSION`(commit 또는 `NO_CHANGE`) / **명시 id로 지칭한** `QUERY_STATUS`. 추가 안 함:
+clarification, unsupported, 모호 referent, 미지 zone·incident, 실패한 REPORT·UPDATE, 그리고
+**지시어로 해석된 `QUERY_STATUS`**. 같은 최신 턴에 후보 ≥2 → 무조건 `CLARIFICATION_REQUIRED`.
+
+**지시어 QUERY가 window를 갱신하지 않는 이유(D-029)**: 갱신하면 "거기 상태 알려줘"를 반복하는
+것만으로 K=3 만료가 무한히 연장되어, window가 "언제 도입됐는가"가 아니라 "window 자신을 통해
+언제 다시 언급됐는가"를 재는 자기참조가 된다. 읽기 전용 조회는 새 지칭이 아니다. 명시 id로
+부른 QUERY는 새 지칭이므로 갱신한다. `UPDATE_MISSION`은 해석 경로와 무관하게 갱신한다 —
+graph를 실제로 바꾸는(또는 이미 충족됐음을 확인하는) 행위이므로 그 incident는 실제로 최근이다.
 
 **incident referent 해석 우선순위(D-028)** — grounder는 **fail-closed**다. 해석되지 않는
 비어 있지 않은 표현은 절대 최근 referent나 단일 incident로 흘러내리지 않는다:
@@ -981,13 +995,26 @@ interaction 계층에 둔다). `phase` ∈ {`PLANNING`, `EXECUTED`, `EXECUTION_F
 
 ### 18.9 감사 로그 (`data/interaction_runs/<session_id>.json`)
 
-턴별(`event_type: TURN`): `session_id`, `turn_id`, `utterance`, `mode`(live|cached|mock),
-`intent_kind`, `extracted_slots`, `grounding`{status, incident_id, up_to_step, clarification},
-`pre_scene_hash`, `post_scene_hash`, `pre_graph_hash`, `pre_state_hash`, `patch_hash`,
-`post_graph_hash`,
-`patch_result`{accepted, error_codes, directly_released_tasks, status_changes},
-`generation`{approved, failure_category, graph_hash}|null(NEW_MISSION),
-`plan_assignment_changes`{`added`, `removed`, `changed`}, `resolved_models`.
+턴별(`event_type: TURN`) — `TurnAudit`(D-029): `session_id`, `turn_id`, `utterance`,
+`mode`(live|cached|mock), `outcome`(COMMITTED|NO_CHANGE|ANSWERED|CLARIFICATION|UNSUPPORTED|
+REJECTED|TURN_ERROR), `intent_kind`, `extracted_slots`(추출된 slot 원문 — `up_to_step`·
+`zone_ref`·`target_phrase`가 여기 들어간다),
+`grounding`{`status`, `entity_kind`, `entity_id`, `via`, `clarification`, `candidates`},
+`pre_scene_hash`, `post_scene_hash`, `pre_graph_hash`, `post_graph_hash`, `pre_state_hash`,
+`patch_hash`,
+`patch`{accepted, error_codes, added_tasks, added_edges, directly_released_tasks,
+status_changes},
+`generation`{approved, failure_category, graph_hash, error_codes, repaired}|null(NEW_MISSION),
+`plan_assignment_changes`{`added`, `removed`, `changed`},
+`scene_changed`, `state_changed`, `referent_noted`, `answer`, `resolved_models`,
+`error_type`·`error_detail`(`TURN_ERROR`일 때 원인 — 영구 기록에 남긴다).
+
+`grounding`은 incident뿐 아니라 zone 해석에도 쓰이므로 `entity_kind` + `entity_id`로 일반화한다.
+`via` ∈ {`explicit`, `referent`, `sole_incident`}는 §18.5 우선순위의 어느 단계로 해석됐는지를
+기록한다 — clarification 평가(§18.11)에서 "명시 지칭"과 "지시어 해석"을 구분하는 데 필요하다.
+
+`resolved_models`는 **그 턴에 발생한 모든 backend 호출**을 담는다 — intent 분류 1회뿐 아니라
+`NEW_MISSION`이 유발하는 Step1/Step2/repair 호출까지 포함한다(§14 재현성).
 
 실행(`event_type: EXECUTION`): `pre_graph_hash`, `pre_scene_hash`, `plan_assignments`,
 `execution_termination`, `execution_assignments`, `makespan`, `capability_violations`,

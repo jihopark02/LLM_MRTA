@@ -1020,3 +1020,42 @@ referent fallback" 순서였다. 즉 **denylist**였고, 정규식에 안 걸리
 **영향** `interaction/ground.py` 재작성(해석 순서), `tests/test_interaction_ground.py` 회귀
 테스트 추가(정규식 우회 표현 3종 + 정규화 충돌). `VALIDATOR_VERSION` 불변, 코드 동작 외
 계약 무결성 규칙·hash·평가 하네스 변화 없음.
+
+## D-029: turn 감사 레코드 정렬 + 지시어 QUERY의 referent 정책 (계약 v1.27)
+
+**배경** P8.2(orchestrator) 검토. Codex가 6개를 지적했고 4개는 순수 구현 결함(턴 전체 예외
+격리, state+plan atomic commit, `resolved_models` 전체 기록, mission 없는 `QUERY_STATUS
+about=incidents`)이라 코드로만 고친다. 나머지 2개는 계약과 코드가 갈라진 것이라 문서를 먼저
+고친다.
+
+1. **감사 schema 불일치.** §18.9는 `grounding {status, incident_id, up_to_step,
+   clarification}` / `patch_result {...}`를 요구했으나 구현은
+   `grounding {status, entity_kind, entity_id, clarification, candidates}` / `patch {...}`다.
+   구현 쪽이 zone grounding까지 표현하므로 더 일반적이지만, 단일 진실 원천과 실제 JSON이
+   달라서는 안 된다.
+2. **지시어 QUERY가 referent 수명을 무한 갱신.** §18.5는 갱신 대상을 "명시 incident 대상
+   `QUERY_STATUS`"로 한정하는데, 구현은 `"거기 상태"` 같은 지시어 해석 QUERY도 매번 갱신했다.
+   재현: turn 2에 도입된 referent가 조회 3회 뒤 turn 4로 갱신되어, 반복 조회만으로 K=3
+   만료가 영원히 연장된다.
+
+**결정** 계약 v1.27:
+
+- §18.9를 실제 `TurnAudit` 형상으로 정렬한다. `grounding`은 `entity_kind`/`entity_id`로
+  일반화하고 **`via` ∈ {explicit, referent, sole_incident}** 를 추가 — §18.5 우선순위의 어느
+  단계로 해석됐는지가 §18.11의 clarification 평가에서 "명시 지칭"과 "지시어 해석"을 가르는
+  기준이기 때문이다. `patch_result` → `patch`. slot(`up_to_step`·`zone_ref`·`target_phrase`)은
+  `extracted_slots`에 있으므로 grounding에 중복하지 않는다. `outcome`·`scene_changed`·
+  `state_changed`·`referent_noted`·`answer`를 명시하고, `TURN_ERROR`의 원인이 휘발되지 않도록
+  `error_type`·`error_detail`을 영구 레코드에 넣는다.
+- `resolved_models`는 **그 턴의 모든 backend 호출**을 담는다. 종전 구현은 intent 분류 직후
+  delta를 확정해 `NEW_MISSION`의 Step1/Step2/repair 모델이 누락됐다(§14 위반).
+- §18.5: **지시어로 해석된 `QUERY_STATUS`는 referent window를 갱신하지 않는다.** 갱신하면
+  window가 "언제 도입됐는가"가 아니라 "window 자신을 통해 언제 다시 언급됐는가"를 재는
+  자기참조가 된다. 읽기 전용 조회는 새 지칭이 아니다. 명시 id QUERY는 새 지칭이므로 갱신하고,
+  `UPDATE_MISSION`은 해석 경로와 무관하게 갱신한다(graph를 실제로 바꾸거나 이미 충족됐음을
+  확인하는 행위이므로 그 incident는 실제로 최근이다).
+
+**영향** `interaction/audit.py`(필드 추가), `interaction/ground.py`(`GroundingOutcome.via`),
+`interaction/orchestrator.py`(예외 격리·atomic commit·모델 delta·QUERY 분기),
+`tests/test_interaction_{ground,orchestrator}.py`. `VALIDATOR_VERSION` 불변, 계약 무결성 규칙·
+hash·평가 하네스 변화 없음.
