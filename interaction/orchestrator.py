@@ -39,11 +39,20 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from allocation.allocate import AllocationResult, allocate
+from allocation.online import (
+    ONLINE_POLICY_VERSION,
+    OnlinePatchApplication,
+    ReleasePolicy,
+    apply_online_patch,
+)
+from core.enums import TaskStatus
 from interaction.audit import (
     GenerationAudit,
     GroundingAudit,
+    OnlineReallocationAudit,
     PatchAudit,
     PlanAssignmentChanges,
+    RuntimeAssignmentChanges,
     TurnAudit,
 )
 from interaction.ground import (
@@ -136,6 +145,7 @@ class _Turn:
     input_kind: str = "NATURAL_LANGUAGE"
     resumed_from_turn_id: str | None = None
     selected_entity_id: str | None = None
+    online_reallocation: OnlineReallocationAudit | None = None
 
     def resolved_models(self) -> list[str]:
         """Every backend call this turn made — intent classification plus any
@@ -231,6 +241,7 @@ def _finish(
         patch=_patch_audit(turn.patch_result),
         generation=_generation_audit(turn.generation),
         plan_assignment_changes=PlanAssignmentChanges.between(turn.pre_plan, post_plan),
+        online_reallocation=turn.online_reallocation,
         scene_changed=scene_hash(session.scene) != turn.pre_scene_hash,
         state_changed=_graph_hash_of(session) != turn.pre_graph_hash,
         referent_noted=turn.referent_noted,
@@ -356,7 +367,12 @@ def _do_report_incident(
     if not zone.resolved:
         return _clarify(turn, zone)
 
-    session.scene, incident_id = register_incident(session.scene, zone.entity_id)
+    updated_scene, incident_id = register_incident(session.scene, zone.entity_id)
+    session.scene = updated_scene
+    if session.phase is SessionPhase.EXECUTION_PAUSED:
+        # REPORT is scene-only: preserve the runtime object and every clock,
+        # but make the newly registered incident visible to a following UPDATE.
+        session.runtime.scene = updated_scene
     _note(turn, ReferentKind.INCIDENT, incident_id)
     return _finish(
         turn,
@@ -405,16 +421,64 @@ def _do_update_mission(
         _note(turn, ReferentKind.INCIDENT, incident.entity_id)
         return _finish(turn, TurnOutcome.NO_CHANGE, plan.note)
 
-    committed, result = apply_patch(session.state, plan.patch, session.scene)
-    turn.patch_result = result
-    if not result.accepted:
-        codes = ", ".join(c.value for c in result.error_codes)
+    if session.phase is SessionPhase.EXECUTION_PAUSED:
+        if session.runtime is None:
+            raise ValueError("paused session has no online runtime")
+        online = apply_online_patch(
+            session.runtime,
+            plan.patch,
+            session.scene,
+            policy=ReleasePolicy.SELECTIVE,
+        )
+        turn.patch_result = online.patch_result
+        if not online.accepted:
+            codes = ", ".join(c.value for c in online.patch_result.error_codes)
+            return _finish(turn, TurnOutcome.REJECTED, f"변경이 거부됐습니다 ({codes}).")
+        # note_referent performs the only remaining validation.  Publish the
+        # candidate runtime/state together after it succeeds (§19.4).
+        _note(turn, ReferentKind.INCIDENT, incident.entity_id)
+        turn.online_reallocation = _online_reallocation_audit(online)
+        session.runtime = online.executor
+        session.state = online.executor.work
+        return _finish(
+            turn,
+            TurnOutcome.COMMITTED,
+            f"{plan.note} 미시작 task {len(online.released_tasks)}개를 release/rebid했습니다.",
+        )
+
+    committed, patch_result = apply_patch(session.state, plan.patch, session.scene)
+    turn.patch_result = patch_result
+    if not patch_result.accepted:
+        codes = ", ".join(c.value for c in patch_result.error_codes)
         return _finish(turn, TurnOutcome.REJECTED, f"변경이 거부됐습니다 ({codes}).")
 
     candidate_plan = _plan_for(committed, session.scene)
     session.state, session.plan = committed, candidate_plan
     _note(turn, ReferentKind.INCIDENT, incident.entity_id)
     return _finish(turn, TurnOutcome.COMMITTED, plan.note)
+
+
+def _online_reallocation_audit(
+    result: OnlinePatchApplication,
+) -> OnlineReallocationAudit:
+    changes = result.assignment_changes
+    return OnlineReallocationAudit(
+        policy=result.policy.value,
+        policy_version=ONLINE_POLICY_VERSION,
+        simulation_time=result.executor.now,
+        patch_added_tasks=list(result.patch_result.added_tasks),
+        directly_affected_tasks=list(result.directly_affected_tasks),
+        selectively_released_tasks=list(result.released_tasks),
+        preserved_active_assignments=dict(result.preserved_active_assignments),
+        before_assignments=dict(result.before_assignments),
+        after_assignments=dict(result.after_assignments),
+        assignment_changes=RuntimeAssignmentChanges(
+            added=dict(changes.added),
+            removed=dict(changes.removed),
+            changed={task: list(owners) for task, owners in changes.changed.items()},
+        ),
+        consensus_rounds=list(result.consensus_rounds),
+    )
 
 
 def _describe_status(session: MissionSession, incident_id: str | None, about: str) -> str:
@@ -426,24 +490,30 @@ def _describe_status(session: MissionSession, incident_id: str | None, about: st
     if session.state is None:
         return "활성 임무가 없습니다."
     graph = session.state.graph
-    executed = session.phase is not SessionPhase.PLANNING
-    assignments = (
-        session.execution.assignments
-        if executed and session.execution is not None
-        else session.plan.assignments if session.plan else {}
-    )
+    paused = session.phase is SessionPhase.EXECUTION_PAUSED
+    executed = session.phase in {SessionPhase.EXECUTED, SessionPhase.EXECUTION_FAILED}
+    if paused:
+        assignments = session.runtime.assignments
+    elif executed and session.execution is not None:
+        assignments = session.execution.assignments
+    else:
+        assignments = session.plan.assignments if session.plan else {}
 
     tasks = [t for t in graph.tasks if incident_id is None or t.target == incident_id]
     if not tasks:
         return f"{incident_id}에 대한 task가 계획에 없습니다."
 
-    completed = set(session.execution.completed) if session.execution is not None else set()
+    completed = {
+        task.task_id for task in graph.tasks if task.status is TaskStatus.COMPLETED
+    }
     lines = []
     for task in sorted(tasks, key=lambda t: t.task_id):
         status = "COMPLETED" if task.task_id in completed else task.status.value
         lines.append(f"  {task.task_id} -> {assignments.get(task.task_id, '미할당')} ({status})")
     head = f"{incident_id} 대응" if incident_id else "현재 계획"
-    if executed:
+    if paused:
+        head += f" 실행 일시정지, simulation time {session.runtime.now:.1f}"
+    elif executed:
         if session.execution is None:
             return "최근 실행이 오류로 종료되어 실행 결과가 없습니다."
         head += (
@@ -477,9 +547,6 @@ def _do_query_status(
 # -- the turn ----------------------------------------------------------
 
 
-_PLANNING_ONLY = {"NEW_MISSION", "REPORT_INCIDENT", "UPDATE_MISSION"}
-
-
 def _dispatch(turn: _Turn, backend) -> TurnResult:
     session = turn.session
     intent = classify(session, turn.utterance, backend)
@@ -489,7 +556,12 @@ def _dispatch(turn: _Turn, backend) -> TurnResult:
         k: v for k, v in intent.model_dump().items() if k != "kind" and v is not None
     }
 
-    if intent.kind in _PLANNING_ONLY and session.phase is not SessionPhase.PLANNING:
+    if intent.kind == "NEW_MISSION" and session.phase is not SessionPhase.PLANNING:
+        return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
+    if (
+        intent.kind in {"REPORT_INCIDENT", "UPDATE_MISSION"}
+        and session.phase not in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}
+    ):
         return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
 
     if intent.kind == "NEW_MISSION":

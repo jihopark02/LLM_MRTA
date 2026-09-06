@@ -27,8 +27,8 @@ from allocation.allocate import AllocationResult
 from core.enums import TaskStatus, TaskType
 from core.mission_state import MissionState
 from core.task_graph import TaskGraph
-from execution.executor import ExecutionResult
-from interaction.audit import ExecutionAudit, TurnAudit
+from execution.executor import ExecutionResult, SimExecutor
+from interaction.audit import CheckpointAudit, ExecutionAudit, TurnAudit
 from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.scene import Scene
 
@@ -58,6 +58,7 @@ def valid_session_id(value: object) -> bool:
 
 class SessionPhase(str, Enum):
     PLANNING = "PLANNING"
+    EXECUTION_PAUSED = "EXECUTION_PAUSED"
     EXECUTED = "EXECUTED"
     EXECUTION_FAILED = "EXECUTION_FAILED"
 
@@ -166,11 +167,13 @@ class MissionSession:
     state: MissionState | None = None            # None until the first NEW_MISSION
     plan: AllocationResult | None = None         # last plan-time re-analysis
     execution: ExecutionResult | None = None     # set once the operator runs it
+    runtime: SimExecutor | None = field(default=None, repr=False)
+    online_started_at: str | None = None
     phase: SessionPhase = SessionPhase.PLANNING
     recent_referents: list[Referent] = field(default_factory=list)
     turn_count: int = 0
     pending_clarification: PendingClarification | None = None
-    _event_log: list[TurnAudit | ExecutionAudit] = field(
+    _event_log: list[TurnAudit | ExecutionAudit | CheckpointAudit] = field(
         default_factory=list, init=False, repr=False
     )
 
@@ -194,15 +197,15 @@ class MissionSession:
 
     # -- chronological audit stream (§18.9, D-031/D-032) -------------
     @property
-    def event_log(self) -> tuple[TurnAudit | ExecutionAudit, ...]:
+    def event_log(self) -> tuple[TurnAudit | ExecutionAudit | CheckpointAudit, ...]:
         return tuple(self._event_log)
 
     @property
     def turn_log(self) -> tuple[TurnAudit, ...]:
         return tuple(event for event in self._event_log if isinstance(event, TurnAudit))
 
-    def append_event(self, event: TurnAudit | ExecutionAudit) -> None:
-        if not isinstance(event, (TurnAudit, ExecutionAudit)):
+    def append_event(self, event: TurnAudit | ExecutionAudit | CheckpointAudit) -> None:
+        if not isinstance(event, (TurnAudit, ExecutionAudit, CheckpointAudit)):
             raise TypeError(f"unsupported session event: {type(event).__name__}")
         if event.session_id != self.session_id:
             raise ValueError(
@@ -299,6 +302,8 @@ def build_context_summary(session: MissionSession) -> str:
         "ZONES: " + ", ".join(sorted(scene.zones)),
         "INCIDENTS:",
     ]
+    if session.runtime is not None:
+        lines.insert(1, f"SIMULATION_TIME: {session.runtime.now:.6f}")
     if scene.incidents:
         for iid in sorted(scene.incidents):
             inc = scene.incidents[iid]

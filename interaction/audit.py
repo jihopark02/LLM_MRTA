@@ -77,6 +77,34 @@ class GenerationAudit:
 
 
 @dataclass(frozen=True, slots=True)
+class RuntimeAssignmentChanges:
+    """Assignment delta produced by an in-execution CBBA epoch (§19.4)."""
+
+    added: dict[str, str] = field(default_factory=dict)
+    removed: dict[str, str] = field(default_factory=dict)
+    changed: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class OnlineReallocationAudit:
+    """Why an accepted paused UPDATE released and reassigned work (§19.4)."""
+
+    policy: str
+    policy_version: str
+    simulation_time: float
+    patch_added_tasks: list[str] = field(default_factory=list)
+    directly_affected_tasks: list[str] = field(default_factory=list)
+    selectively_released_tasks: list[str] = field(default_factory=list)
+    preserved_active_assignments: dict[str, str] = field(default_factory=dict)
+    before_assignments: dict[str, str] = field(default_factory=dict)
+    after_assignments: dict[str, str] = field(default_factory=dict)
+    assignment_changes: RuntimeAssignmentChanges = field(
+        default_factory=RuntimeAssignmentChanges
+    )
+    consensus_rounds: list[int] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
 class TurnAudit:
     """One operator turn (§18.9, ``event_type: TURN``)."""
 
@@ -99,6 +127,7 @@ class TurnAudit:
     patch: PatchAudit | None = None
     generation: GenerationAudit | None = None
     plan_assignment_changes: PlanAssignmentChanges | None = None
+    online_reallocation: OnlineReallocationAudit | None = None
 
     scene_changed: bool = False
     state_changed: bool = False
@@ -148,11 +177,32 @@ class ExecutionAudit:
         return asdict(self)
 
 
+@dataclass(frozen=True, slots=True)
+class CheckpointAudit:
+    """One deterministic task-completion pause (§19.4)."""
+
+    session_id: str
+    simulation_time: float
+    completed_now: list[str]
+    completed: list[str]
+    running: dict[str, dict[str, object]]
+    ready_tasks: list[str]
+    active_assignments: dict[str, str]
+    mode: str
+    event_type: str = "EXECUTION_CHECKPOINT"
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
 __all__ = [
     "PlanAssignmentChanges",
     "GroundingAudit",
     "PatchAudit",
     "GenerationAudit",
+    "RuntimeAssignmentChanges",
+    "OnlineReallocationAudit",
     "TurnAudit",
     "ExecutionAudit",
+    "CheckpointAudit",
 ]

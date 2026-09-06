@@ -368,7 +368,12 @@ def test_context_summary_lists_live_referents(scene):
 
 def test_phase_values(scene):
     assert session(scene).phase is SessionPhase.PLANNING
-    assert [p.value for p in SessionPhase] == ["PLANNING", "EXECUTED", "EXECUTION_FAILED"]
+    assert [p.value for p in SessionPhase] == [
+        "PLANNING",
+        "EXECUTION_PAUSED",
+        "EXECUTED",
+        "EXECUTION_FAILED",
+    ]
 
 
 # -- session_id is an input boundary (§18.9, D-030) -----------------------
