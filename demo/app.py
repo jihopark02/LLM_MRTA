@@ -8,14 +8,24 @@ The page is a pure view/controller: all mission decisions go through
 ``interaction.orchestrator`` and ``interaction.execute``.
 """
 
+# ruff: noqa: E402 -- Streamlit needs the repository-root bootstrap below.
+
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import asdict
 from pathlib import Path
 from uuid import uuid4
 
 import streamlit as st
+
+# Streamlit executes this file with ``demo/`` as the import root.  Add the
+# repository root before importing project packages so the documented
+# ``streamlit run demo/app.py`` command works without an editable install.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from demo.mock_script import MOCK_COMMANDS, make_mock_backend
 from interaction.audit_io import write_session_audit
@@ -30,7 +40,6 @@ from llm.backend import DEFAULT_MODEL, OpenAIBackend
 from llm.cache import CachedBackend, RecordingBackend
 from scenarios.scene import load_scene
 
-ROOT = Path(__file__).resolve().parents[1]
 SCENE_PATH = ROOT / "scenarios" / "industrial_park.yaml"
 RUNTIME_ROOT = Path(os.environ.get("LLM_MRTA_RUNTIME_ROOT", ROOT / "data"))
 AUDIT_PATH = RUNTIME_ROOT / "interaction_runs"
