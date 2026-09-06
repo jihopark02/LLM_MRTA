@@ -1089,3 +1089,66 @@ session id가 자유 문자열이면 그 문장이 보장이 아니라 희망사
 **영향** `interaction/session.py`(`MissionSession.__post_init__`),
 `tests/test_interaction_session.py`. 이는 §18.9 경로 보장의 근거를 명시한 것이고 판정 규칙·
 hash·평가 하네스는 바뀌지 않는다 — `VALIDATOR_VERSION` 불변.
+
+## D-031: 통합 event_log + 구조화된 clarification 후보 선택 (계약 v1.29)
+
+**배경** P8.2 승인 후 P8.3(Streamlit UI + 실행) 착수 전, Codex 검토에서 이월된 두 항목은
+세션·감사 JSON 스키마를 바꾸므로 코드 전에 계약으로 확정한다.
+
+1. **event 시간 순서.** `session_audit_payload`가 turn 전체 → execution 전체 순으로 event를
+   쌓아, execution이 마지막인 동안만 실제 순서와 같다. P8.3이 실행 후 `QUERY_STATUS`를
+   허용하면 실제 순서 `t1 t2 EXECUTION t3`가 JSON에서 `t1 t2 t3 EXECUTION`으로 뒤바뀐다.
+2. **clarification 후보 선택.** 정규화가 비는 malformed incident id는 후보로 제시돼도
+   사용자가 그 문자열을 다시 입력하면 명시 매칭이 안 된다(정규화 충돌이 있는 두 실제 id도
+   마찬가지). UI 후보 클릭을 자연어로 되먹이면 grounder를 재경유하며 이 문제가 남는다.
+
+**결정** 계약 v1.29:
+
+- **통합 `event_log: list[TurnAudit | ExecutionAudit]`**. `handle_turn`이 `TurnAudit`을,
+  실행 함수가 실행 종료 즉시 `ExecutionAudit`을, 실행 후 turn이 다시 `TurnAudit`을 실제
+  발생 순서대로 append한다. **list 순서가 event 순서의 유일한 진실 원천**이며 병합용 index를
+  저장하지 않는다. `event_seq`(0..N-1)는 dataclass 필드가 아니라 직렬화 시 `enumerate`로
+  파생한다 — 감사 파일에서 순서를 확인하기 위한 파생값이지 두 번째 상태가 아니다. execution은
+  `turn_count`를 소비하지 않는다. `turn_log`는 제거하고 필요 시 `event_log`에서 `TurnAudit`만
+  거르는 read-only property로만 남긴다. `write_session_audit`가 검증: 모든 event의
+  `session_id` 일치 / `event_seq == 0..N-1` / append 후 기존 순서 불변 /
+  `t1 t2 EXECUTION t3` JSON 순서 일치 / execution이 `turn_count` 미소비.
+
+- **`PendingClarification`(typed, frozen)**: `source_turn_id`, `intent_kind`,
+  `extracted_slots`, `unresolved_slot`(`zone_ref` | `target_phrase`), `entity_kind`,
+  `candidates`, `original_utterance`. **entity ambiguity에서만** 생성한다(incident 후보 ≥ 2,
+  또는 구조적으로 선택 가능한 zone 후보). mission 부재·`up_to_step` 누락·활성 mission 중
+  `NEW`·incident 0개·fail-closed 2단계·`UNSUPPORTED`는 pending을 만들지 않는다 — 이들은
+  자연어로 다시 말해야 풀린다. 첫 버전의 구조화 선택은 **entity 모호성만** 해소하고, 누락된
+  workflow step을 UI로 채우는 것은 별도 설계다.
+
+- **`select_clarification_candidate(session, entity_id) -> TurnResult`** — LLM 없는 결정론
+  함수. pending 확인 → `entity_id in candidates` → scene 존재 확인 → 보류 intent·slot 복원 →
+  선택 id를 resolved로 주입 → 원래 UPDATE/QUERY/REPORT 재개 → 성공 시 pending 제거. **이것도
+  감사되는 새 턴**이다: `turn_count` +1, 새 `TurnAudit`, LLM 0회, `resolved_models = []`,
+  `input_kind = "CANDIDATE_SELECTION"`, `resumed_from_turn_id`, `selected_entity_id`(별도
+  필드 — LLM 추출값처럼 `extracted_slots`에 섞지 않는다). grounding `via = explicit`.
+
+- **pending 중 다른 입력**: 후보 선택·취소만 허용. 일반 자연어는 LLM에 보내지 않고 "후보를
+  선택하거나 취소해 주세요"로 응답(새 clarification으로 자동 덮어쓰지 않음 — backend 실패 시
+  기존 clarification 유실 방지). `CANCEL_CLARIFICATION`은 결정론 버튼이며 graph·scene·referent
+  불변, pending만 제거. pending 동안 실행 버튼 비활성.
+
+- **pending 제거**: 성공한 `COMMITTED`·`NO_CHANGE`·`ANSWERED` / 명시적 취소 / phase 변경 ·
+  새 session → 제거. 후보 아닌 id / Validator·`allocate` 실패 → 유지(재시도 가능).
+
+- **정규화 함수 위치**: `scenarios/naming.py` — `normalize_identifier()`(대문자화 + 영숫자만),
+  `normalize_zone_ref()`(한국어 `구역`/`지역` 접미사 제거 후 `normalize_identifier`). scene
+  loader와 incident grounder가 `normalize_identifier`를 공유하고, zone grounder만
+  `normalize_zone_ref`를 쓴다. `scenarios/scene.py`가 `interaction/`을 import하는 계층 역전을
+  피하려는 것. scene YAML 로더는 `normalize_identifier(incident_id)`가 비는 id를 거부한다.
+  주장은 "지원되는 로딩 경로와 `register_incident()`에서는 정규화 빈 id가 생성되지 않는다"이며
+  "구조적으로 불가능"은 아니다. **부수효과**: incident id 매칭이 더 이상 zone 접미사를
+  제거하지 않는다(incident id는 접미사를 갖지 않으므로 의도된 변화).
+
+**영향** `interaction/session.py`(`event_log`, `PendingClarification`, `turn_log` property),
+`interaction/audit.py`(`TurnAudit` 3필드), `interaction/audit_io.py`(`event_seq` 파생 +
+writer 검증), `interaction/orchestrator.py`(`select_clarification_candidate`, pending 분기,
+pending 중 입력 차단), `interaction/ground.py`(`scenarios.naming` 사용), `scenarios/naming.py`
+(신규), `scenarios/scene.py`(로더 거부), `demo/app.py`(P8.3). 판정 규칙·hash·평가 하네스
+불변 — `VALIDATOR_VERSION` 1.4 그대로.

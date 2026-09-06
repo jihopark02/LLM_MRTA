@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.28 (D-030). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.29 (D-031). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,6 +62,14 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
+- v1.29 (D-031): P8.3 착수 전 계약 확정. §18.9의 turn 감사 스토리지를 통합
+  `event_log`(`TurnAudit | ExecutionAudit`)로 바꾸고 **list 순서를 event 순서의 유일한
+  진실 원천**으로 고정 — `event_seq`는 직렬화 시 파생. 신규 §18.13(구조화된 clarification
+  후보 선택): 후보 클릭은 LLM 없는 결정론적 입력이지만 감사되는 새 턴이며, `PendingClarification`은
+  **entity ambiguity에서만** 생성되고, pending 중에는 후보 선택·취소만 허용되며 실행 버튼은
+  비활성이다. §18.10 — scene YAML·`register_incident` 경로는 정규화가 비는 incident id를
+  만들지 않는다(공유 `scenarios/naming.py`). §18.12에 pending 표시·실행 비활성 추가. §15 P8.3
+  게이트 확장. `VALIDATOR_VERSION` 불변(1.4).
 - v1.28 (D-030): P8.2 재검토 반영. §18.9에 `session_id` 문법을 고정 — 이 값이 곧 파일명이므로
   경로 구분자·상대 경로 요소가 섞이면 감사 기록이 계약이 고정한 `data/interaction_runs/` 밖에
   쓰인다. `MissionSession` 생성 시점에 강제한다. `VALIDATOR_VERSION` 불변.
@@ -823,7 +831,7 @@ invariant를 통과해야 한다.
 | P8.0 | RQ3 계약: §1 재서술, §18, `VALIDATOR_VERSION` 1.4 + `patch_hash`/`pre_state_hash`, zone response point + priority 7, `allocate` 사용 규정, §17 정정 | v1.25 / D-027 커밋 |
 | P8.1 | interaction schema + `Referent` state + 결정론적 grounder + `register_incident`(scene 트랜잭션) + canonical patch builder + `AddTask` op priority 제거 | referent 해석 단위테스트 / 모든 (incident, step)에 유효 `MissionPatch` / `register_incident`가 Validator-loadable Scene + **원본 Scene 불변 검증**(scene_hash·모든 필드) / `VALIDATOR_VERSION == "1.4"` / 전체 단위테스트 green |
 | P8.2 | orchestrator + intent interpreter (게이트 `MockBackend`) | I1~I8 headless / session lifecycle·NO_CHANGE·referent 규칙 강제 / CLARIFICATION·QUERY·UNSUPPORTED 턴에 `session.state`·`session.scene` identity 불변 / 턴별 감사 JSON |
-| P8.3 | 최소 Streamlit UI | 수동: §18.12 최소 표시 항목 전부 렌더 / 실제 API 3턴 / PLANNING↔EXECUTED↔EXECUTION_FAILED / 실행은 결정론 버튼(LLM intent 아님) / live 실패 시 cached·mock + 모드 배너(cached를 live로 표시 금지) |
+| P8.3 | 최소 Streamlit UI + 통합 `event_log` + 구조화된 후보 선택 (D-031) | 자동: `event_log` list 순서 = event 순서 유일 진실 원천, `event_seq` 직렬화 파생, `t1 t2 EXECUTION t3` JSON 순서 일치, execution이 `turn_count` 미소비 / `select_clarification_candidate`는 LLM 호출 0·`input_kind=CANDIDATE_SELECTION`·`resumed_from_turn_id` 기록 / pending은 entity ambiguity에서만 생성, pending 중 자유 입력은 LLM 미전달·실행 비활성, 취소는 graph·scene·referent 불변 / scene 로더가 정규화 빈 incident id 거부 / `VALIDATOR_VERSION == "1.4"` / 전체 단위테스트 green. 수동: §18.12 최소 표시 항목(1~14) 전부 렌더 / 실제 API 3턴 / PLANNING↔EXECUTED↔EXECUTION_FAILED / 실행은 결정론 버튼 / live 실패 시 cached·mock + 모드 배너(cached를 live로 표시 금지) |
 | P8.4 | N=12 정량 평가 (live) | grounder-only + end-to-end 표 / dialogue + turn + 지표별 분모 보고 / gold 사전 커밋 / 감사 JSON |
 | P8.5 | UI graph·2D 실행 시각화 폴리싱 | — |
 | 후속 (선택) | post-execution update, `executor.snapshot()`/checkpoint-resume, incremental allocation, recheck 어휘 | 별도 계약 개정 |
@@ -922,6 +930,9 @@ LLM intent classifier (kind + slot 추출; CLARIFICATION·task 생성 안 함)
 - `CLARIFICATION_REQUIRED`·`QUERY_STATUS`·`UNSUPPORTED` 턴은 `apply_patch`/`generate_mission`/
   `register_incident`/`allocate`를 호출하지 않는다(명시 invariant + `session.state`·
   `session.scene` identity 불변 테스트).
+- entity ambiguity로 인한 `CLARIFICATION_REQUIRED`는 세션에 `PendingClarification`을 저장한다
+  (§18.13). pending이 있는 동안 자유 자연어 입력은 LLM에 전달되지 않고(후보 선택·취소만
+  허용), 실행 버튼은 비활성이다. pending은 세션당 최대 1개.
 
 ### 18.5 referent 규칙
 
@@ -960,6 +971,10 @@ graph를 실제로 바꾸는(또는 이미 충족됐음을 확인하는) 행위�
 **5단계(단일 incident 자동 선택)는 명시적 정책이다**: 표현이 없거나 허용 지시어인데 등록된
 incident가 하나뿐이면 되묻지 않고 그것으로 해석한다. §18.11의 clarification precision/recall
 gold는 이 규칙을 전제로 작성한다.
+
+**후보 선택은 이 우선순위를 다시 타지 않는다(D-031)**: grounder가 entity ambiguity로
+CLARIFICATION을 낸 뒤 운용자가 후보를 클릭하면, 선택된 `entity_id`는 이미 검증된 scene id이므로
+`select_clarification_candidate`가 grounder를 재경유하지 않고 그대로 resolved로 주입한다(§18.13).
 
 ### 18.6 NO_CHANGE
 
@@ -1003,6 +1018,19 @@ interaction 계층에 둔다). `phase` ∈ {`PLANNING`, `EXECUTED`, `EXECUTION_F
 경로가 위 디렉터리 밖의 파일을 덮어쓸 수 있다 — 즉 이 문법 제약이 "감사 기록은 항상
 `data/interaction_runs/` 안에 있다"는 위 경로 보장의 근거다.
 
+**event 순서(D-031)**: 세션은 turn과 execution을 **단일 `event_log: list[TurnAudit |
+ExecutionAudit]`** 에 실제 발생 순서대로 append한다. `handle_turn`은 `TurnAudit`을, 실행
+함수는 실행이 끝나는 즉시 `ExecutionAudit`을 append하며, 실행 후 `QUERY_STATUS`는 그 뒤에
+`TurnAudit`을 append한다. **list의 순서가 event 시간 순서의 유일한 진실 원천이다** —
+병합 정렬용 index를 따로 저장하지 않는다. `event_seq`(0..N-1)는 dataclass 필드가 아니라
+직렬화 시 `enumerate`로 파생한다(감사 파일에서 순서를 확인하기 위한 파생값이지 두 번째
+상태가 아니다). execution은 `turn_count`를 소비하지 않는다. `turn_log`는 제거하고, 필요하면
+`event_log`에서 `TurnAudit`만 거르는 read-only property로만 둔다.
+
+`write_session_audit`가 검증하는 것: 모든 event의 `session_id == session.session_id` /
+직렬화된 `event_seq`가 `0..N-1` / append 후에도 기존 event의 상대 순서 불변 /
+`t1 → t2 → EXECUTION → t3` 실제 순서가 JSON에서 동일 / execution이 `turn_count` 미소비.
+
 턴별(`event_type: TURN`) — `TurnAudit`(D-029): `session_id`, `turn_id`, `utterance`,
 `mode`(live|cached|mock), `outcome`(COMMITTED|NO_CHANGE|ANSWERED|CLARIFICATION|UNSUPPORTED|
 REJECTED|TURN_ERROR), `intent_kind`, `extracted_slots`(추출된 slot 원문 — `up_to_step`·
@@ -1015,7 +1043,11 @@ status_changes},
 `generation`{approved, failure_category, graph_hash, error_codes, repaired}|null(NEW_MISSION),
 `plan_assignment_changes`{`added`, `removed`, `changed`},
 `scene_changed`, `state_changed`, `referent_noted`, `answer`, `resolved_models`,
-`error_type`·`error_detail`(`TURN_ERROR`일 때 원인 — 영구 기록에 남긴다).
+`error_type`·`error_detail`(`TURN_ERROR`일 때 원인 — 영구 기록에 남긴다),
+`input_kind`(`NATURAL_LANGUAGE` | `CANDIDATE_SELECTION`),
+`resumed_from_turn_id`(후보 선택 턴이 재개한 clarification 턴의 `turn_id`, 그 외 null),
+`selected_entity_id`(후보 선택으로 확정된 id — LLM 추출값이 아니므로 `extracted_slots`에
+섞지 않고 별도 필드; D-031).
 
 `grounding`은 incident뿐 아니라 zone 해석에도 쓰이므로 `entity_kind` + `entity_id`로 일반화한다.
 `via` ∈ {`explicit`, `referent`, `sole_incident`}는 §18.5 우선순위의 어느 단계로 해석됐는지를
@@ -1045,6 +1077,20 @@ status_changes},
 않는다.** ID = `FIRE_SITE_<next n>`. priority = **고정 7**(NL urgency 추출은 후속 평가 항목).
 zone별 response point는 `scenarios/industrial_park.yaml`에 사전 고정하고 `scene_hash`의 zone
 payload에 포함한다(§14). 무효 `REPORT` → scene 불변.
+
+**정규화가 비는 id 방지(D-031)**: scene YAML 로더는 `normalize_identifier(incident_id)`가
+빈 문자열이 되는 incident id(예: `"!!!"`)를 거부한다. `register_incident`는 `FIRE_SITE_<n>`을
+생성하므로 항상 문자열 핸들이 있다. 정확한 주장은 "**지원되는 scene YAML 로딩 경로와
+`register_incident()` 경로에서는 정규화가 비는 incident id가 생성되지 않는다**"이며,
+"구조적으로 불가능"은 아니다(로더를 우회해 `Scene`을 직접 구성할 수 있다). 이 규칙이
+§18.13의 후보 선택이 항상 재매칭 가능한 id만 제시하도록 보장한다.
+
+정규화 함수는 계층 역전(`scenarios/scene.py`가 `interaction/`을 import)을 피하기 위해
+`scenarios/naming.py`에 둔다: `normalize_identifier()`(대문자화 + 영숫자만),
+`normalize_zone_ref()`(한국어 `구역`/`지역` 접미사 제거 후 `normalize_identifier`). scene
+loader와 incident grounder는 `normalize_identifier`를, zone grounder는 `normalize_zone_ref`를
+공유한다. incident id 매칭은 더 이상 zone 접미사를 제거하지 않는다(incident id는 접미사를
+갖지 않는다).
 
 ### 18.11 평가 (interaction eval — P6/P6.5와 별개 실험)
 
@@ -1087,3 +1133,49 @@ Streamlit UI는 최소한 다음을 표시한다(순수 view — orchestrator만
 11. 실행 버튼(결정론적 동작) — 최종 graph를 P6.5 방식으로 실행
 12. 실행 후: `ExecutionResult`(termination, task → agent, makespan, violation 수)
 13. 실행 모드 배너(live / cached / mock) — cached·mock을 live로 표시하지 않는다
+14. pending clarification이 있으면: 질문 + 후보 버튼(각 버튼 = 구조화된 `entity_id` 제출) +
+    취소 버튼. pending 동안 자유 입력 창과 **실행 버튼은 비활성**(§18.13)
+
+### 18.13 구조화된 clarification 후보 선택 (D-031)
+
+grounder가 **entity ambiguity**로 `CLARIFICATION_REQUIRED`를 반환하면 세션에
+`PendingClarification`을 저장하고, 운용자는 제시된 후보 중 하나를 **클릭**해 해소한다.
+클릭한 문자열을 새 자연어 발화로 되먹이지 않는다 — 정규화가 비는 incident id(§18.10 이전
+데이터)나 정규화 충돌이 있는 두 id는 재입력해도 명시 매칭이 안 되기 때문이다.
+
+**`PendingClarification`(typed, frozen)**: `source_turn_id`, `intent_kind`,
+`extracted_slots`, `unresolved_slot`(`zone_ref` | `target_phrase`), `entity_kind`
+(`ReferentKind`), `candidates: tuple[str, ...]`, `original_utterance`.
+
+**생성 조건 — entity ambiguity만.** pending을 만드는 clarification:
+- incident 후보 ≥ 2 (`UPDATE_MISSION`, 또는 `target_phrase`를 가진 `QUERY_STATUS` —
+  지시어·명시 지칭 무관)
+- zone 후보를 구조적으로 고를 수 있는 경우 (`REPORT_INCIDENT`)
+
+pending을 만들지 **않는** clarification(후보 선택으로 풀 수 없음 → 자연어로 다시 말해야 함):
+mission 자체가 없음 / `up_to_step` 누락 / 활성 mission이 있는데 `NEW_MISSION` / 등록 incident
+0개 / fail-closed 2단계(해석 불가 표현) / `UNSUPPORTED`. **첫 버전의 구조화 선택은 entity
+모호성만 해소한다** — 누락된 workflow step을 UI 선택으로 채우는 것은 별도 설계다.
+
+**진입점 — LLM 없는 결정론 함수** `select_clarification_candidate(session, entity_id) -> TurnResult`:
+(1) pending 존재 확인 (2) `entity_id in pending.candidates` (3) 그 entity가 현재 scene에도
+존재 (4) 보류된 intent·slot 복원 (5) 선택 id를 이미 resolved된 값으로 주입 (6) 원래
+`UPDATE`/`QUERY`/`REPORT` 처리 재개 (7) 성공 시 pending 제거.
+
+**후보 선택도 감사되는 새 operator turn이다**: `turn_count` +1, 새 `TurnAudit`, LLM 호출 0,
+`resolved_models = []`, `mode`는 현재 UI 실행 모드, `input_kind = "CANDIDATE_SELECTION"`,
+`resumed_from_turn_id = pending.source_turn_id`, `selected_entity_id` 기록. grounding은
+`via` = `explicit`이다 — 운용자가 후보를 직접 골랐으므로 지시어 해석이 아니라 명시 지칭이다.
+referent window는 그 결과 §18.5의 **명시 지칭** 규칙을 따른다: `UPDATE_MISSION`과
+`QUERY_STATUS` 모두 갱신, `REPORT_INCIDENT`는 새 incident를 추가. (원래 발화가 지시어였더라도
+클릭으로 확정된 시점에는 명시 지칭이 된다.)
+
+**pending 중 다른 입력.** pending 상태에서는 후보 선택 또는 취소만 허용한다. 일반 자연어
+입력은 **LLM에 보내지 않고** "후보를 선택하거나 취소해 주세요"로 응답한다(새 clarification을
+자동으로 덮어쓰지 않는다 — backend 실패 시 기존 clarification을 잃는 상태 전이를 막는다).
+`CANCEL_CLARIFICATION`은 UI의 결정론적 버튼이며, 취소 시 graph·scene·referent 불변, pending만
+제거한다. pending 동안 실행 버튼은 비활성이다.
+
+**pending 제거 시점**: 성공한 `COMMITTED`·`NO_CHANGE`·`ANSWERED` / 명시적 취소 / phase 변경 ·
+새 session → 제거. 후보가 아닌 id 선택 / Validator·`allocate`·기타 처리 실패 → **유지**
+(재시도 가능). 한 세션에 pending은 최대 1개.
