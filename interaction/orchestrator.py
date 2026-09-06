@@ -54,6 +54,7 @@ from interaction.ground import (
     resolve_zone,
 )
 from interaction.interpret import classify
+from interaction.mode import mode_of_backend, require_mode
 from interaction.scene_mut import register_incident
 from interaction.session import (
     MissionSession,
@@ -140,9 +141,6 @@ class _Turn:
         return list(getattr(self.backend, "resolved_models", ())[self.models_before :])
 
 
-_MODES = frozenset({"live", "cached", "mock"})
-
-
 def _mode_of(backend) -> str:
     """Response provenance for the audit (§18.9).
 
@@ -153,16 +151,7 @@ def _mode_of(backend) -> str:
     instead of silently defaulting to "live" — that is a misconfiguration, not
     a turn failure, and must not be swallowed as one.
     """
-    return _require_mode(getattr(backend, "mode", None))
-
-
-def _require_mode(mode: object) -> str:
-    """Validate provenance supplied by a backend or deterministic UI action."""
-    if not isinstance(mode, str) or mode not in _MODES:
-        raise ValueError(
-            f"mode must be one of {sorted(_MODES)}, got {mode!r}"
-        )
-    return mode
+    return mode_of_backend(backend)
 
 
 def _graph_hash_of(session: MissionSession) -> str | None:
@@ -435,17 +424,30 @@ def _describe_status(session: MissionSession, incident_id: str | None, about: st
     if session.state is None:
         return "활성 임무가 없습니다."
     graph = session.state.graph
-    assignments = session.plan.assignments if session.plan else {}
+    executed = session.phase is not SessionPhase.PLANNING
+    assignments = (
+        session.execution.assignments
+        if executed and session.execution is not None
+        else session.plan.assignments if session.plan else {}
+    )
 
     tasks = [t for t in graph.tasks if incident_id is None or t.target == incident_id]
     if not tasks:
         return f"{incident_id}에 대한 task가 계획에 없습니다."
 
-    lines = [
-        f"  {t.task_id} -> {assignments.get(t.task_id, '미할당')} ({t.status.value})"
-        for t in sorted(tasks, key=lambda t: t.task_id)
-    ]
+    completed = set(session.execution.completed) if session.execution is not None else set()
+    lines = []
+    for task in sorted(tasks, key=lambda t: t.task_id):
+        status = "COMPLETED" if task.task_id in completed else task.status.value
+        lines.append(f"  {task.task_id} -> {assignments.get(task.task_id, '미할당')} ({status})")
     head = f"{incident_id} 대응" if incident_id else "현재 계획"
+    if executed:
+        if session.execution is None:
+            return "최근 실행이 오류로 종료되어 실행 결과가 없습니다."
+        head += (
+            f" 실행 결과 {session.execution.termination.value}, "
+            f"makespan {session.execution.makespan:.1f}"
+        )
     return f"{head} ({len(tasks)} task):\n" + "\n".join(lines)
 
 
@@ -560,7 +562,7 @@ def _deterministic_turn(
     pending: PendingClarification,
     selected_entity_id: str | None = None,
 ) -> _Turn:
-    checked_mode = _require_mode(mode)
+    checked_mode = require_mode(mode)
     session.turn_count += 1
     return _Turn(
         session=session,
