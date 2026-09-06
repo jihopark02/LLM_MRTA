@@ -1,0 +1,34 @@
+fixture_id: P9_REPRESENTATIVE_1
+base_scene: scenarios/industrial_park.yaml
+
+# Register three incidents before execution so both aerial and ground agents
+# have queued (ASSIGNED) work at the chosen completion boundary.
+initial_report_zones:
+  - ZONE_C  # FIRE_SITE_3
+  - ZONE_D  # FIRE_SITE_4
+  - ZONE_A  # FIRE_SITE_5
+initial_graph:
+  area_recon_all_zones: true
+  incident_workflow_up_to: GROUND_SUPPRESSION
+
+# Pause immediately after the tenth deterministic completion event.
+checkpoint_event: 10
+expected_checkpoint:
+  simulation_time: 121.64323236970407
+  completed_now:
+    - SUPPRESSANT_DROP__FIRE_SITE_3
+
+# The online command is represented deterministically as REPORT + UPDATE.
+online_report_zone: ZONE_B  # creates FIRE_SITE_6
+online_update_up_to: GROUND_SUPPRESSION
+expected_new_incident_id: FIRE_SITE_6
+
+# Identification gate from contract §19.5. These are release decisions, not
+# final owner changes: a released task may be won again by the same agent.
+expected_release:
+  no-reset: []
+  selective:
+    - AREA_RECON__ZONE_C
+  full-reset:
+    - AREA_RECON__ZONE_C
+    - GROUND_INSPECTION__FIRE_SITE_1
