@@ -1,0 +1,3720 @@
+{
+  "counts": {
+    "candidate_selection_exact": 3,
+    "candidate_selection_turns": 3,
+    "clarification_expected": 3,
+    "clarification_predicted": 3,
+    "clarification_tp": 3,
+    "clarification_without_mutation": 3,
+    "dialogue_exact": 12,
+    "dialogues": 12,
+    "final_graph_exact": 12,
+    "harness_errors": 0,
+    "intent_exact": 33,
+    "natural_language_turns": 33,
+    "operator_turns": 36,
+    "patch_exact": 5,
+    "patch_turns": 5,
+    "referent_exact": 16,
+    "referent_turns": 16,
+    "slots_exact": 33,
+    "turn_exact": 36,
+    "wrong_guesses": 0
+  },
+  "dialogues": [
+    {
+      "dialogue_exact": true,
+      "family": "A",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "A1",
+      "profile": "FULL_RESPONSE",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "GROUND_INSPECTION__FIRE_SITE_1": "G2",
+                "GROUND_INSPECTION__FIRE_SITE_2": "G1",
+                "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2": "G1",
+                "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
+                "SUPPRESSANT_DROP__FIRE_SITE_2": "R2",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-a1",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "전체 구역을 항공 정찰하고 알려진 두 화재를 지상 진압까지 대응해줘."
+          },
+          {
+            "answer": "현재 계획 (12 task):\n  AREA_RECON__ZONE_A -> S1 (READY)\n  AREA_RECON__ZONE_B -> S1 (READY)\n  AREA_RECON__ZONE_C -> S2 (READY)\n  AREA_RECON__ZONE_D -> S2 (READY)\n  GROUND_INSPECTION__FIRE_SITE_1 -> G2 (PENDING)\n  GROUND_INSPECTION__FIRE_SITE_2 -> G1 (PENDING)\n  GROUND_SUPPRESSION__FIRE_SITE_1 -> G2 (PENDING)\n  GROUND_SUPPRESSION__FIRE_SITE_2 -> G1 (PENDING)\n  SUPPRESSANT_DROP__FIRE_SITE_1 -> R1 (PENDING)\n  SUPPRESSANT_DROP__FIRE_SITE_2 -> R2 (PENDING)\n  THERMAL_RECON__FIRE_SITE_1 -> S1 (READY)\n  THERMAL_RECON__FIRE_SITE_2 -> S2 (READY)",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "mission"
+            },
+            "generation": null,
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-a1",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "현재 전체 임무 상태를 알려줘."
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+        "session_id": "p84-a1",
+        "turn_count": 2,
+        "validator_version": "1.4"
+      },
+      "shape": "NEW_ONLY",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.005975578002107795,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "전체 구역을 항공 정찰하고 알려진 두 화재를 지상 진압까지 대응해줘."
+        },
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "about": "mission",
+            "kind": "QUERY_STATUS"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "about": "mission",
+            "kind": "QUERY_STATUS"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.00031192999813356437,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "현재 전체 임무 상태를 알려줘."
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "A",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "A2",
+      "profile": "FULL_RESPONSE",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "GROUND_INSPECTION__FIRE_SITE_1": "G2",
+                "GROUND_INSPECTION__FIRE_SITE_2": "G1",
+                "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2": "G1",
+                "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
+                "SUPPRESSANT_DROP__FIRE_SITE_2": "R2",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-a2",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "네 구역을 모두 정찰하고 FIRE_SITE_1과 FIRE_SITE_2를 지상 진압까지 처리해줘."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "zone_ref": "Warehouse"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "ZONE_A",
+              "entity_kind": "zone",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "REPORT_INCIDENT",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+            "pre_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": "FIRE_SITE_3",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": true,
+            "selected_entity_id": null,
+            "session_id": "p84-a2",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "Warehouse 구역에 새 화재가 발생했어."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "target_phrase": "거기",
+              "up_to_step": "GROUND_SUPPRESSION"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_3",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "referent"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "UPDATE_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": {
+              "accepted": true,
+              "added_edges": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_3",
+                  "SUPPRESSANT_DROP__FIRE_SITE_3"
+                ],
+                [
+                  "SUPPRESSANT_DROP__FIRE_SITE_3",
+                  "GROUND_INSPECTION__FIRE_SITE_3"
+                ],
+                [
+                  "GROUND_INSPECTION__FIRE_SITE_3",
+                  "GROUND_SUPPRESSION__FIRE_SITE_3"
+                ]
+              ],
+              "added_tasks": [
+                "THERMAL_RECON__FIRE_SITE_3",
+                "SUPPRESSANT_DROP__FIRE_SITE_3",
+                "GROUND_INSPECTION__FIRE_SITE_3",
+                "GROUND_SUPPRESSION__FIRE_SITE_3"
+              ],
+              "directly_released_tasks": [],
+              "error_codes": [],
+              "status_changes": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_3",
+                  "PENDING",
+                  "READY"
+                ]
+              ]
+            },
+            "patch_hash": "32290f621dde0b153900be1b219ddce8954e6f4ce11e128370b15387c1023c63",
+            "plan_assignment_changes": {
+              "added": {
+                "GROUND_INSPECTION__FIRE_SITE_3": "G1",
+                "GROUND_SUPPRESSION__FIRE_SITE_3": "G1",
+                "SUPPRESSANT_DROP__FIRE_SITE_3": "R2",
+                "THERMAL_RECON__FIRE_SITE_3": "S2"
+              },
+              "changed": {
+                "AREA_RECON__ZONE_A": [
+                  "S1",
+                  "S2"
+                ],
+                "AREA_RECON__ZONE_D": [
+                  "S2",
+                  "S1"
+                ],
+                "GROUND_INSPECTION__FIRE_SITE_2": [
+                  "G1",
+                  "G2"
+                ],
+                "GROUND_SUPPRESSION__FIRE_SITE_2": [
+                  "G1",
+                  "G2"
+                ],
+                "SUPPRESSANT_DROP__FIRE_SITE_2": [
+                  "R2",
+                  "R1"
+                ],
+                "THERMAL_RECON__FIRE_SITE_2": [
+                  "S2",
+                  "R1"
+                ]
+              },
+              "removed": {}
+            },
+            "post_graph_hash": "012f105e4171d230a5c773d8840d91814c6fdc3caef8d6adfdb29958dea559df",
+            "post_scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+            "pre_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "pre_scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+            "pre_state_hash": "c658ab7748395a8fa23862a1221c86bc55516a418a32e339c07b4cf63abb43c8",
+            "referent_noted": "FIRE_SITE_3",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-a2",
+            "state_changed": true,
+            "turn_id": "t3",
+            "utterance": "거기를 지상 진압까지 계획에 추가해줘."
+          },
+          {
+            "answer": "FIRE_SITE_3 대응 (4 task):\n  GROUND_INSPECTION__FIRE_SITE_3 -> G1 (PENDING)\n  GROUND_SUPPRESSION__FIRE_SITE_3 -> G1 (PENDING)\n  SUPPRESSANT_DROP__FIRE_SITE_3 -> R2 (PENDING)\n  THERMAL_RECON__FIRE_SITE_3 -> S2 (READY)",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 3,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "mission",
+              "target_phrase": "FIRE_SITE_3"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_3",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "012f105e4171d230a5c773d8840d91814c6fdc3caef8d6adfdb29958dea559df",
+            "post_scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+            "pre_graph_hash": "012f105e4171d230a5c773d8840d91814c6fdc3caef8d6adfdb29958dea559df",
+            "pre_scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+            "pre_state_hash": null,
+            "referent_noted": "FIRE_SITE_3",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-a2",
+            "state_changed": false,
+            "turn_id": "t4",
+            "utterance": "FIRE_SITE_3의 대응 상태를 알려줘."
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+        "session_id": "p84-a2",
+        "turn_count": 4,
+        "validator_version": "1.4"
+      },
+      "shape": "REPORT_UPDATE",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.005884246002096916,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "네 구역을 모두 정찰하고 FIRE_SITE_1과 FIRE_SITE_2를 지상 진압까지 처리해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "ZONE_A",
+            "entity_kind": "zone",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": {
+            "kind": "REPORT_INCIDENT",
+            "zone_ref": "Warehouse"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "ZONE_A",
+            "entity_kind": "zone",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": {
+            "kind": "REPORT_INCIDENT",
+            "zone_ref": "Warehouse"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.00043057400034740567,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "Warehouse 구역에 새 화재가 발생했어."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "referent"
+          },
+          "actual_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "거기",
+            "up_to_step": "GROUND_SUPPRESSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": {
+            "accepted": true,
+            "added_edges": [
+              [
+                "GROUND_INSPECTION__FIRE_SITE_3",
+                "GROUND_SUPPRESSION__FIRE_SITE_3"
+              ],
+              [
+                "SUPPRESSANT_DROP__FIRE_SITE_3",
+                "GROUND_INSPECTION__FIRE_SITE_3"
+              ],
+              [
+                "THERMAL_RECON__FIRE_SITE_3",
+                "SUPPRESSANT_DROP__FIRE_SITE_3"
+              ]
+            ],
+            "added_tasks": [
+              "GROUND_INSPECTION__FIRE_SITE_3",
+              "GROUND_SUPPRESSION__FIRE_SITE_3",
+              "SUPPRESSANT_DROP__FIRE_SITE_3",
+              "THERMAL_RECON__FIRE_SITE_3"
+            ],
+            "directly_released_tasks": []
+          },
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "referent"
+          },
+          "expected_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "거기",
+            "up_to_step": "GROUND_SUPPRESSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": {
+            "accepted": true,
+            "added_edges": [
+              [
+                "GROUND_INSPECTION__FIRE_SITE_3",
+                "GROUND_SUPPRESSION__FIRE_SITE_3"
+              ],
+              [
+                "SUPPRESSANT_DROP__FIRE_SITE_3",
+                "GROUND_INSPECTION__FIRE_SITE_3"
+              ],
+              [
+                "THERMAL_RECON__FIRE_SITE_3",
+                "SUPPRESSANT_DROP__FIRE_SITE_3"
+              ]
+            ],
+            "added_tasks": [
+              "GROUND_INSPECTION__FIRE_SITE_3",
+              "GROUND_SUPPRESSION__FIRE_SITE_3",
+              "SUPPRESSANT_DROP__FIRE_SITE_3",
+              "THERMAL_RECON__FIRE_SITE_3"
+            ],
+            "directly_released_tasks": []
+          },
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.008701923001353862,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 3,
+          "utterance": "거기를 지상 진압까지 계획에 추가해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": {
+            "about": "mission",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_3"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": {
+            "about": "mission",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_3"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0003412749974813778,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 4,
+          "utterance": "FIRE_SITE_3의 대응 상태를 알려줘."
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "A",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "A3",
+      "profile": "FULL_RESPONSE",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "GROUND_INSPECTION__FIRE_SITE_1": "G2",
+                "GROUND_INSPECTION__FIRE_SITE_2": "G1",
+                "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2": "G1",
+                "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
+                "SUPPRESSANT_DROP__FIRE_SITE_2": "R2",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-a3",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "모든 구역을 살피고 두 화재 모두 열원 확인부터 지상 진압까지 전부 수행해줘."
+          },
+          {
+            "answer": "FIRE_SITE_1 대응 (4 task):\n  GROUND_INSPECTION__FIRE_SITE_1 -> G2 (PENDING)\n  GROUND_SUPPRESSION__FIRE_SITE_1 -> G2 (PENDING)\n  SUPPRESSANT_DROP__FIRE_SITE_1 -> R1 (PENDING)\n  THERMAL_RECON__FIRE_SITE_1 -> S1 (READY)",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "agents",
+              "target_phrase": "FIRE_SITE_1"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_1",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": "FIRE_SITE_1",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-a3",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "FIRE_SITE_1에는 어떤 로봇이 배정됐어?"
+          },
+          {
+            "answer": "등록된 화재 지점: FIRE_SITE_1, FIRE_SITE_2",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "incidents"
+            },
+            "generation": null,
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-a3",
+            "state_changed": false,
+            "turn_id": "t3",
+            "utterance": "등록된 화재 지점 목록을 알려줘."
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+        "session_id": "p84-a3",
+        "turn_count": 3,
+        "validator_version": "1.4"
+      },
+      "shape": "QUERY",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.006736325998645043,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "모든 구역을 살피고 두 화재 모두 열원 확인부터 지상 진압까지 전부 수행해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_1",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": {
+            "about": "agents",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_1"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_1",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": {
+            "about": "agents",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_1"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0003638279995357152,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "FIRE_SITE_1에는 어떤 로봇이 배정됐어?"
+        },
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "about": "incidents",
+            "kind": "QUERY_STATUS"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "about": "incidents",
+            "kind": "QUERY_STATUS"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.00021048800044809468,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 3,
+          "utterance": "등록된 화재 지점 목록을 알려줘."
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "A",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "A4",
+      "profile": "FULL_RESPONSE",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "GROUND_INSPECTION__FIRE_SITE_1": "G2",
+                "GROUND_INSPECTION__FIRE_SITE_2": "G1",
+                "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2": "G1",
+                "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
+                "SUPPRESSANT_DROP__FIRE_SITE_2": "R2",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-a4",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "전 구역 정찰과 두 화재의 전체 대응 절차를 계획해줘."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "target_phrase": "그 화재",
+              "up_to_step": "GROUND_SUPPRESSION"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [
+                "FIRE_SITE_1",
+                "FIRE_SITE_2"
+              ],
+              "clarification": "어느 화재 지점을 말씀하시는 것입니까?",
+              "entity_id": null,
+              "entity_kind": "incident",
+              "reason": "AMBIGUOUS_ENTITY",
+              "status": "CLARIFICATION_REQUIRED",
+              "via": null
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "UPDATE_MISSION",
+            "mode": "mock",
+            "outcome": "CLARIFICATION",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-a4",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "그 화재를 지상 진압까지 처리해줘."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "target_phrase": "그 화재",
+              "up_to_step": "GROUND_SUPPRESSION"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_1",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "CANDIDATE_SELECTION",
+            "intent_kind": "UPDATE_MISSION",
+            "mode": "mock",
+            "outcome": "NO_CHANGE",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": "FIRE_SITE_1",
+            "resolved_models": [],
+            "resumed_from_turn_id": "t2",
+            "scene_changed": false,
+            "selected_entity_id": "FIRE_SITE_1",
+            "session_id": "p84-a4",
+            "state_changed": false,
+            "turn_id": "t3",
+            "utterance": "FIRE_SITE_1"
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+        "session_id": "p84-a4",
+        "turn_count": 3,
+        "validator_version": "1.4"
+      },
+      "shape": "AMBIGUOUS_SELECTION",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.005685659998562187,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "전 구역 정찰과 두 화재의 전체 대응 절차를 계획해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [
+              "FIRE_SITE_1",
+              "FIRE_SITE_2"
+            ],
+            "entity_id": null,
+            "entity_kind": "incident",
+            "reason": "AMBIGUOUS_ENTITY",
+            "status": "CLARIFICATION_REQUIRED",
+            "via": null
+          },
+          "actual_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "그 화재",
+            "up_to_step": "GROUND_SUPPRESSION"
+          },
+          "actual_outcome": "CLARIFICATION",
+          "actual_patch": null,
+          "clarification_without_mutation": true,
+          "expected_grounding": {
+            "candidates": [
+              "FIRE_SITE_1",
+              "FIRE_SITE_2"
+            ],
+            "entity_id": null,
+            "entity_kind": "incident",
+            "reason": "AMBIGUOUS_ENTITY",
+            "status": "CLARIFICATION_REQUIRED",
+            "via": null
+          },
+          "expected_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "그 화재",
+            "up_to_step": "GROUND_SUPPRESSION"
+          },
+          "expected_outcome": "CLARIFICATION",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.00043143500079168007,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "그 화재를 지상 진압까지 처리해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_1",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": null,
+          "actual_outcome": "NO_CHANGE",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_1",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": null,
+          "expected_outcome": "NO_CHANGE",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "CANDIDATE_SELECTION",
+          "intent_exact": null,
+          "latency_s": 0.00020327400125097483,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": "FIRE_SITE_1",
+          "slots_exact": null,
+          "turn_exact": true,
+          "turn_number": 3,
+          "utterance": null
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "B",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "B1",
+      "profile": "AERIAL_ONLY",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-b1",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "지금은 항공 임무만 수행해. 네 구역을 정찰하고 두 화재의 열원만 확인해줘. 투하와 지상 작업은 하지 마."
+          },
+          {
+            "answer": "현재 계획 (6 task):\n  AREA_RECON__ZONE_A -> S1 (READY)\n  AREA_RECON__ZONE_B -> S1 (READY)\n  AREA_RECON__ZONE_C -> S2 (READY)\n  AREA_RECON__ZONE_D -> S2 (READY)\n  THERMAL_RECON__FIRE_SITE_1 -> S1 (READY)\n  THERMAL_RECON__FIRE_SITE_2 -> S2 (READY)",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "mission"
+            },
+            "generation": null,
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-b1",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "현재 계획을 요약해줘."
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+        "session_id": "p84-b1",
+        "turn_count": 2,
+        "validator_version": "1.4"
+      },
+      "shape": "NEW_ONLY",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0024393720013904385,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "지금은 항공 임무만 수행해. 네 구역을 정찰하고 두 화재의 열원만 확인해줘. 투하와 지상 작업은 하지 마."
+        },
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "about": "mission",
+            "kind": "QUERY_STATUS"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "about": "mission",
+            "kind": "QUERY_STATUS"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.00021407500025816262,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "현재 계획을 요약해줘."
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "B",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "B2",
+      "profile": "AERIAL_ONLY",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-b2",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "전체 구역 항공 정찰과 기존 화재 두 곳의 열원 확인만 계획해줘. 지상 대응은 제외해."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "zone_ref": "Utility Yard"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "ZONE_C",
+              "entity_kind": "zone",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "REPORT_INCIDENT",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "post_scene_hash": "b2a048faabf12e3e58062c25262791f099e31905bef120c00b821b5c3046ca65",
+            "pre_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": "FIRE_SITE_3",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": true,
+            "selected_entity_id": null,
+            "session_id": "p84-b2",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "Utility Yard에서 새로운 화재가 보고됐어."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "target_phrase": "거기",
+              "up_to_step": "THERMAL_RECON"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_3",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "referent"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "UPDATE_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": {
+              "accepted": true,
+              "added_edges": [],
+              "added_tasks": [
+                "THERMAL_RECON__FIRE_SITE_3"
+              ],
+              "directly_released_tasks": [],
+              "error_codes": [],
+              "status_changes": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_3",
+                  "PENDING",
+                  "READY"
+                ]
+              ]
+            },
+            "patch_hash": "5c056fefdab21edad3d556cba85760fe9d4e6af4abb17f9100c96a84af22da59",
+            "plan_assignment_changes": {
+              "added": {
+                "THERMAL_RECON__FIRE_SITE_3": "S2"
+              },
+              "changed": {
+                "AREA_RECON__ZONE_A": [
+                  "S1",
+                  "S2"
+                ],
+                "AREA_RECON__ZONE_D": [
+                  "S2",
+                  "S1"
+                ],
+                "THERMAL_RECON__FIRE_SITE_2": [
+                  "S2",
+                  "R1"
+                ]
+              },
+              "removed": {}
+            },
+            "post_graph_hash": "759fab3908666ccc9b50a9ba5d052221c427f30de79d9df173c63f22a19ab5f4",
+            "post_scene_hash": "b2a048faabf12e3e58062c25262791f099e31905bef120c00b821b5c3046ca65",
+            "pre_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "pre_scene_hash": "b2a048faabf12e3e58062c25262791f099e31905bef120c00b821b5c3046ca65",
+            "pre_state_hash": "ab4c62972d17bc61e7d3eb0e7a2f07b41be7da308d1642df58b248abe96db827",
+            "referent_noted": "FIRE_SITE_3",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-b2",
+            "state_changed": true,
+            "turn_id": "t3",
+            "utterance": "거기는 열원 확인까지만 계획에 넣어줘."
+          },
+          {
+            "answer": "FIRE_SITE_3 대응 (1 task):\n  THERMAL_RECON__FIRE_SITE_3 -> S2 (READY)",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 3,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "tasks",
+              "target_phrase": "FIRE_SITE_3"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_3",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "759fab3908666ccc9b50a9ba5d052221c427f30de79d9df173c63f22a19ab5f4",
+            "post_scene_hash": "b2a048faabf12e3e58062c25262791f099e31905bef120c00b821b5c3046ca65",
+            "pre_graph_hash": "759fab3908666ccc9b50a9ba5d052221c427f30de79d9df173c63f22a19ab5f4",
+            "pre_scene_hash": "b2a048faabf12e3e58062c25262791f099e31905bef120c00b821b5c3046ca65",
+            "pre_state_hash": null,
+            "referent_noted": "FIRE_SITE_3",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-b2",
+            "state_changed": false,
+            "turn_id": "t4",
+            "utterance": "FIRE_SITE_3에 어떤 task가 있어?"
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "b2a048faabf12e3e58062c25262791f099e31905bef120c00b821b5c3046ca65",
+        "session_id": "p84-b2",
+        "turn_count": 4,
+        "validator_version": "1.4"
+      },
+      "shape": "REPORT_UPDATE",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0025154859977192245,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "전체 구역 항공 정찰과 기존 화재 두 곳의 열원 확인만 계획해줘. 지상 대응은 제외해."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "ZONE_C",
+            "entity_kind": "zone",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": {
+            "kind": "REPORT_INCIDENT",
+            "zone_ref": "Utility Yard"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "ZONE_C",
+            "entity_kind": "zone",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": {
+            "kind": "REPORT_INCIDENT",
+            "zone_ref": "Utility Yard"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0004174189998593647,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "Utility Yard에서 새로운 화재가 보고됐어."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "referent"
+          },
+          "actual_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "거기",
+            "up_to_step": "THERMAL_RECON"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": {
+            "accepted": true,
+            "added_edges": [],
+            "added_tasks": [
+              "THERMAL_RECON__FIRE_SITE_3"
+            ],
+            "directly_released_tasks": []
+          },
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "referent"
+          },
+          "expected_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "거기",
+            "up_to_step": "THERMAL_RECON"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": {
+            "accepted": true,
+            "added_edges": [],
+            "added_tasks": [
+              "THERMAL_RECON__FIRE_SITE_3"
+            ],
+            "directly_released_tasks": []
+          },
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.00418150599944056,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 3,
+          "utterance": "거기는 열원 확인까지만 계획에 넣어줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": {
+            "about": "tasks",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_3"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": {
+            "about": "tasks",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_3"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.00030106999838608317,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 4,
+          "utterance": "FIRE_SITE_3에 어떤 task가 있어?"
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "B",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "B3",
+      "profile": "AERIAL_ONLY",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-b3",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "정찰 단계만 진행해. 모든 구역과 두 화재를 공중에서 확인하되 투하나 UGV 임무는 만들지 마."
+          },
+          {
+            "answer": "FIRE_SITE_2 대응 (1 task):\n  THERMAL_RECON__FIRE_SITE_2 -> S2 (READY)",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "agents",
+              "target_phrase": "FIRE_SITE_2"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_2",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": "FIRE_SITE_2",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-b3",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "FIRE_SITE_2 담당 로봇을 알려줘."
+          },
+          {
+            "answer": "등록된 화재 지점: FIRE_SITE_1, FIRE_SITE_2",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "incidents"
+            },
+            "generation": null,
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-b3",
+            "state_changed": false,
+            "turn_id": "t3",
+            "utterance": "현재 알려진 화재는 몇 곳이야?"
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+        "session_id": "p84-b3",
+        "turn_count": 3,
+        "validator_version": "1.4"
+      },
+      "shape": "QUERY",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0023457649986085016,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "정찰 단계만 진행해. 모든 구역과 두 화재를 공중에서 확인하되 투하나 UGV 임무는 만들지 마."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_2",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": {
+            "about": "agents",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_2"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_2",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": {
+            "about": "agents",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_2"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0002117709991580341,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "FIRE_SITE_2 담당 로봇을 알려줘."
+        },
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "about": "incidents",
+            "kind": "QUERY_STATUS"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "about": "incidents",
+            "kind": "QUERY_STATUS"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.00016592400061199442,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 3,
+          "utterance": "현재 알려진 화재는 몇 곳이야?"
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "B",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "B4",
+      "profile": "AERIAL_ONLY",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-b4",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "전 구역과 기존 화재를 항공으로만 확인해줘. 아직 투하와 지상 임무는 제외해."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "target_phrase": "그 화재",
+              "up_to_step": "GROUND_SUPPRESSION"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [
+                "FIRE_SITE_1",
+                "FIRE_SITE_2"
+              ],
+              "clarification": "어느 화재 지점을 말씀하시는 것입니까?",
+              "entity_id": null,
+              "entity_kind": "incident",
+              "reason": "AMBIGUOUS_ENTITY",
+              "status": "CLARIFICATION_REQUIRED",
+              "via": null
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "UPDATE_MISSION",
+            "mode": "mock",
+            "outcome": "CLARIFICATION",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-b4",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "그 화재는 지상 진압까지 확장해줘."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "target_phrase": "그 화재",
+              "up_to_step": "GROUND_SUPPRESSION"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_2",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "CANDIDATE_SELECTION",
+            "intent_kind": "UPDATE_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": {
+              "accepted": true,
+              "added_edges": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_2",
+                  "SUPPRESSANT_DROP__FIRE_SITE_2"
+                ],
+                [
+                  "SUPPRESSANT_DROP__FIRE_SITE_2",
+                  "GROUND_INSPECTION__FIRE_SITE_2"
+                ],
+                [
+                  "GROUND_INSPECTION__FIRE_SITE_2",
+                  "GROUND_SUPPRESSION__FIRE_SITE_2"
+                ]
+              ],
+              "added_tasks": [
+                "SUPPRESSANT_DROP__FIRE_SITE_2",
+                "GROUND_INSPECTION__FIRE_SITE_2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2"
+              ],
+              "directly_released_tasks": [],
+              "error_codes": [],
+              "status_changes": []
+            },
+            "patch_hash": "a99a8fcef3dfbd81526c1ea6b924edf4e351048d5a563ad402d4d1b2c6b76848",
+            "plan_assignment_changes": {
+              "added": {
+                "GROUND_INSPECTION__FIRE_SITE_2": "G2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2": "G2",
+                "SUPPRESSANT_DROP__FIRE_SITE_2": "R1"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "822b73fab0d6bd607877f7c2cabb514883b4825edb65dabdbc26a16745a8938f",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": "ab4c62972d17bc61e7d3eb0e7a2f07b41be7da308d1642df58b248abe96db827",
+            "referent_noted": "FIRE_SITE_2",
+            "resolved_models": [],
+            "resumed_from_turn_id": "t2",
+            "scene_changed": false,
+            "selected_entity_id": "FIRE_SITE_2",
+            "session_id": "p84-b4",
+            "state_changed": true,
+            "turn_id": "t3",
+            "utterance": "FIRE_SITE_2"
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+        "session_id": "p84-b4",
+        "turn_count": 3,
+        "validator_version": "1.4"
+      },
+      "shape": "AMBIGUOUS_SELECTION",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0023163299993029796,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "전 구역과 기존 화재를 항공으로만 확인해줘. 아직 투하와 지상 임무는 제외해."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [
+              "FIRE_SITE_1",
+              "FIRE_SITE_2"
+            ],
+            "entity_id": null,
+            "entity_kind": "incident",
+            "reason": "AMBIGUOUS_ENTITY",
+            "status": "CLARIFICATION_REQUIRED",
+            "via": null
+          },
+          "actual_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "그 화재",
+            "up_to_step": "GROUND_SUPPRESSION"
+          },
+          "actual_outcome": "CLARIFICATION",
+          "actual_patch": null,
+          "clarification_without_mutation": true,
+          "expected_grounding": {
+            "candidates": [
+              "FIRE_SITE_1",
+              "FIRE_SITE_2"
+            ],
+            "entity_id": null,
+            "entity_kind": "incident",
+            "reason": "AMBIGUOUS_ENTITY",
+            "status": "CLARIFICATION_REQUIRED",
+            "via": null
+          },
+          "expected_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "그 화재",
+            "up_to_step": "GROUND_SUPPRESSION"
+          },
+          "expected_outcome": "CLARIFICATION",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0002322289983567316,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "그 화재는 지상 진압까지 확장해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_2",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": null,
+          "actual_outcome": "COMMITTED",
+          "actual_patch": {
+            "accepted": true,
+            "added_edges": [
+              [
+                "GROUND_INSPECTION__FIRE_SITE_2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2"
+              ],
+              [
+                "SUPPRESSANT_DROP__FIRE_SITE_2",
+                "GROUND_INSPECTION__FIRE_SITE_2"
+              ],
+              [
+                "THERMAL_RECON__FIRE_SITE_2",
+                "SUPPRESSANT_DROP__FIRE_SITE_2"
+              ]
+            ],
+            "added_tasks": [
+              "GROUND_INSPECTION__FIRE_SITE_2",
+              "GROUND_SUPPRESSION__FIRE_SITE_2",
+              "SUPPRESSANT_DROP__FIRE_SITE_2"
+            ],
+            "directly_released_tasks": []
+          },
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_2",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": null,
+          "expected_outcome": "COMMITTED",
+          "expected_patch": {
+            "accepted": true,
+            "added_edges": [
+              [
+                "GROUND_INSPECTION__FIRE_SITE_2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2"
+              ],
+              [
+                "SUPPRESSANT_DROP__FIRE_SITE_2",
+                "GROUND_INSPECTION__FIRE_SITE_2"
+              ],
+              [
+                "THERMAL_RECON__FIRE_SITE_2",
+                "SUPPRESSANT_DROP__FIRE_SITE_2"
+              ]
+            ],
+            "added_tasks": [
+              "GROUND_INSPECTION__FIRE_SITE_2",
+              "GROUND_SUPPRESSION__FIRE_SITE_2",
+              "SUPPRESSANT_DROP__FIRE_SITE_2"
+            ],
+            "directly_released_tasks": []
+          },
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "CANDIDATE_SELECTION",
+          "intent_exact": null,
+          "latency_s": 0.004449661999387899,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": "FIRE_SITE_2",
+          "slots_exact": null,
+          "turn_exact": true,
+          "turn_number": 3,
+          "utterance": null
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "C",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "C1",
+      "profile": "SELECTIVE_RESPONSE",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "6022fe610c399f276fc40e1548bf8b19ad4810b078d93bfb417a1d3f3c42d97b",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "GROUND_INSPECTION__FIRE_SITE_1": "G2",
+                "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
+                "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "6022fe610c399f276fc40e1548bf8b19ad4810b078d93bfb417a1d3f3c42d97b",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-c1",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "모든 구역을 정찰하고 FIRE_SITE_1은 지상 진압까지, FIRE_SITE_2는 열원 확인까지만 계획해줘."
+          },
+          {
+            "answer": "현재 계획 (9 task):\n  AREA_RECON__ZONE_A -> S1 (READY)\n  AREA_RECON__ZONE_B -> S1 (READY)\n  AREA_RECON__ZONE_C -> S2 (READY)\n  AREA_RECON__ZONE_D -> S2 (READY)\n  GROUND_INSPECTION__FIRE_SITE_1 -> G2 (PENDING)\n  GROUND_SUPPRESSION__FIRE_SITE_1 -> G2 (PENDING)\n  SUPPRESSANT_DROP__FIRE_SITE_1 -> R1 (PENDING)\n  THERMAL_RECON__FIRE_SITE_1 -> S1 (READY)\n  THERMAL_RECON__FIRE_SITE_2 -> S2 (READY)",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "tasks"
+            },
+            "generation": null,
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "6022fe610c399f276fc40e1548bf8b19ad4810b078d93bfb417a1d3f3c42d97b",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "6022fe610c399f276fc40e1548bf8b19ad4810b078d93bfb417a1d3f3c42d97b",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-c1",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "지금 계획된 task를 알려줘."
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+        "session_id": "p84-c1",
+        "turn_count": 2,
+        "validator_version": "1.4"
+      },
+      "shape": "NEW_ONLY",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.004547677999653388,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "모든 구역을 정찰하고 FIRE_SITE_1은 지상 진압까지, FIRE_SITE_2는 열원 확인까지만 계획해줘."
+        },
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "about": "tasks",
+            "kind": "QUERY_STATUS"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "about": "tasks",
+            "kind": "QUERY_STATUS"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0002763619995675981,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "지금 계획된 task를 알려줘."
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "C",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "C2",
+      "profile": "SELECTIVE_RESPONSE",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "822b73fab0d6bd607877f7c2cabb514883b4825edb65dabdbc26a16745a8938f",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "GROUND_INSPECTION__FIRE_SITE_2": "G2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2": "G2",
+                "SUPPRESSANT_DROP__FIRE_SITE_2": "R1",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "822b73fab0d6bd607877f7c2cabb514883b4825edb65dabdbc26a16745a8938f",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-c2",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "모든 구역을 정찰해. FIRE_SITE_2는 지상 진압까지 처리하고 FIRE_SITE_1은 열원만 확인해줘."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "zone_ref": "A 구역"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "ZONE_A",
+              "entity_kind": "zone",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "REPORT_INCIDENT",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "822b73fab0d6bd607877f7c2cabb514883b4825edb65dabdbc26a16745a8938f",
+            "post_scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+            "pre_graph_hash": "822b73fab0d6bd607877f7c2cabb514883b4825edb65dabdbc26a16745a8938f",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": "FIRE_SITE_3",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": true,
+            "selected_entity_id": null,
+            "session_id": "p84-c2",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "A 구역에 새 화재가 발생했어."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "target_phrase": "거기",
+              "up_to_step": "GROUND_SUPPRESSION"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_3",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "referent"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "UPDATE_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": {
+              "accepted": true,
+              "added_edges": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_3",
+                  "SUPPRESSANT_DROP__FIRE_SITE_3"
+                ],
+                [
+                  "SUPPRESSANT_DROP__FIRE_SITE_3",
+                  "GROUND_INSPECTION__FIRE_SITE_3"
+                ],
+                [
+                  "GROUND_INSPECTION__FIRE_SITE_3",
+                  "GROUND_SUPPRESSION__FIRE_SITE_3"
+                ]
+              ],
+              "added_tasks": [
+                "THERMAL_RECON__FIRE_SITE_3",
+                "SUPPRESSANT_DROP__FIRE_SITE_3",
+                "GROUND_INSPECTION__FIRE_SITE_3",
+                "GROUND_SUPPRESSION__FIRE_SITE_3"
+              ],
+              "directly_released_tasks": [],
+              "error_codes": [],
+              "status_changes": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_3",
+                  "PENDING",
+                  "READY"
+                ]
+              ]
+            },
+            "patch_hash": "3a58670602153a75a310ac3a92781930773955a3a53ddd17349b45901ac3c8ba",
+            "plan_assignment_changes": {
+              "added": {
+                "GROUND_INSPECTION__FIRE_SITE_3": "G2",
+                "GROUND_SUPPRESSION__FIRE_SITE_3": "G2",
+                "SUPPRESSANT_DROP__FIRE_SITE_3": "R2",
+                "THERMAL_RECON__FIRE_SITE_3": "S2"
+              },
+              "changed": {
+                "AREA_RECON__ZONE_A": [
+                  "S1",
+                  "S2"
+                ],
+                "AREA_RECON__ZONE_D": [
+                  "S2",
+                  "S1"
+                ],
+                "GROUND_INSPECTION__FIRE_SITE_2": [
+                  "G2",
+                  "G1"
+                ],
+                "GROUND_SUPPRESSION__FIRE_SITE_2": [
+                  "G2",
+                  "G1"
+                ],
+                "THERMAL_RECON__FIRE_SITE_2": [
+                  "S2",
+                  "R1"
+                ]
+              },
+              "removed": {}
+            },
+            "post_graph_hash": "176810daa79159f63cc89685dea213fd19d554f89e5bd1b6f664c44ade490514",
+            "post_scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+            "pre_graph_hash": "822b73fab0d6bd607877f7c2cabb514883b4825edb65dabdbc26a16745a8938f",
+            "pre_scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+            "pre_state_hash": "2e2693f3bd42f046bdceb37d36c0f4f02bbe162057c24604aebbd2db4175935c",
+            "referent_noted": "FIRE_SITE_3",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-c2",
+            "state_changed": true,
+            "turn_id": "t3",
+            "utterance": "거기를 지상 진압까지 추가해줘."
+          },
+          {
+            "answer": "FIRE_SITE_3 대응 (4 task):\n  GROUND_INSPECTION__FIRE_SITE_3 -> G2 (PENDING)\n  GROUND_SUPPRESSION__FIRE_SITE_3 -> G2 (PENDING)\n  SUPPRESSANT_DROP__FIRE_SITE_3 -> R2 (PENDING)\n  THERMAL_RECON__FIRE_SITE_3 -> S2 (READY)",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 3,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "mission",
+              "target_phrase": "거기"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_3",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "referent"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "176810daa79159f63cc89685dea213fd19d554f89e5bd1b6f664c44ade490514",
+            "post_scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+            "pre_graph_hash": "176810daa79159f63cc89685dea213fd19d554f89e5bd1b6f664c44ade490514",
+            "pre_scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-c2",
+            "state_changed": false,
+            "turn_id": "t4",
+            "utterance": "거기 대응 상태를 알려줘."
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "181548af88996185c65c8adc087657a6d013f8924de8067f7adaebb2e6b0abe3",
+        "session_id": "p84-c2",
+        "turn_count": 4,
+        "validator_version": "1.4"
+      },
+      "shape": "REPORT_UPDATE",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0046563229989260435,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "모든 구역을 정찰해. FIRE_SITE_2는 지상 진압까지 처리하고 FIRE_SITE_1은 열원만 확인해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "ZONE_A",
+            "entity_kind": "zone",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": {
+            "kind": "REPORT_INCIDENT",
+            "zone_ref": "A 구역"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "ZONE_A",
+            "entity_kind": "zone",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": {
+            "kind": "REPORT_INCIDENT",
+            "zone_ref": "A 구역"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.00044847800018033013,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "A 구역에 새 화재가 발생했어."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "referent"
+          },
+          "actual_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "거기",
+            "up_to_step": "GROUND_SUPPRESSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": {
+            "accepted": true,
+            "added_edges": [
+              [
+                "GROUND_INSPECTION__FIRE_SITE_3",
+                "GROUND_SUPPRESSION__FIRE_SITE_3"
+              ],
+              [
+                "SUPPRESSANT_DROP__FIRE_SITE_3",
+                "GROUND_INSPECTION__FIRE_SITE_3"
+              ],
+              [
+                "THERMAL_RECON__FIRE_SITE_3",
+                "SUPPRESSANT_DROP__FIRE_SITE_3"
+              ]
+            ],
+            "added_tasks": [
+              "GROUND_INSPECTION__FIRE_SITE_3",
+              "GROUND_SUPPRESSION__FIRE_SITE_3",
+              "SUPPRESSANT_DROP__FIRE_SITE_3",
+              "THERMAL_RECON__FIRE_SITE_3"
+            ],
+            "directly_released_tasks": []
+          },
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "referent"
+          },
+          "expected_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "거기",
+            "up_to_step": "GROUND_SUPPRESSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": {
+            "accepted": true,
+            "added_edges": [
+              [
+                "GROUND_INSPECTION__FIRE_SITE_3",
+                "GROUND_SUPPRESSION__FIRE_SITE_3"
+              ],
+              [
+                "SUPPRESSANT_DROP__FIRE_SITE_3",
+                "GROUND_INSPECTION__FIRE_SITE_3"
+              ],
+              [
+                "THERMAL_RECON__FIRE_SITE_3",
+                "SUPPRESSANT_DROP__FIRE_SITE_3"
+              ]
+            ],
+            "added_tasks": [
+              "GROUND_INSPECTION__FIRE_SITE_3",
+              "GROUND_SUPPRESSION__FIRE_SITE_3",
+              "SUPPRESSANT_DROP__FIRE_SITE_3",
+              "THERMAL_RECON__FIRE_SITE_3"
+            ],
+            "directly_released_tasks": []
+          },
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0070813380007166415,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 3,
+          "utterance": "거기를 지상 진압까지 추가해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "referent"
+          },
+          "actual_intent": {
+            "about": "mission",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "거기"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_3",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "referent"
+          },
+          "expected_intent": {
+            "about": "mission",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "거기"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.00032020599974202923,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 4,
+          "utterance": "거기 대응 상태를 알려줘."
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "C",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "C3",
+      "profile": "SELECTIVE_RESPONSE",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "124932867db19e3fb4f63691c9a603d2c4098f58330d59ccafe54209d0c9566b",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "GROUND_INSPECTION__FIRE_SITE_1": "G2",
+                "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
+                "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "124932867db19e3fb4f63691c9a603d2c4098f58330d59ccafe54209d0c9566b",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-c3",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "구역 정찰은 생략하고 FIRE_SITE_1은 지상 진압까지, FIRE_SITE_2는 열원 확인만 계획해줘."
+          },
+          {
+            "answer": "FIRE_SITE_1 대응 (4 task):\n  GROUND_INSPECTION__FIRE_SITE_1 -> G2 (PENDING)\n  GROUND_SUPPRESSION__FIRE_SITE_1 -> G2 (PENDING)\n  SUPPRESSANT_DROP__FIRE_SITE_1 -> R1 (PENDING)\n  THERMAL_RECON__FIRE_SITE_1 -> S1 (READY)",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "agents",
+              "target_phrase": "FIRE_SITE_1"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_1",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "124932867db19e3fb4f63691c9a603d2c4098f58330d59ccafe54209d0c9566b",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "124932867db19e3fb4f63691c9a603d2c4098f58330d59ccafe54209d0c9566b",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": "FIRE_SITE_1",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-c3",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "FIRE_SITE_1에 배정된 로봇을 알려줘."
+          },
+          {
+            "answer": "FIRE_SITE_2 대응 (1 task):\n  THERMAL_RECON__FIRE_SITE_2 -> S2 (READY)",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "about": "tasks",
+              "target_phrase": "FIRE_SITE_2"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_2",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "QUERY_STATUS",
+            "mode": "mock",
+            "outcome": "ANSWERED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "124932867db19e3fb4f63691c9a603d2c4098f58330d59ccafe54209d0c9566b",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "124932867db19e3fb4f63691c9a603d2c4098f58330d59ccafe54209d0c9566b",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": "FIRE_SITE_2",
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-c3",
+            "state_changed": false,
+            "turn_id": "t3",
+            "utterance": "FIRE_SITE_2에 계획된 task를 알려줘."
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+        "session_id": "p84-c3",
+        "turn_count": 3,
+        "validator_version": "1.4"
+      },
+      "shape": "QUERY",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0035273389985377435,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "구역 정찰은 생략하고 FIRE_SITE_1은 지상 진압까지, FIRE_SITE_2는 열원 확인만 계획해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_1",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": {
+            "about": "agents",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_1"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_1",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": {
+            "about": "agents",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_1"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0005206749992794357,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "FIRE_SITE_1에 배정된 로봇을 알려줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_2",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": {
+            "about": "tasks",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_2"
+          },
+          "actual_outcome": "ANSWERED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_2",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": {
+            "about": "tasks",
+            "kind": "QUERY_STATUS",
+            "target_phrase": "FIRE_SITE_2"
+          },
+          "expected_outcome": "ANSWERED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0003051370003959164,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 3,
+          "utterance": "FIRE_SITE_2에 계획된 task를 알려줘."
+        }
+      ]
+    },
+    {
+      "dialogue_exact": true,
+      "family": "C",
+      "final_graph_exact": true,
+      "harness_errors": [],
+      "id": "C4",
+      "profile": "SELECTIVE_RESPONSE",
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "6022fe610c399f276fc40e1548bf8b19ad4810b078d93bfb417a1d3f3c42d97b",
+              "repaired": false
+            },
+            "grounding": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S1",
+                "AREA_RECON__ZONE_C": "S2",
+                "AREA_RECON__ZONE_D": "S2",
+                "GROUND_INSPECTION__FIRE_SITE_1": "G2",
+                "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
+                "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
+                "THERMAL_RECON__FIRE_SITE_1": "S1",
+                "THERMAL_RECON__FIRE_SITE_2": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "6022fe610c399f276fc40e1548bf8b19ad4810b078d93bfb417a1d3f3c42d97b",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-c4",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "네 구역을 정찰하고 FIRE_SITE_1만 전체 대응해. FIRE_SITE_2는 열원 확인까지만 해줘."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 1,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "target_phrase": "그 화재",
+              "up_to_step": "GROUND_SUPPRESSION"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [
+                "FIRE_SITE_1",
+                "FIRE_SITE_2"
+              ],
+              "clarification": "어느 화재 지점을 말씀하시는 것입니까?",
+              "entity_id": null,
+              "entity_kind": "incident",
+              "reason": "AMBIGUOUS_ENTITY",
+              "status": "CLARIFICATION_REQUIRED",
+              "via": null
+            },
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "UPDATE_MISSION",
+            "mode": "mock",
+            "outcome": "CLARIFICATION",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "6022fe610c399f276fc40e1548bf8b19ad4810b078d93bfb417a1d3f3c42d97b",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "6022fe610c399f276fc40e1548bf8b19ad4810b078d93bfb417a1d3f3c42d97b",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p84-c4",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "그 화재를 지상 진압까지 처리해줘."
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "target_phrase": "그 화재",
+              "up_to_step": "GROUND_SUPPRESSION"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [],
+              "clarification": null,
+              "entity_id": "FIRE_SITE_2",
+              "entity_kind": "incident",
+              "reason": null,
+              "status": "RESOLVED",
+              "via": "explicit"
+            },
+            "input_kind": "CANDIDATE_SELECTION",
+            "intent_kind": "UPDATE_MISSION",
+            "mode": "mock",
+            "outcome": "COMMITTED",
+            "patch": {
+              "accepted": true,
+              "added_edges": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_2",
+                  "SUPPRESSANT_DROP__FIRE_SITE_2"
+                ],
+                [
+                  "SUPPRESSANT_DROP__FIRE_SITE_2",
+                  "GROUND_INSPECTION__FIRE_SITE_2"
+                ],
+                [
+                  "GROUND_INSPECTION__FIRE_SITE_2",
+                  "GROUND_SUPPRESSION__FIRE_SITE_2"
+                ]
+              ],
+              "added_tasks": [
+                "SUPPRESSANT_DROP__FIRE_SITE_2",
+                "GROUND_INSPECTION__FIRE_SITE_2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2"
+              ],
+              "directly_released_tasks": [],
+              "error_codes": [],
+              "status_changes": []
+            },
+            "patch_hash": "6d43ebad7704ca92ecf32be5153a33a15b0f61a14737d0984e7ce18ffcde8ecd",
+            "plan_assignment_changes": {
+              "added": {
+                "GROUND_INSPECTION__FIRE_SITE_2": "G1",
+                "GROUND_SUPPRESSION__FIRE_SITE_2": "G1",
+                "SUPPRESSANT_DROP__FIRE_SITE_2": "R2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+            "post_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_graph_hash": "6022fe610c399f276fc40e1548bf8b19ad4810b078d93bfb417a1d3f3c42d97b",
+            "pre_scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+            "pre_state_hash": "a4db8c7037295f81a819758ad078aad042ccefc7dc3c7b55318e9688a9cc55c1",
+            "referent_noted": "FIRE_SITE_2",
+            "resolved_models": [],
+            "resumed_from_turn_id": "t2",
+            "scene_changed": false,
+            "selected_entity_id": "FIRE_SITE_2",
+            "session_id": "p84-c4",
+            "state_changed": true,
+            "turn_id": "t3",
+            "utterance": "FIRE_SITE_2"
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+        "session_id": "p84-c4",
+        "turn_count": 3,
+        "validator_version": "1.4"
+      },
+      "shape": "AMBIGUOUS_SELECTION",
+      "turns": [
+        {
+          "actual_grounding": null,
+          "actual_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "actual_outcome": "COMMITTED",
+          "actual_patch": null,
+          "clarification_without_mutation": null,
+          "expected_grounding": null,
+          "expected_intent": {
+            "kind": "NEW_MISSION"
+          },
+          "expected_outcome": "COMMITTED",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.007253734998812433,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 1,
+          "utterance": "네 구역을 정찰하고 FIRE_SITE_1만 전체 대응해. FIRE_SITE_2는 열원 확인까지만 해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [
+              "FIRE_SITE_1",
+              "FIRE_SITE_2"
+            ],
+            "entity_id": null,
+            "entity_kind": "incident",
+            "reason": "AMBIGUOUS_ENTITY",
+            "status": "CLARIFICATION_REQUIRED",
+            "via": null
+          },
+          "actual_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "그 화재",
+            "up_to_step": "GROUND_SUPPRESSION"
+          },
+          "actual_outcome": "CLARIFICATION",
+          "actual_patch": null,
+          "clarification_without_mutation": true,
+          "expected_grounding": {
+            "candidates": [
+              "FIRE_SITE_1",
+              "FIRE_SITE_2"
+            ],
+            "entity_id": null,
+            "entity_kind": "incident",
+            "reason": "AMBIGUOUS_ENTITY",
+            "status": "CLARIFICATION_REQUIRED",
+            "via": null
+          },
+          "expected_intent": {
+            "kind": "UPDATE_MISSION",
+            "target_phrase": "그 화재",
+            "up_to_step": "GROUND_SUPPRESSION"
+          },
+          "expected_outcome": "CLARIFICATION",
+          "expected_patch": null,
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "NATURAL_LANGUAGE",
+          "intent_exact": true,
+          "latency_s": 0.0004579560009005945,
+          "patch_exact": true,
+          "referent_exact": null,
+          "selected_entity_id": null,
+          "slots_exact": true,
+          "turn_exact": true,
+          "turn_number": 2,
+          "utterance": "그 화재를 지상 진압까지 처리해줘."
+        },
+        {
+          "actual_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_2",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "actual_intent": null,
+          "actual_outcome": "COMMITTED",
+          "actual_patch": {
+            "accepted": true,
+            "added_edges": [
+              [
+                "GROUND_INSPECTION__FIRE_SITE_2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2"
+              ],
+              [
+                "SUPPRESSANT_DROP__FIRE_SITE_2",
+                "GROUND_INSPECTION__FIRE_SITE_2"
+              ],
+              [
+                "THERMAL_RECON__FIRE_SITE_2",
+                "SUPPRESSANT_DROP__FIRE_SITE_2"
+              ]
+            ],
+            "added_tasks": [
+              "GROUND_INSPECTION__FIRE_SITE_2",
+              "GROUND_SUPPRESSION__FIRE_SITE_2",
+              "SUPPRESSANT_DROP__FIRE_SITE_2"
+            ],
+            "directly_released_tasks": []
+          },
+          "clarification_without_mutation": null,
+          "expected_grounding": {
+            "candidates": [],
+            "entity_id": "FIRE_SITE_2",
+            "entity_kind": "incident",
+            "reason": null,
+            "status": "RESOLVED",
+            "via": "explicit"
+          },
+          "expected_intent": null,
+          "expected_outcome": "COMMITTED",
+          "expected_patch": {
+            "accepted": true,
+            "added_edges": [
+              [
+                "GROUND_INSPECTION__FIRE_SITE_2",
+                "GROUND_SUPPRESSION__FIRE_SITE_2"
+              ],
+              [
+                "SUPPRESSANT_DROP__FIRE_SITE_2",
+                "GROUND_INSPECTION__FIRE_SITE_2"
+              ],
+              [
+                "THERMAL_RECON__FIRE_SITE_2",
+                "SUPPRESSANT_DROP__FIRE_SITE_2"
+              ]
+            ],
+            "added_tasks": [
+              "GROUND_INSPECTION__FIRE_SITE_2",
+              "GROUND_SUPPRESSION__FIRE_SITE_2",
+              "SUPPRESSANT_DROP__FIRE_SITE_2"
+            ],
+            "directly_released_tasks": []
+          },
+          "grounding_exact": true,
+          "harness_error": null,
+          "input_kind": "CANDIDATE_SELECTION",
+          "intent_exact": null,
+          "latency_s": 0.009614847996999742,
+          "patch_exact": true,
+          "referent_exact": true,
+          "selected_entity_id": "FIRE_SITE_2",
+          "slots_exact": null,
+          "turn_exact": true,
+          "turn_number": 3,
+          "utterance": null
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "backend_kind": "mock",
+    "finished_at": "2026-09-06T08:39:35.208611+00:00",
+    "model": null,
+    "scene_hash": "3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb",
+    "started_at": "2026-09-06T08:39:35.110313+00:00",
+    "track": "grounder-only",
+    "validator_version": "1.4"
+  },
+  "metrics": {
+    "candidate_selection_exact": {
+      "d": 3,
+      "n": 3
+    },
+    "clarification_precision": {
+      "d": 3,
+      "n": 3
+    },
+    "clarification_recall": {
+      "d": 3,
+      "n": 3
+    },
+    "clarification_without_mutation": {
+      "d": 3,
+      "n": 3
+    },
+    "dialogue_exact": {
+      "d": 12,
+      "n": 12
+    },
+    "final_graph_exact": {
+      "d": 12,
+      "n": 12
+    },
+    "intent_accuracy": {
+      "d": 33,
+      "n": 33
+    },
+    "patch_exact": {
+      "d": 5,
+      "n": 5
+    },
+    "referent_resolution_accuracy": {
+      "d": 16,
+      "n": 16
+    },
+    "slot_accuracy": {
+      "d": 33,
+      "n": 33
+    },
+    "turn_exact": {
+      "d": 36,
+      "n": 36
+    },
+    "wrong_guess_rate": {
+      "d": 3,
+      "n": 0
+    }
+  }
+}

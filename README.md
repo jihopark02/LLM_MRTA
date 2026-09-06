@@ -17,7 +17,8 @@ Unmanned Systems
 9개 입력 평가 하네스 + 감사 JSON + 시각화; P6.5: 통합 runner). **P8.1~P8.3 승인 완료** —
 `interaction/`(intent schema, planning session, 결정론적 grounder, incident 등록,
 canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행 감사, live/cached/mock)
-+ `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. 테스트 593개 통과.
++ `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가 완료**.
+테스트 601개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -32,8 +33,10 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.32 / 최신 결정 D-034 (P8 = 실행 전 다중 턴 자연어 계획
-세션, §18 — P8.0~P8.3 승인 완료, 다음 P8.4 interaction 평가). 단계 게이트 정의는
+workflow (D-016). 계약 버전 v1.35 / 최신 결정 D-038 (P8 = 실행 전 다중 턴 자연어 계획
+세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
+dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
+[`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
 [`docs/RESEARCH_CONTRACT.md`](docs/RESEARCH_CONTRACT.md) §15 참고.
 
 ## 운영자 UI

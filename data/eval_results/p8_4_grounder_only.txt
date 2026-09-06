@@ -1,0 +1,45 @@
+P8.4 operator-interaction evaluation (RESEARCH_CONTRACT.md §18.11)
+========================================================================
+track          grounder-only
+backend        mock
+scene_hash     3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb
+validator      1.4
+run            2026-09-06T08:39:35.110313+00:00 .. 2026-09-06T08:39:35.208611+00:00
+
+sample denominators
+  dialogues                    12
+  operator/audit turns         36
+  natural-language turns       33
+  structured selections        3
+  resolved-referent turns      16
+  expected patch turns         5
+  clarification +/-            3/33
+
+metrics (raw count and ratio)
+  dialogue exact               12/12 (1.000)
+  turn exact                   36/36 (1.000)
+  final graph exact            12/12 (1.000)
+  intent accuracy              33/33 (1.000)
+  slot accuracy                33/33 (1.000)
+  referent accuracy            16/16 (1.000)
+  patch exact                  5/5 (1.000)
+  clarification precision      3/3 (1.000)
+  clarification recall         3/3 (1.000)
+  wrong guesses                0/3 (0.000)
+  clarification no-mutation    3/3 (1.000)
+  candidate selection exact    3/3 (1.000)
+  harness errors               0
+
+per dialogue
+  A1 A/NEW_ONLY            turn 2/2  graph=True  exact=True
+  A2 A/REPORT_UPDATE       turn 4/4  graph=True  exact=True
+  A3 A/QUERY               turn 3/3  graph=True  exact=True
+  A4 A/AMBIGUOUS_SELECTION turn 3/3  graph=True  exact=True
+  B1 B/NEW_ONLY            turn 2/2  graph=True  exact=True
+  B2 B/REPORT_UPDATE       turn 4/4  graph=True  exact=True
+  B3 B/QUERY               turn 3/3  graph=True  exact=True
+  B4 B/AMBIGUOUS_SELECTION turn 3/3  graph=True  exact=True
+  C1 C/NEW_ONLY            turn 2/2  graph=True  exact=True
+  C2 C/REPORT_UPDATE       turn 4/4  graph=True  exact=True
+  C3 C/QUERY               turn 3/3  graph=True  exact=True
+  C4 C/AMBIGUOUS_SELECTION turn 3/3  graph=True  exact=True

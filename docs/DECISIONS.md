@@ -1274,3 +1274,20 @@ incident를 포함한 final은 gold REPORT를 결정론적으로 적용한 scene
 
 **영향** §18.11, P8.4 gold와 loader. Validator 판정 규칙·hash payload는 바뀌지 않으므로
 `VALIDATOR_VERSION`은 1.4 그대로다.
+
+## D-038: P8.4 최초 live 결과 동결과 사후 튜닝 경계
+
+**배경** D-035~D-037로 live 호출 전에 고정한 12개 dialogue를 P8.4 하네스로 실행했다.
+grounder-only는 dialogue exact 12/12였지만, 실제 `gpt-5-mini-2025-08-07` end-to-end는
+6/12였다. 주 실패는 한국어 조사가 포함된 slot(`거기는`, `Utility Yard에서` 등)과
+`NEW_MISSION`의 금지 `note` 출력이다.
+
+**결정** 최초 live 결과와 전체 turn audit를 `data/eval_results/p8_4_gpt-5-mini.*`에 그대로
+동결한다. 앞선 실패로 전제가 사라진 후속 turn도 분모에서 제거하지 않는다. 이 결과를 보고
+prompt/normalizer를 개선할 수는 있지만, 같은 12개에서 얻은 사후 상승값은 새 end-to-end
+headline으로 쓰지 않는다. 성능 개선 주장은 별도의 held-out dialogue가 있어야 한다.
+grounder-only의 intent·slot exact는 gold 주입 경계 검사이며 LLM 성능으로 서술하지 않는다.
+
+**영향** `docs/P8_4_RESULTS.md`, P8.4 감사 JSON·text 결과, README/CLAUDE 상태. 계약의 평가
+방법과 Validator 판정 규칙은 바뀌지 않으므로 계약은 v1.35, `VALIDATOR_VERSION`은 1.4를
+유지한다.

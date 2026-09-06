@@ -19,17 +19,17 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-034, 계약 v1.32)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-038, 계약 v1.35)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-06 기준)
 
-**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.3 승인 완료
-(브랜치 `feature/operator-interaction`). 계약 v1.32 (D-034 — OpenAI intent wire 경계).**
+**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.4 완료
+(브랜치 `feature/operator-interaction`). 계약 v1.35, 최신 결정 D-038.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 593개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 601개 통과, ruff clean.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 실행 개시 전 다중 턴 자연어 계획 세션.
 5종 대화 행위(NEW_MISSION/REPORT_INCIDENT/UPDATE_MISSION/QUERY_STATUS/UNSUPPORTED). LLM은
@@ -79,8 +79,14 @@ P8.2 구조 (D-029, D-030):
 - `interaction/session.py`: `SESSION_ID_PATTERN` + `valid_session_id`(fullmatch) — id가
   파일명이 되므로 생성자에서 강제(D-030), `audit_path`도 공유.
 
-다음: **P8.4** — §18.11의 12-dialogue interaction 평가. P8.5 graph·2D 경로 UI 폴리싱은
-그 다음 선택 단계다.
+P8.4 (§18.11): 사전 고정 12-dialogue / 36-turn 평가. grounder-only dialogue exact 12/12,
+실제 `gpt-5-mini-2025-08-07` end-to-end 6/12. clarification recall 3/3·wrong guess 0/3이나
+precision 3/11이며, 한국어 조사 포함 slot과 금지 `note` 출력이 주 실패 원인이다.
+`docs/P8_4_RESULTS.md`와 `data/eval_results/p8_4_*` 참고. 같은 12개를 사후 튜닝 결과의 새
+headline으로 재사용하지 않는다.
+
+다음: 실행 중 명령과 선택적 재할당은 아직 계약 밖이다. 착수 전 별도 단계(P9)로 계약·게이트를
+먼저 고정한다. P8.5 graph·2D 경로 UI 폴리싱은 보류 가능하다.
 
 P8.3 구조 (D-031~D-034, 계약 v1.32):
 - **통합 `event_log: list[TurnAudit | ExecutionAudit]`** — list 순서가 event 순서의 유일한
