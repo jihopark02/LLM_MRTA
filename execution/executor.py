@@ -66,6 +66,49 @@ class _Sim:
     busy: float = 0.0
 
 
+@dataclass(frozen=True, slots=True)
+class _SimSnapshot:
+    current: str | None
+    finish_at: float
+    busy: float
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionCheckpoint:
+    """Deep executor snapshot at a deterministic event boundary (§19.2).
+
+    ``_work`` is intentionally private and is cloned both when the checkpoint
+    is created and when it is restored.  The public API never hands its mutable
+    graph/agents to a caller, so advancing either executor cannot mutate a
+    previously captured checkpoint.
+    """
+
+    _work: MissionState = field(repr=False)
+    now: float
+    access_nodes: tuple[tuple[str, str], ...]
+    sim: tuple[tuple[str, _SimSnapshot], ...]
+    assignments: tuple[tuple[str, str], ...]
+    winning_bids: tuple[tuple[str, float], ...]
+    task_departure: tuple[tuple[str, float], ...]
+    task_start: tuple[tuple[str, float], ...]
+    task_completion: tuple[tuple[str, float], ...]
+    consensus_rounds: tuple[int, ...]
+    uav_flight: float
+    ugv_route: float
+    lam: float
+    started: bool
+    epoch_pending: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CompletionAdvance:
+    """Result of advancing to one completion event or a terminal state."""
+
+    checkpoint: ExecutionCheckpoint
+    completed_now: tuple[str, ...]
+    execution: ExecutionResult | None = None
+
+
 def _preds_done(graph, task_id) -> bool:
     return all(graph[p].status is TaskStatus.COMPLETED for p in graph.predecessors(task_id))
 
@@ -77,7 +120,9 @@ class SimExecutor:
         self.agents = self.work.agents
         self.scene = scene
         self.lam = lam
-        self.access_nodes = dict(scene.agent_access_nodes)
+        self.access_nodes = {
+            aid: node for aid, node in scene.agent_access_nodes.items() if aid in self.agents
+        }
         self.sim: dict[str, _Sim] = {aid: _Sim() for aid in self.agents}
 
         for agent in self.agents.values():
@@ -92,6 +137,77 @@ class SimExecutor:
         self.consensus_rounds: list[int] = []
         self.uav_flight = 0.0
         self.ugv_route = 0.0
+        self._started = False
+        self._epoch_pending = False
+
+    # -- checkpoint / restore (§19.2) --------------------------------
+    def checkpoint(self) -> ExecutionCheckpoint:
+        return ExecutionCheckpoint(
+            _work=self.work.clone(),
+            now=self.now,
+            access_nodes=tuple(sorted(self.access_nodes.items())),
+            sim=tuple(
+                (aid, _SimSnapshot(value.current, value.finish_at, value.busy))
+                for aid, value in sorted(self.sim.items())
+            ),
+            assignments=tuple(sorted(self.assignments.items())),
+            winning_bids=tuple(sorted(self.winning_bids.items())),
+            task_departure=tuple(sorted(self.task_departure.items())),
+            task_start=tuple(sorted(self.task_start.items())),
+            task_completion=tuple(sorted(self.task_completion.items())),
+            consensus_rounds=tuple(self.consensus_rounds),
+            uav_flight=self.uav_flight,
+            ugv_route=self.ugv_route,
+            lam=self.lam,
+            started=self._started,
+            epoch_pending=self._epoch_pending,
+        )
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        checkpoint: ExecutionCheckpoint,
+        scene: Scene,
+    ) -> "SimExecutor":
+        if not isinstance(checkpoint, ExecutionCheckpoint):
+            raise TypeError("checkpoint must be an ExecutionCheckpoint")
+        executor = cls.__new__(cls)
+        executor.work = checkpoint._work.clone()
+        executor.graph = executor.work.graph
+        executor.agents = executor.work.agents
+        executor.scene = scene
+        executor.lam = checkpoint.lam
+        executor.access_nodes = dict(checkpoint.access_nodes)
+        executor.sim = {
+            aid: _Sim(value.current, value.finish_at, value.busy)
+            for aid, value in checkpoint.sim
+        }
+        if set(executor.sim) != set(executor.agents):
+            raise ValueError("checkpoint sim agents do not match MissionState agents")
+        if set(executor.access_nodes) - set(executor.agents):
+            raise ValueError("checkpoint access nodes reference unknown agents")
+        executor.now = checkpoint.now
+        executor.assignments = dict(checkpoint.assignments)
+        executor.winning_bids = dict(checkpoint.winning_bids)
+        executor.task_departure = dict(checkpoint.task_departure)
+        executor.task_start = dict(checkpoint.task_start)
+        executor.task_completion = dict(checkpoint.task_completion)
+        executor.consensus_rounds = list(checkpoint.consensus_rounds)
+        executor.uav_flight = checkpoint.uav_flight
+        executor.ugv_route = checkpoint.ugv_route
+        executor._started = checkpoint.started
+        executor._epoch_pending = checkpoint.epoch_pending
+        return executor
+
+    def _prepare_epoch(self) -> None:
+        if not self._started:
+            self.graph.recompute_ready()
+            self._run_epoch()
+            self._started = True
+            self._epoch_pending = False
+        elif self._epoch_pending:
+            self._run_epoch()
+            self._epoch_pending = False
 
     def _epoch_scene(self) -> Scene:
         return replace(self.scene, agent_access_nodes=dict(self.access_nodes))
@@ -192,9 +308,10 @@ class SimExecutor:
             moved = True
         return moved
 
-    def _advance(self) -> None:
+    def _advance(self) -> tuple[str, ...]:
         working = [aid for aid, s in self.sim.items() if s.current is not None]
         self.now = min(self.sim[aid].finish_at for aid in working)
+        completed_now: list[str] = []
         for agent_id in sorted(working):
             s = self.sim[agent_id]
             if s.finish_at > self.now + _EPS:
@@ -216,11 +333,45 @@ class SimExecutor:
             if task_id in agent.bundle:
                 agent.bundle.remove(task_id)
             s.current = None
+            completed_now.append(task_id)
+        return tuple(sorted(completed_now))
+
+    def advance_to_next_completion(self, max_steps: int = 10_000) -> CompletionAdvance:
+        """Advance to exactly one task-completion event, then pause (§19.2).
+
+        READY is recomputed after the event, but its auction is deferred until
+        resume.  This is the deterministic window in which an online command
+        may add another READY task before the next CBBA epoch.
+        """
+        self._prepare_epoch()
+        for _ in range(max_steps):
+            if all(t.status not in _UNFINISHED for t in self.graph.tasks):
+                result = self._result(Termination.COMPLETED)
+                return CompletionAdvance(self.checkpoint(), (), result)
+            if self._dispatch():
+                continue
+            if any(s.current is not None for s in self.sim.values()):
+                completed = self._advance()
+                self.graph.recompute_ready()
+                self._epoch_pending = True
+                result = None
+                if all(t.status not in _UNFINISHED for t in self.graph.tasks):
+                    result = self._result(Termination.COMPLETED)
+                return CompletionAdvance(self.checkpoint(), completed, result)
+            self.graph.recompute_ready()
+            if self._run_epoch():
+                self._started = True
+                self._epoch_pending = False
+                continue
+            result = self._result(Termination.DEADLOCK)
+            return CompletionAdvance(self.checkpoint(), (), result)
+
+        result = self._result(Termination.STEP_LIMIT)
+        return CompletionAdvance(self.checkpoint(), (), result)
 
     # -- run --------------------------------------------------------
     def run(self, max_steps: int = 10_000) -> ExecutionResult:
-        self.graph.recompute_ready()
-        self._run_epoch()
+        self._prepare_epoch()
 
         termination = Termination.STEP_LIMIT
         for _ in range(max_steps):
@@ -233,6 +384,7 @@ class SimExecutor:
                 self._advance()
                 self.graph.recompute_ready()  # a completion may unlock a task
                 self._run_epoch()
+                self._epoch_pending = False
                 continue
             # Nobody is working, nothing dispatched. Recompute the frontier ONE
             # more time before declaring deadlock (§14), then try an epoch.
@@ -308,3 +460,12 @@ class SimExecutor:
             idle_agents=sorted(aid for aid, n in workload.items() if n == 0),
             unfinished_tasks=unfinished,
         )
+
+
+__all__ = [
+    "CompletionAdvance",
+    "ExecutionCheckpoint",
+    "ExecutionResult",
+    "SimExecutor",
+    "Termination",
+]
