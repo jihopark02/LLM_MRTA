@@ -19,8 +19,10 @@ turns:
     outcome: COMMITTED
     grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_3, via: referent}
     patch:
+      accepted: true
       added_tasks: [THERMAL_RECON__FIRE_SITE_3]
       added_edges: []
+      directly_released_tasks: []
   - input_kind: NATURAL_LANGUAGE
     utterance: FIRE_SITE_3에 어떤 task가 있어?
     intent: {kind: QUERY_STATUS, about: tasks, target_phrase: FIRE_SITE_3}

@@ -1261,3 +1261,16 @@ incident를 포함한 final은 gold REPORT를 결정론적으로 적용한 scene
 
 **영향** §18.11, P8.4 gold 12개, annotation loader. Validator 판정 규칙·hash payload는
 바뀌지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.
+
+## D-037: P8.4 patch 승인·release gold 명문화 (계약 v1.35)
+
+**배경** §18.11 첫 문단은 기대 `apply_patch` 판정과 released task를 요구하지만 D-035의
+구체 schema 설명은 `added_tasks`/`added_edges`만 열거했다. 암묵적으로 모두 승인·release 0이라
+가정하면 Validator/reconciliation 결과를 평가에서 실제로 확인하지 않게 된다.
+
+**결정** patch가 있는 모든 gold turn은 `accepted`, `added_tasks`, `added_edges`,
+`directly_released_tasks` 네 필드를 정확히 가진다. 현재 canonical chain extension은 모두
+`accepted=true`, `directly_released_tasks=[]`다. loader는 누락·추가 필드를 거부한다.
+
+**영향** §18.11, P8.4 gold와 loader. Validator 판정 규칙·hash payload는 바뀌지 않으므로
+`VALIDATOR_VERSION`은 1.4 그대로다.

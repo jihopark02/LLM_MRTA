@@ -19,11 +19,13 @@ turns:
     outcome: COMMITTED
     grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_3, via: referent}
     patch:
+      accepted: true
       added_tasks: [THERMAL_RECON__FIRE_SITE_3, SUPPRESSANT_DROP__FIRE_SITE_3, GROUND_INSPECTION__FIRE_SITE_3, GROUND_SUPPRESSION__FIRE_SITE_3]
       added_edges:
         - [THERMAL_RECON__FIRE_SITE_3, SUPPRESSANT_DROP__FIRE_SITE_3]
         - [SUPPRESSANT_DROP__FIRE_SITE_3, GROUND_INSPECTION__FIRE_SITE_3]
         - [GROUND_INSPECTION__FIRE_SITE_3, GROUND_SUPPRESSION__FIRE_SITE_3]
+      directly_released_tasks: []
   - input_kind: NATURAL_LANGUAGE
     utterance: 거기 대응 상태를 알려줘.
     intent: {kind: QUERY_STATUS, about: mission, target_phrase: 거기}

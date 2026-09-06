@@ -1,8 +1,12 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.34 (D-036). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.35 (D-037). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.35 (D-037): P8.4 patch gold에 §18.11이 원래 요구한 `accepted`와
+  `directly_released_tasks`를 필수 필드로 명문화한다. canonical chain update의 정답은
+  `accepted=true`, release 빈 목록이며 loader가 암묵 기본값 없이 이를 강제한다.
+  `VALIDATOR_VERSION`은 1.4 그대로다.
 - v1.34 (D-036): P8.4 gold에 `initial_graph`를 필수화한다. `final_graph`만 두면 첫
   `NEW_MISSION` 정답을 후속 patch에서 역산해야 해 생성 오류와 patch 오류를 독립적으로
   판별할 수 없다. strict loader는 initial/final graph를 각각 검증하고 기대 patch 합집합이
@@ -1158,7 +1162,8 @@ shape를 정확히 하나씩 둔다: (1) NEW-only 뒤 read-only 확인, (2) NEW�
 `intent`(kind와 기대 slot),
 `outcome`, 선택적 `grounding`, 선택적 `patch`를 가진다. 후보 클릭 turn은
 `input_kind=CANDIDATE_SELECTION`, `entity_id`, `outcome`, `grounding`, 선택적 `patch`를
-가지며 LLM intent를 갖지 않는다. `patch`는 `added_tasks`와 `added_edges`를 정확히 고정한다.
+가지며 LLM intent를 갖지 않는다. `patch`는 `accepted`, `added_tasks`, `added_edges`,
+`directly_released_tasks`를 정확히 고정한다. canonical update의 release 정답은 빈 목록이다.
 `initial_graph`와 `final_graph`는 P6 annotation과 같은 `recon_zones` + incident별 연속
 workflow prefix다. initial은 첫 `NEW_MISSION`의 정답, final은 모든 turn 이후 정답이다.
 loader는 알 수 없는 키·중복 id·family/profile/shape 불일치·2~5 turn 위반을 거부하고,
