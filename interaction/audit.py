@@ -52,6 +52,7 @@ class GroundingAudit:
     status: str
     entity_kind: str | None = None
     entity_id: str | None = None
+    via: str | None = None                      # §18.5 step: explicit|referent|sole_incident
     clarification: str | None = None
     candidates: list[str] = field(default_factory=list)
 
@@ -104,6 +105,10 @@ class TurnAudit:
     referent_noted: str | None = None
     resolved_models: list[str] = field(default_factory=list)
     answer: str | None = None
+    # A TURN_ERROR's cause must survive in the permanent record, not only in
+    # the returned TurnResult (D-029).
+    error_type: str | None = None
+    error_detail: str | None = None
 
     event_type: str = "TURN"
 

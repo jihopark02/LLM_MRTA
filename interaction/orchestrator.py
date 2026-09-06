@@ -5,6 +5,14 @@ place rather than being re-derived by every caller (a UI included). What it
 guarantees, and what the tests pin:
 
 - ``turn_count`` advances exactly once, at the start of the turn.
+- **the whole turn** is exception-isolated, not just the intent call: a backend
+  that dies inside ``generate_mission``'s Step1/Step2/repair is a recorded
+  ``TURN_ERROR`` too (D-029). A model output that merely fails the *schema* is
+  a different thing and keeps P5's meaning — an explicit ``REJECTED`` with a
+  ``GenerationAudit``, not an error.
+- state and plan move together: the candidate state AND its plan are built in
+  locals first, so a failing ``allocate`` cannot leave a half-committed graph
+  with a stale plan (D-029).
 - ``session.scene`` and ``session.state`` are replaced ONLY by a committed
   ``register_incident`` / ``generate_mission`` / ``apply_patch``. Every other
   outcome — clarification, UNSUPPORTED, QUERY, a rejected patch, NO_CHANGE —
@@ -12,7 +20,9 @@ guarantees, and what the tests pin:
 - ``allocate`` runs only when the graph actually changed, so a NO_CHANGE or a
   scene-only REPORT never silently reshuffles the plan.
 - referents are added only here, only through ``note_referent``, and only when
-  the referent resolved AND the turn did not fail.
+  the referent resolved AND the turn did not fail. A ``QUERY_STATUS`` resolved
+  from a deixis is the exception: it answers but does not refresh the window,
+  or repeating "거기 상태" would extend a referent forever (§18.5, D-029).
 
 That last rule is slightly wider than "after a commit": §18.5 adds a referent
 for an UPDATE that grounded correctly, and NO_CHANGE is a correctly grounded
@@ -37,6 +47,7 @@ from interaction.audit import (
 from interaction.ground import (
     GroundingOutcome,
     GroundingStatus,
+    ResolutionVia,
     build_chain_patch,
     resolve_incident,
     resolve_zone,
@@ -97,6 +108,8 @@ class _Turn:
 
     session: MissionSession
     utterance: str
+    backend: object
+    models_before: int
     mode: str
     turn_id: str
     pre_scene_hash: str
@@ -108,8 +121,12 @@ class _Turn:
     generation: GenerationResult | None = None
     patch_result: PatchResult | None = None
     referent_noted: str | None = None
-    resolved_models: list[str] = field(default_factory=list)
     answer: str | None = None
+
+    def resolved_models(self) -> list[str]:
+        """Every backend call this turn made — intent classification plus any
+        Step1/Step2/repair calls generate_mission triggered (§14, D-029)."""
+        return list(getattr(self.backend, "resolved_models", ())[self.models_before :])
 
 
 def _mode_of(backend) -> str:
@@ -133,6 +150,7 @@ def _grounding_audit(outcome: GroundingOutcome | None) -> GroundingAudit | None:
         status=outcome.status.value,
         entity_kind=outcome.entity_kind.value if outcome.entity_kind else None,
         entity_id=outcome.entity_id,
+        via=outcome.via.value if outcome.via else None,
         clarification=outcome.clarification,
         candidates=list(outcome.candidates),
     )
@@ -164,7 +182,10 @@ def _generation_audit(gen: GenerationResult | None) -> GenerationAudit | None:
 
 
 def _finish(
-    turn: _Turn, outcome: TurnOutcome, message: str, error: str | None = None
+    turn: _Turn,
+    outcome: TurnOutcome,
+    message: str,
+    exc: BaseException | None = None,
 ) -> TurnResult:
     session = turn.session
     post_plan = session.plan.assignments if session.plan else None
@@ -189,8 +210,10 @@ def _finish(
         scene_changed=scene_hash(session.scene) != turn.pre_scene_hash,
         state_changed=_graph_hash_of(session) != turn.pre_graph_hash,
         referent_noted=turn.referent_noted,
-        resolved_models=list(turn.resolved_models),
+        resolved_models=turn.resolved_models(),
         answer=turn.answer,
+        error_type=type(exc).__name__ if exc is not None else None,
+        error_detail=str(exc) if exc is not None else None,
     )
     session.turn_log.append(audit)
     return TurnResult(
@@ -202,7 +225,7 @@ def _finish(
         generation=turn.generation,
         patch_result=turn.patch_result,
         plan=session.plan,
-        error=error,
+        error=f"{type(exc).__name__}: {exc}" if exc is not None else None,
     )
 
 
@@ -216,13 +239,15 @@ def _note(turn: _Turn, kind: ReferentKind, entity_id: str) -> None:
     turn.referent_noted = entity_id
 
 
-def _replan(session: MissionSession) -> None:
-    """Plan-time re-analysis of the committed graph (§18, `allocate` usage rule).
+def _plan_for(state, scene) -> AllocationResult:
+    """Plan-time re-analysis of a candidate graph (§18, `allocate` usage rule).
 
-    Called only when the graph actually changed. This is a fresh plan-time
-    analysis, not a reallocation of anything in flight.
+    Called only when the graph actually changed, and always on a *candidate*
+    before it is committed — so if it raises, the session still holds its old
+    state and its matching plan (D-029). This is a fresh plan-time analysis,
+    not a reallocation of anything in flight.
     """
-    session.plan = allocate(session.state, session.scene)
+    return allocate(state, scene)
 
 
 # -- dialogue acts -----------------------------------------------------
@@ -251,8 +276,10 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
             f"임무 생성이 거부됐습니다 ({gen.failure_category}).",
         )
 
-    session.state = fresh_session_state(gen.graph, session.scene)
-    _replan(session)
+    # Build state and plan as candidates, then swap both in one step.
+    candidate_state = fresh_session_state(gen.graph, session.scene)
+    candidate_plan = _plan_for(candidate_state, session.scene)
+    session.state, session.plan = candidate_state, candidate_plan
     return _finish(
         turn,
         TurnOutcome.COMMITTED,
@@ -317,13 +344,18 @@ def _do_update_mission(turn: _Turn) -> TurnResult:
         codes = ", ".join(c.value for c in result.error_codes)
         return _finish(turn, TurnOutcome.REJECTED, f"변경이 거부됐습니다 ({codes}).")
 
-    session.state = committed
-    _replan(session)
+    candidate_plan = _plan_for(committed, session.scene)
+    session.state, session.plan = committed, candidate_plan
     _note(turn, ReferentKind.INCIDENT, incident.entity_id)
     return _finish(turn, TurnOutcome.COMMITTED, plan.note)
 
 
 def _describe_status(session: MissionSession, incident_id: str | None, about: str) -> str:
+    # Incidents live in the scene, not the mission — answerable before any
+    # mission exists (§18.4 allows QUERY at any time).
+    if about == "incidents":
+        known = session.known_incident_ids
+        return "등록된 화재 지점: " + (", ".join(known) if known else "없음")
     if session.state is None:
         return "활성 임무가 없습니다."
     graph = session.state.graph
@@ -332,8 +364,6 @@ def _describe_status(session: MissionSession, incident_id: str | None, about: st
     tasks = [t for t in graph.tasks if incident_id is None or t.target == incident_id]
     if not tasks:
         return f"{incident_id}에 대한 task가 계획에 없습니다."
-    if about == "incidents":
-        return "등록된 화재 지점: " + ", ".join(session.known_incident_ids)
 
     lines = [
         f"  {t.task_id} -> {assignments.get(t.task_id, '미할당')} ({t.status.value})"
@@ -355,7 +385,9 @@ def _do_query_status(turn: _Turn) -> TurnResult:
         incident_id = incident.entity_id
 
     turn.answer = _describe_status(session, incident_id, turn.slots.get("about", "mission"))
-    if incident_id is not None:
+    # §18.5 / D-029: only an explicitly named incident is a fresh act of
+    # reference. A deictic read must not extend the window that resolved it.
+    if incident_id is not None and turn.grounding.via is ResolutionVia.EXPLICIT:
         _note(turn, ReferentKind.INCIDENT, incident_id)
     return _finish(turn, TurnOutcome.ANSWERED, turn.answer)
 
@@ -366,33 +398,10 @@ def _do_query_status(turn: _Turn) -> TurnResult:
 _PLANNING_ONLY = {"NEW_MISSION", "REPORT_INCIDENT", "UPDATE_MISSION"}
 
 
-def handle_turn(session: MissionSession, utterance: str, backend) -> TurnResult:
-    """Run one operator turn. Never raises for a backend or schema failure —
-    the session survives and the turn is recorded as ``TURN_ERROR``."""
-    session.turn_count += 1
-    before = len(getattr(backend, "resolved_models", ()))
-    turn = _Turn(
-        session=session,
-        utterance=utterance,
-        mode=_mode_of(backend),
-        turn_id=f"t{session.turn_count}",
-        pre_scene_hash=scene_hash(session.scene),
-        pre_graph_hash=_graph_hash_of(session),
-        pre_plan=dict(session.plan.assignments) if session.plan else None,
-    )
+def _dispatch(turn: _Turn, backend) -> TurnResult:
+    session = turn.session
+    intent = classify(session, turn.utterance, backend)
 
-    try:
-        intent = classify(session, utterance, backend)
-    except Exception as exc:  # noqa: BLE001 - one bad turn must not kill the session
-        turn.resolved_models = list(getattr(backend, "resolved_models", ())[before:])
-        return _finish(
-            turn,
-            TurnOutcome.TURN_ERROR,
-            "요청을 해석하지 못했습니다. 다시 말씀해 주세요.",
-            error=f"{type(exc).__name__}: {exc}",
-        )
-
-    turn.resolved_models = list(getattr(backend, "resolved_models", ())[before:])
     turn.intent_kind = intent.kind
     turn.slots = {
         k: v for k, v in intent.model_dump().items() if k != "kind" and v is not None
@@ -410,6 +419,39 @@ def handle_turn(session: MissionSession, utterance: str, backend) -> TurnResult:
     if intent.kind == "QUERY_STATUS":
         return _do_query_status(turn)
     return _finish(turn, TurnOutcome.UNSUPPORTED, _UNSUPPORTED_TEMPLATE)
+
+
+def handle_turn(session: MissionSession, utterance: str, backend) -> TurnResult:
+    """Run one operator turn.
+
+    Never raises. **The whole turn** is isolated, not just the intent call: a
+    backend that dies inside ``generate_mission``'s Step1/Step2/repair, or an
+    ``allocate`` that blows up, is recorded as ``TURN_ERROR`` and the session
+    is left exactly as it was (D-029). A model output that fails the pydantic
+    *schema* is a different thing — inside ``generate_mission`` that stays P5's
+    explicit ``REJECTED`` with a ``GenerationAudit``.
+    """
+    session.turn_count += 1
+    turn = _Turn(
+        session=session,
+        utterance=utterance,
+        backend=backend,
+        models_before=len(getattr(backend, "resolved_models", ())),
+        mode=_mode_of(backend),
+        turn_id=f"t{session.turn_count}",
+        pre_scene_hash=scene_hash(session.scene),
+        pre_graph_hash=_graph_hash_of(session),
+        pre_plan=dict(session.plan.assignments) if session.plan else None,
+    )
+    try:
+        return _dispatch(turn, backend)
+    except Exception as exc:  # noqa: BLE001 - one bad turn must not kill the session
+        return _finish(
+            turn,
+            TurnOutcome.TURN_ERROR,
+            "요청을 처리하지 못했습니다. 다시 말씀해 주세요.",
+            exc=exc,
+        )
 
 
 __all__ = ["TurnOutcome", "TurnResult", "handle_turn"]

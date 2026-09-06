@@ -78,11 +78,24 @@ class GroundingStatus(str, Enum):
     CLARIFICATION_REQUIRED = "CLARIFICATION_REQUIRED"
 
 
+class ResolutionVia(str, Enum):
+    """Which §18.5 precedence step produced a resolution (D-029).
+
+    Recorded in the audit, and load-bearing: only an ``EXPLICIT`` QUERY
+    refreshes the referent window (§18.5).
+    """
+
+    EXPLICIT = "explicit"            # the phrase named the entity
+    REFERENT = "referent"            # resolved from recent_referents
+    SOLE_INCIDENT = "sole_incident"  # only one candidate exists
+
+
 @dataclass(frozen=True, slots=True)
 class GroundingOutcome:
     status: GroundingStatus
     entity_kind: ReferentKind | None = None
     entity_id: str | None = None
+    via: ResolutionVia | None = None
     clarification: str | None = None
     candidates: tuple[str, ...] = ()
 
@@ -91,8 +104,8 @@ class GroundingOutcome:
         return self.status is GroundingStatus.RESOLVED
 
 
-def _resolved(kind: ReferentKind, entity_id: str) -> GroundingOutcome:
-    return GroundingOutcome(GroundingStatus.RESOLVED, kind, entity_id)
+def _resolved(kind: ReferentKind, entity_id: str, via: ResolutionVia) -> GroundingOutcome:
+    return GroundingOutcome(GroundingStatus.RESOLVED, kind, entity_id, via)
 
 
 def _clarify(question: str, candidates: tuple[str, ...] = ()) -> GroundingOutcome:
@@ -131,7 +144,7 @@ def resolve_zone(scene: Scene, zone_ref: str | None) -> GroundingOutcome:
     needle = _normalize(zone_ref)
     hits = sorted(zid for zid, forms in _zone_aliases(scene).items() if needle in forms)
     if len(hits) == 1:
-        return _resolved(ReferentKind.ZONE, hits[0])
+        return _resolved(ReferentKind.ZONE, hits[0], ResolutionVia.EXPLICIT)
     if len(hits) > 1:  # no scene has this today; never guess if one ever does
         return _clarify(
             f"'{zone_ref}'에 해당하는 구역이 여러 개입니다. 어느 쪽입니까?", tuple(hits)
@@ -178,7 +191,7 @@ def resolve_incident(session: MissionSession, target_phrase: str | None) -> Grou
     if needle:
         hits = by_normalized.get(needle, [])
         if len(hits) == 1:
-            return _resolved(ReferentKind.INCIDENT, hits[0])
+            return _resolved(ReferentKind.INCIDENT, hits[0], ResolutionVia.EXPLICIT)
         if len(hits) > 1:
             return _clarify(
                 f"'{target_phrase}'에 해당하는 화재 지점이 여러 개입니다. 어느 쪽입니까?",
@@ -196,12 +209,14 @@ def resolve_incident(session: MissionSession, target_phrase: str | None) -> Grou
 
     candidates = session.latest_referent_candidates(ReferentKind.INCIDENT)
     if len(candidates) == 1:
-        return _resolved(ReferentKind.INCIDENT, candidates[0])
+        return _resolved(ReferentKind.INCIDENT, candidates[0], ResolutionVia.REFERENT)
     if len(candidates) > 1:
         return _clarify("어느 화재 지점을 말씀하시는 것입니까?", tuple(candidates))
 
     if len(known) == 1:
-        return _resolved(ReferentKind.INCIDENT, known[0])
+        return _resolved(
+            ReferentKind.INCIDENT, known[0], ResolutionVia.SOLE_INCIDENT
+        )
     return _clarify("어느 화재 지점을 말씀하시는 것입니까?", tuple(known))
 
 
@@ -278,6 +293,7 @@ def build_chain_patch(
 
 __all__ = [
     "GroundingStatus",
+    "ResolutionVia",
     "GroundingOutcome",
     "PatchPlan",
     "resolve_zone",

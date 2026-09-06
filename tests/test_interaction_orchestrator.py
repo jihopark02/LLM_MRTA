@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from interaction.audit import ExecutionAudit, PlanAssignmentChanges, TurnAudit
+from interaction.ground import ResolutionVia
 from interaction.orchestrator import TurnOutcome, handle_turn
 from interaction.schemas import IntentEnvelope
 from interaction.session import MissionSession, SessionPhase
@@ -587,10 +588,10 @@ def test_execution_audit_schema_is_serializable():
     assert d["execution_termination"] == "COMPLETED" and d["makespan"] == 12.5
 
 
-# -- the session survives a bad backend -----------------------------------
+# -- the session survives any failure in the turn (D-029) -----------------
 
 
-def test_a_raising_backend_is_recorded_not_propagated(scene):
+def test_intent_classifier_exception_is_recorded_not_propagated(scene):
     class Boom:
         def complete(self, *a, **k):
             raise RuntimeError("network down")
@@ -601,12 +602,217 @@ def test_a_raising_backend_is_recorded_not_propagated(scene):
 
     assert r.outcome is TurnOutcome.TURN_ERROR
     assert "network down" in r.error
+    assert r.audit.error_type == "RuntimeError"          # kept in the record
+    assert "network down" in r.audit.error_detail
     assert s.scene is scene_before and s.state is state_before
     assert s.turn_count == 1 and len(s.turn_log) == 1
 
 
-def test_a_schema_invalid_intent_is_recorded_not_propagated(scene):
+def test_intent_schema_error_is_recorded_not_propagated(scene):
     s = sess(scene)
     r = handle_turn(s, "뭐든", MockBackend([{"intent": {"kind": "NOT_A_KIND"}}]))
     assert r.outcome is TurnOutcome.TURN_ERROR
+    assert r.audit.error_type == "ValidationError"
     assert s.state is None and len(s.turn_log) == 1
+
+
+def test_mission_step_exception_is_recorded_not_propagated(scene):
+    # The old try/except only wrapped the intent call, so a backend that died
+    # in generate_mission's Step1/Step2/repair escaped handle_turn entirely.
+    class BoomAfterIntent:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, system, user, schema):
+            self.calls += 1
+            if self.calls == 1:
+                return intent("NEW_MISSION")
+            raise RuntimeError("network down mid-mission")
+
+    s = sess(scene)
+    r = handle_turn(s, "임무 시작", BoomAfterIntent())
+
+    assert r.outcome is TurnOutcome.TURN_ERROR
+    assert "network down mid-mission" in r.audit.error_detail
+    assert r.audit.intent_kind == "NEW_MISSION"          # classification did happen
+    assert s.state is None and s.plan is None
+    assert s.turn_count == 1 and len(s.turn_log) == 1
+
+
+def test_mission_backend_running_dry_is_recorded_not_propagated(scene):
+    s = sess(scene)
+    r = handle_turn(s, "임무 시작", MockBackend([intent("NEW_MISSION")]))  # no Step1
+    assert r.outcome is TurnOutcome.TURN_ERROR
+    assert r.audit.error_type == "AssertionError"
+    assert s.state is None and len(s.turn_log) == 1
+
+
+def test_mission_schema_error_is_a_rejection_not_a_turn_error(scene):
+    # Distinct meaning from a transport failure: the model answered, the answer
+    # was invalid, and P5 turns that into an explicit REJECTED (§12, D-019).
+    s = sess(scene)
+    bad_step1 = {"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A", "position": [1, 2]}]}
+    r = handle_turn(s, "임무 시작", MockBackend([intent("NEW_MISSION"), bad_step1]))
+
+    assert r.outcome is TurnOutcome.REJECTED
+    assert r.audit.error_type is None                    # not an error, a verdict
+    assert r.audit.generation is not None
+    assert not r.audit.generation.approved
+    assert r.audit.generation.failure_category == "SCHEMA"
+    assert s.state is None
+
+
+# -- state and plan commit together (D-029) -------------------------------
+
+
+def test_allocate_failure_on_new_mission_commits_nothing(scene, monkeypatch):
+    from interaction import orchestrator
+
+    s = sess(scene)
+    monkeypatch.setattr(
+        orchestrator, "allocate", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+    r = handle_turn(
+        s, "임무 시작", MockBackend([intent("NEW_MISSION"), *mission_steps("FIRE_SITE_1")])
+    )
+
+    assert r.outcome is TurnOutcome.TURN_ERROR
+    assert s.state is None and s.plan is None            # no half-committed graph
+    assert len(s.turn_log) == 1
+
+
+def test_allocate_failure_on_update_keeps_the_previous_state_and_plan(scene, monkeypatch):
+    from interaction import orchestrator
+
+    s = sess(scene)
+    start_mission(s, steps=CHAIN[:1])
+    state_before, plan_before = s.state, s.plan
+
+    monkeypatch.setattr(
+        orchestrator, "allocate", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+    r = handle_turn(
+        s,
+        "FIRE_SITE_1 진압까지",
+        MockBackend(
+            [intent("UPDATE_MISSION", target_phrase="FIRE_SITE_1", up_to_step="GROUND_SUPPRESSION")]
+        ),
+    )
+
+    assert r.outcome is TurnOutcome.TURN_ERROR
+    assert s.state is state_before and s.plan is plan_before
+    assert len(s.state.graph) == 1                       # the patch did not land
+
+
+# -- resolved_models covers the whole turn (§14, D-029) -------------------
+
+
+class _ModelTrackingBackend(MockBackend):
+    """MockBackend that reports a distinct resolved model per call."""
+
+    def __init__(self, scripted):
+        super().__init__(scripted)
+        self.resolved_models: list[str] = []
+
+    def complete(self, system, user, schema):
+        self.resolved_models.append(f"model-{len(self.resolved_models) + 1}")
+        return super().complete(system, user, schema)
+
+
+def test_audit_records_every_backend_call_of_the_turn(scene):
+    # NEW_MISSION is one intent call plus generate_mission's Step1 and Step2.
+    s = sess(scene)
+    backend = _ModelTrackingBackend([intent("NEW_MISSION"), *mission_steps("FIRE_SITE_1")])
+    r = handle_turn(s, "임무 시작", backend)
+
+    assert r.outcome is TurnOutcome.COMMITTED
+    assert backend.resolved_models == ["model-1", "model-2", "model-3"]
+    assert r.audit.resolved_models == backend.resolved_models
+
+
+def test_audit_model_list_is_per_turn_not_cumulative(scene):
+    s = sess(scene)
+    backend = _ModelTrackingBackend(
+        [intent("NEW_MISSION"), *mission_steps("FIRE_SITE_1"), intent("QUERY_STATUS")]
+    )
+    handle_turn(s, "임무 시작", backend)
+    r2 = handle_turn(s, "상태", backend)
+    assert r2.audit.resolved_models == ["model-4"]
+
+
+# -- QUERY details (D-029) -------------------------------------------------
+
+
+def test_query_incidents_is_answerable_without_a_mission(scene):
+    # Incidents live in the scene, not the mission.
+    s = sess(scene)
+    r = handle_turn(
+        s, "어떤 화재가 있어?", MockBackend([intent("QUERY_STATUS", about="incidents")])
+    )
+    assert r.outcome is TurnOutcome.ANSWERED
+    assert "FIRE_SITE_1" in r.message and "FIRE_SITE_2" in r.message
+    assert "활성 임무가 없습니다" not in r.message
+
+
+def _deictic_query(session):
+    return handle_turn(
+        session, "거기 상태", MockBackend([intent("QUERY_STATUS", target_phrase="거기")])
+    )
+
+
+def test_a_deictic_query_answers_without_refreshing_the_window(scene):
+    # §18.5/D-029: a read is not a new act of reference, so introduced_turn
+    # must stay put.
+    s = sess(scene)
+    s.note_referent("incident", "FIRE_SITE_1")
+    introduced = s.recent_referents[0].introduced_turn
+
+    for _ in range(2):  # inside the K=3 window
+        r = _deictic_query(s)
+        assert r.outcome is TurnOutcome.ANSWERED
+        assert r.grounding.entity_id == "FIRE_SITE_1"
+        assert r.grounding.via == ResolutionVia.REFERENT
+
+    assert [(x.entity_id, x.introduced_turn) for x in s.recent_referents] == [
+        ("FIRE_SITE_1", introduced)
+    ]
+    assert all(a.referent_noted is None for a in s.turn_log)
+
+
+def test_repeated_deictic_queries_cannot_keep_a_referent_alive(scene):
+    # The bug this replaced: every read re-noted the referent, so K=3 never
+    # expired as long as the operator kept asking.
+    s = sess(scene)
+    s.note_referent("incident", "FIRE_SITE_1")
+
+    assert _deictic_query(s).outcome is TurnOutcome.ANSWERED   # turn 1
+    assert _deictic_query(s).outcome is TurnOutcome.ANSWERED   # turn 2, last live turn
+    expired = _deictic_query(s)                                # turn 3, out of window
+    assert expired.outcome is TurnOutcome.CLARIFICATION
+    assert expired.grounding.candidates == ("FIRE_SITE_1", "FIRE_SITE_2")
+
+
+def test_an_explicit_query_does_refresh_the_window(scene):
+    s = sess(scene)
+    r = handle_turn(
+        s, "FIRE_SITE_2 상태", MockBackend([intent("QUERY_STATUS", target_phrase="FIRE_SITE_2")])
+    )
+    assert r.audit.referent_noted == "FIRE_SITE_2"
+    assert r.audit.grounding.via == "explicit"
+
+
+def test_audit_records_how_a_referent_resolved(scene):
+    s = sess(scene)
+    start_mission(s)
+    handle_turn(
+        s, "A 구역 화재", MockBackend([intent("REPORT_INCIDENT", zone_ref="A 구역")])
+    )
+    r = handle_turn(
+        s,
+        "거기 진압까지",
+        MockBackend(
+            [intent("UPDATE_MISSION", target_phrase="거기", up_to_step="GROUND_SUPPRESSION")]
+        ),
+    )
+    assert r.audit.grounding.via == "referent"
+    assert r.audit.grounding.entity_kind == "incident"
