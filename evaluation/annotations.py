@@ -110,6 +110,11 @@ def _expand(spec: dict, scene: Scene) -> tuple[RefGraph, MissionCandidate]:
     return graph, MissionCandidate(tasks, edges)
 
 
+def expand_graph_spec(spec: dict, scene: Scene) -> tuple[RefGraph, MissionCandidate]:
+    """Expand and validate the compact graph notation shared by P6 and P8.4."""
+    return _expand(spec, scene)
+
+
 def load_annotation(
     path: str | Path, scene: Scene, *, self_check: bool = True
 ) -> Annotation:
@@ -159,6 +164,7 @@ __all__ = [
     "RefGraph",
     "WORKFLOW_CHAIN",
     "CASE_IDS",
+    "expand_graph_spec",
     "load_annotation",
     "load_all",
 ]
