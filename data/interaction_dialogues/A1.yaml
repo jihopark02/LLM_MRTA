@@ -1,0 +1,19 @@
+id: A1
+family: A
+profile: FULL_RESPONSE
+shape: NEW_ONLY
+rationale: Full-response 임무를 생성한 뒤 읽기 전용 상태 조회가 계획을 바꾸지 않는지 확인한다.
+turns:
+  - input_kind: NATURAL_LANGUAGE
+    utterance: 전체 구역을 항공 정찰하고 알려진 두 화재를 지상 진압까지 대응해줘.
+    intent: {kind: NEW_MISSION}
+    outcome: COMMITTED
+  - input_kind: NATURAL_LANGUAGE
+    utterance: 현재 전체 임무 상태를 알려줘.
+    intent: {kind: QUERY_STATUS, about: mission}
+    outcome: ANSWERED
+final_graph:
+  recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+  incident_chains:
+    FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+    FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]

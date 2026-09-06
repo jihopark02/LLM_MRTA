@@ -1,0 +1,28 @@
+id: A4
+family: A
+profile: FULL_RESPONSE
+shape: AMBIGUOUS_SELECTION
+rationale: 두 incident 중 모호한 지시를 추측하지 않고 후보 선택으로 해소하며 이미 완성된 chain은 NO_CHANGE다.
+turns:
+  - input_kind: NATURAL_LANGUAGE
+    utterance: 전 구역 정찰과 두 화재의 전체 대응 절차를 계획해줘.
+    intent: {kind: NEW_MISSION}
+    outcome: COMMITTED
+  - input_kind: NATURAL_LANGUAGE
+    utterance: 그 화재를 지상 진압까지 처리해줘.
+    intent: {kind: UPDATE_MISSION, target_phrase: 그 화재, up_to_step: GROUND_SUPPRESSION}
+    outcome: CLARIFICATION
+    grounding:
+      status: CLARIFICATION_REQUIRED
+      entity_kind: incident
+      reason: AMBIGUOUS_ENTITY
+      candidates: [FIRE_SITE_1, FIRE_SITE_2]
+  - input_kind: CANDIDATE_SELECTION
+    entity_id: FIRE_SITE_1
+    outcome: NO_CHANGE
+    grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_1, via: explicit}
+final_graph:
+  recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+  incident_chains:
+    FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+    FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]

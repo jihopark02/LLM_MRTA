@@ -1,0 +1,25 @@
+id: C3
+family: C
+profile: SELECTIVE_RESPONSE
+shape: QUERY
+rationale: 서로 다른 workflow 깊이를 가진 두 incident를 명시적으로 조회해 referent와 상태 범위를 검증한다.
+turns:
+  - input_kind: NATURAL_LANGUAGE
+    utterance: 구역 정찰은 생략하고 FIRE_SITE_1은 지상 진압까지, FIRE_SITE_2는 열원 확인만 계획해줘.
+    intent: {kind: NEW_MISSION}
+    outcome: COMMITTED
+  - input_kind: NATURAL_LANGUAGE
+    utterance: FIRE_SITE_1에 배정된 로봇을 알려줘.
+    intent: {kind: QUERY_STATUS, about: agents, target_phrase: FIRE_SITE_1}
+    outcome: ANSWERED
+    grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_1, via: explicit}
+  - input_kind: NATURAL_LANGUAGE
+    utterance: FIRE_SITE_2에 계획된 task를 알려줘.
+    intent: {kind: QUERY_STATUS, about: tasks, target_phrase: FIRE_SITE_2}
+    outcome: ANSWERED
+    grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_2, via: explicit}
+final_graph:
+  recon_zones: []
+  incident_chains:
+    FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+    FIRE_SITE_2: [THERMAL_RECON]

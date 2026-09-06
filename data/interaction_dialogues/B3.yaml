@@ -1,0 +1,24 @@
+id: B3
+family: B
+profile: AERIAL_ONLY
+shape: QUERY
+rationale: 항공-only 계획에서 특정 incident와 전체 incident 상태를 읽기 전용으로 조회한다.
+turns:
+  - input_kind: NATURAL_LANGUAGE
+    utterance: 정찰 단계만 진행해. 모든 구역과 두 화재를 공중에서 확인하되 투하나 UGV 임무는 만들지 마.
+    intent: {kind: NEW_MISSION}
+    outcome: COMMITTED
+  - input_kind: NATURAL_LANGUAGE
+    utterance: FIRE_SITE_2 담당 로봇을 알려줘.
+    intent: {kind: QUERY_STATUS, about: agents, target_phrase: FIRE_SITE_2}
+    outcome: ANSWERED
+    grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_2, via: explicit}
+  - input_kind: NATURAL_LANGUAGE
+    utterance: 현재 알려진 화재는 몇 곳이야?
+    intent: {kind: QUERY_STATUS, about: incidents}
+    outcome: ANSWERED
+final_graph:
+  recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+  incident_chains:
+    FIRE_SITE_1: [THERMAL_RECON]
+    FIRE_SITE_2: [THERMAL_RECON]

@@ -1,0 +1,37 @@
+id: A2
+family: A
+profile: FULL_RESPONSE
+shape: REPORT_UPDATE
+rationale: Full-response 계획 뒤 새 화재를 보고하고 최근 referent로 전체 대응 chain을 추가한다.
+turns:
+  - input_kind: NATURAL_LANGUAGE
+    utterance: 네 구역을 모두 정찰하고 FIRE_SITE_1과 FIRE_SITE_2를 지상 진압까지 처리해줘.
+    intent: {kind: NEW_MISSION}
+    outcome: COMMITTED
+  - input_kind: NATURAL_LANGUAGE
+    utterance: Warehouse 구역에 새 화재가 발생했어.
+    intent: {kind: REPORT_INCIDENT, zone_ref: Warehouse}
+    outcome: COMMITTED
+    grounding: {status: RESOLVED, entity_kind: zone, entity_id: ZONE_A, via: explicit}
+  - input_kind: NATURAL_LANGUAGE
+    utterance: 거기를 지상 진압까지 계획에 추가해줘.
+    intent: {kind: UPDATE_MISSION, target_phrase: 거기, up_to_step: GROUND_SUPPRESSION}
+    outcome: COMMITTED
+    grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_3, via: referent}
+    patch:
+      added_tasks: [THERMAL_RECON__FIRE_SITE_3, SUPPRESSANT_DROP__FIRE_SITE_3, GROUND_INSPECTION__FIRE_SITE_3, GROUND_SUPPRESSION__FIRE_SITE_3]
+      added_edges:
+        - [THERMAL_RECON__FIRE_SITE_3, SUPPRESSANT_DROP__FIRE_SITE_3]
+        - [SUPPRESSANT_DROP__FIRE_SITE_3, GROUND_INSPECTION__FIRE_SITE_3]
+        - [GROUND_INSPECTION__FIRE_SITE_3, GROUND_SUPPRESSION__FIRE_SITE_3]
+  - input_kind: NATURAL_LANGUAGE
+    utterance: FIRE_SITE_3의 대응 상태를 알려줘.
+    intent: {kind: QUERY_STATUS, about: mission, target_phrase: FIRE_SITE_3}
+    outcome: ANSWERED
+    grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_3, via: explicit}
+final_graph:
+  recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+  incident_chains:
+    FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+    FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+    FIRE_SITE_3: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
