@@ -55,7 +55,13 @@ from interaction.ground import (
 )
 from interaction.interpret import classify
 from interaction.scene_mut import register_incident
-from interaction.session import MissionSession, ReferentKind, SessionPhase, fresh_session_state
+from interaction.session import (
+    MissionSession,
+    PendingClarification,
+    ReferentKind,
+    SessionPhase,
+    fresh_session_state,
+)
 from llm.pipeline import GenerationResult, generate_mission
 from validator.hashing import scene_hash
 from validator.patch_apply import PatchResult, apply_patch
@@ -110,7 +116,7 @@ class _Turn:
 
     session: MissionSession
     utterance: str
-    backend: object
+    backend: object | None
     models_before: int
     mode: str
     turn_id: str
@@ -147,11 +153,14 @@ def _mode_of(backend) -> str:
     instead of silently defaulting to "live" — that is a misconfiguration, not
     a turn failure, and must not be swallowed as one.
     """
-    mode = getattr(backend, "mode", None)
-    if mode not in _MODES:
+    return _require_mode(getattr(backend, "mode", None))
+
+
+def _require_mode(mode: object) -> str:
+    """Validate provenance supplied by a backend or deterministic UI action."""
+    if not isinstance(mode, str) or mode not in _MODES:
         raise ValueError(
-            f"backend {type(backend).__name__} declares mode {mode!r}; "
-            f"expected one of {sorted(_MODES)}"
+            f"mode must be one of {sorted(_MODES)}, got {mode!r}"
         )
     return mode
 
@@ -258,7 +267,38 @@ def _finish(
 
 def _clarify(turn: _Turn, outcome: GroundingOutcome) -> TurnResult:
     turn.grounding = outcome
+    _store_pending_if_resumable(turn, outcome)
     return _finish(turn, TurnOutcome.CLARIFICATION, outcome.clarification or "")
+
+
+def _store_pending_if_resumable(turn: _Turn, outcome: GroundingOutcome) -> None:
+    """Store only a complete, selectable entity ambiguity (D-032)."""
+    if (
+        outcome.reason is not ClarificationReason.AMBIGUOUS_ENTITY
+        or outcome.entity_kind is None
+        or len(outcome.candidates) < 2
+    ):
+        return
+
+    unresolved_slot: str | None = None
+    if turn.intent_kind == "REPORT_INCIDENT":
+        unresolved_slot = "zone_ref"
+    elif turn.intent_kind == "UPDATE_MISSION" and turn.slots.get("up_to_step") is not None:
+        unresolved_slot = "target_phrase"
+    elif turn.intent_kind == "QUERY_STATUS" and turn.slots.get("target_phrase") is not None:
+        unresolved_slot = "target_phrase"
+    if unresolved_slot is None:
+        return
+
+    turn.session.pending_clarification = PendingClarification(
+        source_turn_id=turn.turn_id,
+        intent_kind=turn.intent_kind,
+        extracted_slots=dict(turn.slots),
+        unresolved_slot=unresolved_slot,
+        entity_kind=outcome.entity_kind,
+        candidates=tuple(outcome.candidates),
+        original_utterance=turn.utterance,
+    )
 
 
 def _note(turn: _Turn, kind: ReferentKind, entity_id: str) -> None:
@@ -316,9 +356,11 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
     )
 
 
-def _do_report_incident(turn: _Turn) -> TurnResult:
+def _do_report_incident(
+    turn: _Turn, resolved_zone: GroundingOutcome | None = None
+) -> TurnResult:
     session = turn.session
-    zone = resolve_zone(session.scene, turn.slots.get("zone_ref"))
+    zone = resolved_zone or resolve_zone(session.scene, turn.slots.get("zone_ref"))
     turn.grounding = zone
     if not zone.resolved:
         return _clarify(turn, zone)
@@ -332,7 +374,9 @@ def _do_report_incident(turn: _Turn) -> TurnResult:
     )
 
 
-def _do_update_mission(turn: _Turn) -> TurnResult:
+def _do_update_mission(
+    turn: _Turn, resolved_incident: GroundingOutcome | None = None
+) -> TurnResult:
     session = turn.session
     if session.state is None:
         return _clarify(
@@ -344,7 +388,9 @@ def _do_update_mission(turn: _Turn) -> TurnResult:
             ),
         )
 
-    incident = resolve_incident(session, turn.slots.get("target_phrase"))
+    incident = resolved_incident or resolve_incident(
+        session, turn.slots.get("target_phrase")
+    )
     turn.grounding = incident
     if not incident.resolved:
         return _clarify(turn, incident)
@@ -403,12 +449,14 @@ def _describe_status(session: MissionSession, incident_id: str | None, about: st
     return f"{head} ({len(tasks)} task):\n" + "\n".join(lines)
 
 
-def _do_query_status(turn: _Turn) -> TurnResult:
+def _do_query_status(
+    turn: _Turn, resolved_incident: GroundingOutcome | None = None
+) -> TurnResult:
     session = turn.session
     target_phrase = turn.slots.get("target_phrase")
     incident_id = None
     if target_phrase is not None:
-        incident = resolve_incident(session, target_phrase)
+        incident = resolved_incident or resolve_incident(session, target_phrase)
         turn.grounding = incident
         if not incident.resolved:
             return _clarify(turn, incident)
@@ -480,6 +528,19 @@ def handle_turn(session: MissionSession, utterance: str, backend) -> TurnResult:
         pre_plan=dict(session.plan.assignments) if session.plan else None,
     )
     try:
+        if session.pending_clarification is not None:
+            pending = session.pending_clarification
+            turn.resumed_from_turn_id = pending.source_turn_id
+            return _clarify(
+                turn,
+                GroundingOutcome(
+                    GroundingStatus.CLARIFICATION_REQUIRED,
+                    entity_kind=pending.entity_kind,
+                    clarification="후보를 선택하거나 clarification을 취소해 주세요.",
+                    candidates=pending.candidates,
+                    reason=ClarificationReason.PENDING_SELECTION,
+                ),
+            )
         return _dispatch(turn, backend)
     except Exception as exc:  # noqa: BLE001 - one bad turn must not kill the session
         return _finish(
@@ -490,4 +551,131 @@ def handle_turn(session: MissionSession, utterance: str, backend) -> TurnResult:
         )
 
 
-__all__ = ["TurnOutcome", "TurnResult", "handle_turn"]
+def _deterministic_turn(
+    session: MissionSession,
+    *,
+    utterance: str,
+    mode: str,
+    input_kind: str,
+    pending: PendingClarification,
+    selected_entity_id: str | None = None,
+) -> _Turn:
+    checked_mode = _require_mode(mode)
+    session.turn_count += 1
+    return _Turn(
+        session=session,
+        utterance=utterance,
+        backend=None,
+        models_before=0,
+        mode=checked_mode,
+        turn_id=f"t{session.turn_count}",
+        pre_scene_hash=scene_hash(session.scene),
+        pre_graph_hash=_graph_hash_of(session),
+        pre_plan=dict(session.plan.assignments) if session.plan else None,
+        intent_kind=pending.intent_kind,
+        slots=dict(pending.extracted_slots),
+        input_kind=input_kind,
+        resumed_from_turn_id=pending.source_turn_id,
+        selected_entity_id=selected_entity_id,
+    )
+
+
+def _candidate_exists(
+    session: MissionSession, pending: PendingClarification, entity_id: str
+) -> bool:
+    known = (
+        session.scene.incidents
+        if pending.entity_kind is ReferentKind.INCIDENT
+        else session.scene.zones
+    )
+    return entity_id in pending.candidates and entity_id in known
+
+
+def select_clarification_candidate(
+    session: MissionSession, entity_id: str, *, mode: str
+) -> TurnResult:
+    """Resume a pending entity ambiguity without another LLM call (§18.13)."""
+    pending = session.pending_clarification
+    if pending is None:
+        raise ValueError("no clarification is pending")
+    if not isinstance(entity_id, str):
+        raise ValueError("entity_id must be a str")
+    turn = _deterministic_turn(
+        session,
+        utterance=entity_id,
+        mode=mode,
+        input_kind="CANDIDATE_SELECTION",
+        pending=pending,
+        selected_entity_id=entity_id,
+    )
+    if not _candidate_exists(session, pending, entity_id):
+        return _clarify(
+            turn,
+            GroundingOutcome(
+                GroundingStatus.CLARIFICATION_REQUIRED,
+                entity_kind=pending.entity_kind,
+                clarification="제시된 후보 중 하나를 선택해 주세요.",
+                candidates=pending.candidates,
+                reason=ClarificationReason.INVALID_SELECTION,
+            ),
+        )
+
+    resolved = GroundingOutcome(
+        GroundingStatus.RESOLVED,
+        pending.entity_kind,
+        entity_id,
+        ResolutionVia.EXPLICIT,
+    )
+    turn.grounding = resolved
+    try:
+        if pending.intent_kind == "REPORT_INCIDENT":
+            result = _do_report_incident(turn, resolved)
+        elif pending.intent_kind == "UPDATE_MISSION":
+            result = _do_update_mission(turn, resolved)
+        else:
+            result = _do_query_status(turn, resolved)
+    except Exception as exc:  # noqa: BLE001 - same session isolation as a natural turn
+        return _finish(
+            turn,
+            TurnOutcome.TURN_ERROR,
+            "선택한 후보를 처리하지 못했습니다. 다시 선택하거나 취소해 주세요.",
+            exc=exc,
+        )
+
+    if result.outcome in {
+        TurnOutcome.COMMITTED,
+        TurnOutcome.NO_CHANGE,
+        TurnOutcome.ANSWERED,
+    }:
+        session.pending_clarification = None
+    return result
+
+
+def cancel_clarification(session: MissionSession, *, mode: str) -> TurnResult:
+    """Cancel a pending ambiguity without changing mission data (§18.13)."""
+    pending = session.pending_clarification
+    if pending is None:
+        raise ValueError("no clarification is pending")
+    turn = _deterministic_turn(
+        session,
+        utterance="clarification 취소",
+        mode=mode,
+        input_kind="CLARIFICATION_CANCEL",
+        pending=pending,
+    )
+    result = _finish(
+        turn,
+        TurnOutcome.CLARIFICATION_CANCELLED,
+        "후보 선택을 취소했습니다. 요청을 다시 말씀해 주세요.",
+    )
+    session.pending_clarification = None
+    return result
+
+
+__all__ = [
+    "TurnOutcome",
+    "TurnResult",
+    "handle_turn",
+    "select_clarification_candidate",
+    "cancel_clarification",
+]

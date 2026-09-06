@@ -160,6 +160,19 @@ def test_pending_clarification_is_frozen_including_its_slots():
         pending.candidates = ("FIRE_SITE_1",)
 
 
+def test_pending_schema_rejects_an_unresumable_update():
+    with pytest.raises(ValueError, match="up_to_step"):
+        PendingClarification(
+            source_turn_id="t1",
+            intent_kind="UPDATE_MISSION",
+            extracted_slots={"target_phrase": "그 화재"},
+            unresolved_slot="target_phrase",
+            entity_kind=ReferentKind.INCIDENT,
+            candidates=("FIRE_SITE_1", "FIRE_SITE_2"),
+            original_utterance="그 화재 처리",
+        )
+
+
 # -- referents (§18.5) -----------------------------------------------
 
 

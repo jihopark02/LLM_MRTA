@@ -11,7 +11,12 @@ import pytest
 
 from interaction.audit import ExecutionAudit, PlanAssignmentChanges, TurnAudit
 from interaction.ground import ResolutionVia
-from interaction.orchestrator import TurnOutcome, handle_turn
+from interaction.orchestrator import (
+    TurnOutcome,
+    cancel_clarification,
+    handle_turn,
+    select_clarification_candidate,
+)
 from interaction.schemas import IntentEnvelope
 from interaction.session import MissionSession, SessionPhase
 from llm.backend import MockBackend
@@ -163,6 +168,204 @@ def test_i4_ambiguous_referent_clarifies_with_candidates(scene):
     assert r.grounding.candidates == ("FIRE_SITE_1", "FIRE_SITE_2")
     assert s.state is state_before
     assert s.recent_referents == []
+    assert s.pending_clarification is not None
+    assert s.pending_clarification.source_turn_id == "t2"
+
+
+def test_unknown_entity_with_candidates_is_not_a_selectable_ambiguity(scene):
+    s = sess(scene)
+    start_mission(s)
+    r = handle_turn(
+        s,
+        "북쪽 화재를 처리해줘",
+        MockBackend(
+            [intent("UPDATE_MISSION", target_phrase="북쪽 화재", up_to_step="GROUND_SUPPRESSION")]
+        ),
+    )
+    assert r.audit.grounding.reason == "UNKNOWN_ENTITY"
+    assert r.grounding.candidates == ("FIRE_SITE_1", "FIRE_SITE_2")
+    assert s.pending_clarification is None
+
+
+def test_ambiguity_without_the_other_required_slot_does_not_lock_the_session(scene):
+    s = sess(scene)
+    start_mission(s)
+    r = handle_turn(
+        s,
+        "그 화재 처리해줘",
+        MockBackend([intent("UPDATE_MISSION", target_phrase="그 화재")]),
+    )
+    assert r.audit.grounding.reason == "AMBIGUOUS_ENTITY"
+    assert s.pending_clarification is None
+
+
+def _start_ambiguous_update(session):
+    result = handle_turn(
+        session,
+        "그 화재 진압까지",
+        MockBackend(
+            [intent("UPDATE_MISSION", target_phrase="그 화재", up_to_step="GROUND_SUPPRESSION")]
+        ),
+    )
+    assert result.outcome is TurnOutcome.CLARIFICATION
+    assert session.pending_clarification is not None
+    return result
+
+
+def test_pending_natural_language_is_audited_without_calling_the_backend(scene):
+    s = sess(scene)
+    start_mission(s, steps=CHAIN[:1])
+    _start_ambiguous_update(s)
+    pending = s.pending_clarification
+    backend = MockBackend([intent("QUERY_STATUS")])
+
+    r = handle_turn(s, "아니 다른 말", backend)
+
+    assert backend.calls == []
+    assert r.outcome is TurnOutcome.CLARIFICATION
+    assert r.audit.grounding.reason == "PENDING_SELECTION"
+    assert r.audit.input_kind == "NATURAL_LANGUAGE"
+    assert r.audit.resumed_from_turn_id == pending.source_turn_id
+    assert s.pending_clarification is pending
+
+
+def test_valid_candidate_resumes_update_without_an_llm_call(scene):
+    s = sess(scene)
+    start_mission(s, steps=CHAIN[:1])
+    source = _start_ambiguous_update(s)
+    turn_count = s.turn_count
+
+    r = select_clarification_candidate(s, "FIRE_SITE_1", mode="mock")
+
+    assert r.outcome is TurnOutcome.COMMITTED
+    assert s.turn_count == turn_count + 1
+    assert s.pending_clarification is None
+    assert r.audit.resolved_models == []
+    assert r.audit.input_kind == "CANDIDATE_SELECTION"
+    assert r.audit.resumed_from_turn_id == source.audit.turn_id
+    assert r.audit.selected_entity_id == "FIRE_SITE_1"
+    assert r.audit.grounding.via == "explicit"
+    assert r.audit.referent_noted == "FIRE_SITE_1"
+    assert len([t for t in s.state.graph.tasks if t.target == "FIRE_SITE_1"]) == 4
+
+
+def test_invalid_candidate_is_audited_and_keeps_the_pending_request(scene):
+    s = sess(scene)
+    start_mission(s, steps=CHAIN[:1])
+    _start_ambiguous_update(s)
+    pending = s.pending_clarification
+
+    r = select_clarification_candidate(s, "FIRE_SITE_9", mode="mock")
+
+    assert r.outcome is TurnOutcome.CLARIFICATION
+    assert r.audit.grounding.reason == "INVALID_SELECTION"
+    assert r.audit.selected_entity_id == "FIRE_SITE_9"
+    assert r.audit.resolved_models == []
+    assert s.pending_clarification is pending
+
+
+def test_cancel_is_an_audited_turn_that_only_clears_pending(scene):
+    s = sess(scene)
+    start_mission(s, steps=CHAIN[:1])
+    _start_ambiguous_update(s)
+    state, plan, current_scene = s.state, s.plan, s.scene
+    referents = list(s.recent_referents)
+    source_turn_id = s.pending_clarification.source_turn_id
+
+    r = cancel_clarification(s, mode="cached")
+
+    assert r.outcome is TurnOutcome.CLARIFICATION_CANCELLED
+    assert r.audit.input_kind == "CLARIFICATION_CANCEL"
+    assert r.audit.mode == "cached"
+    assert r.audit.resumed_from_turn_id == source_turn_id
+    assert r.audit.resolved_models == []
+    assert s.pending_clarification is None
+    assert (s.state, s.plan, s.scene) == (state, plan, current_scene)
+    assert s.recent_referents == referents
+
+
+def test_candidate_processing_failure_keeps_pending_and_previous_plan(scene, monkeypatch):
+    from interaction import orchestrator
+
+    s = sess(scene)
+    start_mission(s, steps=CHAIN[:1])
+    _start_ambiguous_update(s)
+    pending = s.pending_clarification
+    state, plan = s.state, s.plan
+    monkeypatch.setattr(
+        orchestrator, "allocate", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+
+    r = select_clarification_candidate(s, "FIRE_SITE_1", mode="mock")
+
+    assert r.outcome is TurnOutcome.TURN_ERROR
+    assert s.pending_clarification is pending
+    assert s.state is state and s.plan is plan
+
+
+def test_candidate_selection_for_a_query_is_an_explicit_fresh_referent(scene):
+    s = sess(scene)
+    first = handle_turn(
+        s,
+        "그 화재 상태",
+        MockBackend([intent("QUERY_STATUS", about="agents", target_phrase="그 화재")]),
+    )
+    assert first.outcome is TurnOutcome.CLARIFICATION
+
+    selected = select_clarification_candidate(s, "FIRE_SITE_2", mode="mock")
+
+    assert selected.outcome is TurnOutcome.ANSWERED
+    assert selected.audit.grounding.via == "explicit"
+    assert selected.audit.referent_noted == "FIRE_SITE_2"
+    assert s.recent_referents[-1].introduced_turn == s.turn_count
+
+
+def test_candidate_selection_for_a_zone_resumes_the_report(scene):
+    from dataclasses import replace
+
+    ambiguous_scene = replace(
+        scene,
+        zones={
+            **scene.zones,
+            "ZONE_A": replace(scene.zones["ZONE_A"], name="Shared"),
+            "ZONE_B": replace(scene.zones["ZONE_B"], name="Shared"),
+        },
+    )
+    s = sess(ambiguous_scene)
+    first = handle_turn(
+        s,
+        "Shared 구역에 불",
+        MockBackend([intent("REPORT_INCIDENT", zone_ref="Shared 구역")]),
+    )
+    assert first.outcome is TurnOutcome.CLARIFICATION
+    assert s.pending_clarification.entity_kind.value == "zone"
+
+    selected = select_clarification_candidate(s, "ZONE_B", mode="mock")
+
+    assert selected.outcome is TurnOutcome.COMMITTED
+    assert s.scene.incidents["FIRE_SITE_3"].zone == "ZONE_B"
+    assert selected.audit.referent_noted == "FIRE_SITE_3"
+
+
+@pytest.mark.parametrize("bad_mode", [None, "LIVE", "", [], True])
+def test_deterministic_clarification_actions_require_an_exact_mode(scene, bad_mode):
+    s = sess(scene)
+    start_mission(s, steps=CHAIN[:1])
+    _start_ambiguous_update(s)
+    turn_count = s.turn_count
+
+    with pytest.raises(ValueError, match="mode"):
+        select_clarification_candidate(s, "FIRE_SITE_1", mode=bad_mode)
+    assert s.turn_count == turn_count
+
+
+def test_clarification_actions_require_a_pending_request(scene):
+    s = sess(scene)
+    with pytest.raises(ValueError, match="no clarification"):
+        select_clarification_candidate(s, "FIRE_SITE_1", mode="mock")
+    with pytest.raises(ValueError, match="no clarification"):
+        cancel_clarification(s, mode="mock")
+    assert s.turn_count == 0 and s.event_log == ()
 
 
 # -- I5: extending an existing chain -------------------------------------

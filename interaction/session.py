@@ -101,6 +101,18 @@ class PendingClarification:
         slots = dict(self.extracted_slots)
         if not all(isinstance(k, str) and isinstance(v, str) for k, v in slots.items()):
             raise ValueError("extracted_slots must map strings to strings")
+        expected = (
+            ("zone_ref", ReferentKind.ZONE)
+            if self.intent_kind == "REPORT_INCIDENT"
+            else ("target_phrase", ReferentKind.INCIDENT)
+        )
+        if (self.unresolved_slot, self.entity_kind) != expected:
+            raise ValueError("intent, unresolved_slot and entity_kind do not agree")
+        if self.unresolved_slot not in slots:
+            raise ValueError("the unresolved slot must be preserved in extracted_slots")
+        if self.intent_kind == "UPDATE_MISSION" and "up_to_step" not in slots:
+            raise ValueError("an UPDATE clarification also needs up_to_step")
+        object.__setattr__(self, "candidates", tuple(sorted(self.candidates)))
         object.__setattr__(self, "extracted_slots", MappingProxyType(slots))
 
 

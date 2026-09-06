@@ -59,7 +59,7 @@ def seven_turn_session(scene):
             )]),
         ])),
         ("그 화재 진압까지", MockBackend([
-            intent("UPDATE_MISSION", target_phrase="그 화재", up_to_step="GROUND_SUPPRESSION")
+            intent("UPDATE_MISSION", target_phrase="그 화재")
         ])),
         ("A 구역에 화재", MockBackend([intent("REPORT_INCIDENT", zone_ref="A 구역")])),
         ("거기부터 꺼줘", MockBackend([
@@ -236,6 +236,12 @@ def test_a_bad_id_writes_nothing_and_creates_no_directory(seven_turn_session, tm
         write_session_audit(seven_turn_session, target)
     assert not target.exists()
     assert list(tmp_path.iterdir()) == []
+
+
+def test_writer_rejects_events_from_the_sessions_old_id(seven_turn_session):
+    seven_turn_session.session_id = "RENAMED"
+    with pytest.raises(ValueError, match="does not match"):
+        session_audit_payload(seven_turn_session)
 
 
 def test_a_good_id_stays_inside_the_directory(tmp_path):
