@@ -1226,3 +1226,24 @@ prompt/schema version은 새 wire 형상에 맞춰 갱신한다.
 **영향** `interaction/{schemas,interpret,prompts}.py`, mock/scripted interaction 테스트,
 `llm/cache.py`의 prompt/schema version. Validator 판정 규칙·hash payload·P6 평가 하네스는
 변하지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.
+
+## D-035: P8.4 interaction gold 구성·분모 고정 (계약 v1.33)
+
+**배경** §18.11은 N=12와 네 dialogue shape를 적었지만 “family당 4”의 family가 무엇인지,
+후보 클릭을 LLM 정확도 분모에 넣는지, gold 파일이 어떤 필드를 가져야 하는지 고정하지 않았다.
+이 상태에서 live 결과를 먼저 보면 사례 구성이나 정답 schema를 결과에 맞춰 바꿀 수 있다.
+
+**결정** P6와 같은 세 profile을 family로 재사용한다:
+`A=FULL_RESPONSE`, `B=AERIAL_ONLY`, `C=SELECTIVE_RESPONSE`. 각 family에
+`NEW-only`, `REPORT+UPDATE`, `QUERY`, `ambiguous-selection`을 한 건씩 두어
+`A1..A4`, `B1..B4`, `C1..C4` 12개로 고정한다. 각 dialogue는 2~5 operator turn이며,
+strict YAML은 자연어 발화의 기대 intent/slot/outcome/grounding/patch와 마지막 graph를 기록한다.
+구조화된 후보 선택도 turn·감사·grounding 평가에는 포함하지만 LLM 호출이 아니므로 intent/slot
+정확도 분모에서는 제외한다. gold와 strict loader를 어떤 P8.4 live 호출보다 먼저 커밋한다.
+
+**대안 검토** interaction 전용의 새 A/B/C 의미를 만드는 방안은 P6 family와 같은 글자를 다른
+뜻으로 쓰게 되어 채택하지 않았다. 후보 클릭을 intent 정확도에 넣는 방안도 LLM이 관여하지 않는
+결정론적 UI action을 모델 성능처럼 보이게 하므로 채택하지 않았다.
+
+**영향** §18.11, `data/interaction_dialogues/`, P8.4 annotation loader/harness/report.
+Validator 판정 규칙·hash payload는 바뀌지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.

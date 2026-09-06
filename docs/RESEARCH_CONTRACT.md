@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.32 (D-034). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.33 (D-035). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.33 (D-035): P8.4 interaction 평가의 12개 dialogue 구성을 고정한다. P6의
+  A/B/C mission profile마다 `NEW-only`/`REPORT+UPDATE`/`QUERY`/`ambiguous-selection`
+  한 건씩 두며, gold schema·strict loader·분모 규칙을 §18.11에 명시한다. 구조화된 후보
+  선택은 operator/audit turn에는 포함하지만 LLM intent·slot 정확도 분모에서는 제외한다.
+  Validator 판정 규칙은 바뀌지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.
 - v1.32 (D-034): P8.3 실제 API 검증에서 OpenAI structured output이 Pydantic
   discriminated union의 중첩 `oneOf`를 거부함을 재현했다. 내부 진실 원천은 기존의 strict
   `OperatorIntent` discriminated union으로 유지하되, API 경계에는 모든 slot을 nullable
@@ -1137,6 +1142,27 @@ loader와 incident grounder는 `normalize_identifier`를, zone grounder는 `norm
 ambiguous), 2~5턴. **LLM 첫 호출 전 gold 커밋.** 턴별 gold: 기대 intent kind, 기대 slots,
 기대 grounding(RESOLVED+incident 또는 CLARIFICATION), 기대 patch ops, 기대 `apply_patch`
 판정, 기대 released(canonical chain이면 항상 없음).
+
+**12개 구성과 gold schema(D-035)**: family는 P6의 mission profile을 그대로 뜻한다.
+`A=FULL_RESPONSE`, `B=AERIAL_ONLY`, `C=SELECTIVE_RESPONSE`이며, 각 family에 아래 네 dialogue
+shape를 정확히 하나씩 둔다: (1) NEW-only 뒤 read-only 확인, (2) NEW→REPORT→UPDATE,
+(3) NEW 뒤 QUERY, (4) NEW 뒤 entity ambiguity→구조화된 후보 선택. 따라서 id는
+`A1..A4`, `B1..B4`, `C1..C4`이고 각 파일은 2~5 operator turn이다.
+
+각 YAML은 top-level `id`, `family`, `profile`, `shape`, `rationale`, `turns`, `final_graph`만
+허용한다. 자연어 turn은 `input_kind=NATURAL_LANGUAGE`, `utterance`, `intent`(kind와 기대 slot),
+`outcome`, 선택적 `grounding`, 선택적 `patch`를 가진다. 후보 클릭 turn은
+`input_kind=CANDIDATE_SELECTION`, `entity_id`, `outcome`, `grounding`, 선택적 `patch`를
+가지며 LLM intent를 갖지 않는다. `patch`는 `added_tasks`와 `added_edges`를 정확히 고정한다.
+`final_graph`는 P6 annotation과 같은 `recon_zones` + incident별 연속 workflow prefix다.
+loader는 알 수 없는 키·중복 id·family/profile/shape 불일치·2~5 turn 위반을 거부하고,
+모든 final graph를 scene 기준 whole-graph Validator로 self-check한다.
+
+operator/audit turn 수에는 자연어와 후보 선택을 모두 포함한다. **LLM intent classification과
+slot extraction 분모에는 `NATURAL_LANGUAGE` turn만 포함**하고, 후보 선택은 LLM 0회인
+결정론적 interaction 결과로 별도 집계한다. end-to-end 도중 앞선 실패 때문에 뒤 turn의 전제가
+사라져도 그 turn을 숨기지 않고 실제 결과대로 오답/실패로 집계한다. dialogue별 session과
+backend context는 분리한다.
 
 두 평가:
 - **grounder-only**: gold intent + gold slot 입력 → referent resolution accuracy,
