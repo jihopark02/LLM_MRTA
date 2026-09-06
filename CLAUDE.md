@@ -19,14 +19,14 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-030, 계약 v1.28)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-031, 계약 v1.29)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-06 기준)
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0·P8.1·P8.2 승인 완료
-(브랜치 `feature/operator-interaction`). 계약 v1.28 (D-030).**
+(브랜치 `feature/operator-interaction`). 계약 v1.29 (D-031 — P8.3 착수 전 확정).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
 `VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 530개 통과, ruff clean.
@@ -79,14 +79,18 @@ P8.2 구조 (D-029, D-030):
 다음: **P8.3** — 최소 Streamlit UI + 실행 버튼 + `ExecutionAudit` 생산자 + live/cached/mock.
 게이트는 §15 / §18.12(UI 최소 표시 13항목).
 
-P8.3 이월(검토 지적, 착수 전 D-031로 계약 확정할 것):
-- **event 시간 순서**: `session_audit_payload`가 turn 전체 → execution 전체 순으로 쌓아,
-  execution이 마지막인 동안만 실제 순서와 같다. 실행 후 turn(`t1 t2 EXECUTION t3`)이
-  `t1 t2 t3 EXECUTION`으로 뒤바뀐다 — session에 단일 순서 `event_log` 또는 모든 event에
-  단조 증가 `event_index`.
-- **clarification 후보 선택**: 정규화가 비는 malformed ID는 사용자가 그 문자열을 다시 입력해도
-  명시 매칭이 안 된다. UI 후보 선택은 grounder 재경유 없이 **구조화된 `entity_id`로** 처리
-  (또는 scene 입력 단계에서 그런 ID 금지).
+P8.3 설계 (D-031, 계약 v1.29 — 착수 전 확정 완료):
+- **통합 `event_log: list[TurnAudit | ExecutionAudit]`** — list 순서가 event 순서의 유일한
+  진실 원천. `event_seq`는 직렬화 시 `enumerate`로 파생(dataclass 필드 아님). `turn_log`는
+  제거하고 read-only property로만. execution은 `turn_count` 미소비.
+- **구조화된 후보 선택** — `PendingClarification`(typed, frozen; entity ambiguity에서만 생성).
+  `select_clarification_candidate(session, entity_id)`는 LLM 없이 grounder 재경유 없이 처리하되
+  감사되는 새 턴(`input_kind="CANDIDATE_SELECTION"`, `resumed_from_turn_id`, `selected_entity_id`).
+  pending 중 자유 입력은 LLM 미전달·실행 버튼 비활성. 취소는 graph·scene·referent 불변.
+- **`scenarios/naming.py`**(신규) — `normalize_identifier`/`normalize_zone_ref` 공유,
+  계층 역전 방지. scene 로더가 정규화 빈 incident id 거부.
+- P8.3 순서: 위 두 스키마 변경 먼저 → Streamlit UI → 실행 버튼 → `ExecutionAudit` 생산자 →
+  live/cached/mock. §18.12 최소 표시 항목 1~14, `VALIDATOR_VERSION` 1.4 불변.
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
