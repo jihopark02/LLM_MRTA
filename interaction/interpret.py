@@ -10,7 +10,7 @@ model sees a deterministic summary, never the raw transcript).
 """
 
 from interaction.prompts import intent_system, intent_user
-from interaction.schemas import IntentEnvelope, OperatorIntent
+from interaction.schemas import IntentWireEnvelope, OperatorIntent
 from interaction.session import MissionSession
 
 
@@ -18,12 +18,12 @@ def classify(session: MissionSession, utterance: str, backend) -> OperatorIntent
     """Classify one utterance. A schema-invalid response raises
     ``pydantic.ValidationError`` — the orchestrator turns it into a recorded
     turn error rather than letting it abort the session."""
-    envelope = backend.complete(
+    wire = backend.complete(
         intent_system(session.context_for_llm()),
         intent_user(utterance),
-        IntentEnvelope,
+        IntentWireEnvelope,
     )
-    return envelope.intent
+    return wire.to_internal().intent
 
 
 __all__ = ["classify"]

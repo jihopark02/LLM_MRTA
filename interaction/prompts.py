@@ -30,6 +30,9 @@ Pick exactly one intent kind:
   four acts above do not cover.
 
 Rules:
+- Return exactly these six top-level keys: kind, zone_ref, target_phrase,
+  up_to_step, about, note. Every key is required; use null for every slot that
+  does not belong to the selected kind or is not present in the utterance.
 - Copy slot phrases verbatim from the utterance. Do NOT resolve them, expand
   them, translate them, or substitute an id you infer from the context.
 - If a slot is not present in the utterance, omit it. A partial extraction is

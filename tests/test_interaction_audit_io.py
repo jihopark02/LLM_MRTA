@@ -18,7 +18,7 @@ from interaction.audit_io import (
     write_session_audit,
 )
 from interaction.orchestrator import handle_turn
-from interaction.schemas import IntentEnvelope
+from interaction.schemas import IntentWireEnvelope, wire_intent
 from interaction.session import MissionSession
 from llm.backend import MockBackend
 from llm.schemas import LLMEdge, LLMTask, Step1Output, Step2Output
@@ -33,8 +33,8 @@ def scene():
     return load_scene(SCENE)
 
 
-def intent(kind: str, **slots) -> IntentEnvelope:
-    return IntentEnvelope.model_validate({"intent": {"kind": kind, **slots}})
+def intent(kind: str, **slots) -> IntentWireEnvelope:
+    return wire_intent(kind, **slots)
 
 
 class _Boom:

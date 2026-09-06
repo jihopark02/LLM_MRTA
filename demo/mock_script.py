@@ -5,7 +5,7 @@ It only lets a presenter exercise the already-tested interaction path without
 network access. The UI exposes the exact supported utterance order.
 """
 
-from interaction.schemas import IntentEnvelope
+from interaction.schemas import IntentWireEnvelope, wire_intent
 from llm.backend import MockBackend
 from llm.schemas import LLMEdge, LLMTask, Step1Output, Step2Output
 from scenarios.fixture import load_reference_fixture
@@ -20,8 +20,8 @@ MOCK_COMMANDS = (
 )
 
 
-def _intent(kind: str, **slots) -> IntentEnvelope:
-    return IntentEnvelope.model_validate({"intent": {"kind": kind, **slots}})
+def _intent(kind: str, **slots) -> IntentWireEnvelope:
+    return wire_intent(kind, **slots)
 
 
 def make_mock_backend() -> MockBackend:

@@ -20,7 +20,7 @@ rather than be silently dropped.
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class _StrictModel(BaseModel):
@@ -94,6 +94,84 @@ class IntentEnvelope(_StrictModel):
     intent: OperatorIntent
 
 
+class IntentWireEnvelope(_StrictModel):
+    """OpenAI-compatible flat transport schema (D-034).
+
+    OpenAI structured output rejects the nested ``oneOf`` emitted by the
+    discriminated union above. Every wire key is required but nullable so the
+    generated JSON Schema has one object shape. A cross-field check then
+    restores the kind/slot boundary before conversion to ``IntentEnvelope``.
+    """
+
+    kind: Literal[
+        "NEW_MISSION",
+        "REPORT_INCIDENT",
+        "UPDATE_MISSION",
+        "QUERY_STATUS",
+        "UNSUPPORTED",
+    ]
+    zone_ref: str | None
+    target_phrase: str | None
+    up_to_step: UpToStep | None
+    about: Literal["agents", "tasks", "incidents", "mission"] | None
+    note: str | None
+
+    @model_validator(mode="after")
+    def _kind_owns_non_null_slots(self):
+        allowed = {
+            "NEW_MISSION": set(),
+            "REPORT_INCIDENT": {"zone_ref"},
+            "UPDATE_MISSION": {"target_phrase", "up_to_step"},
+            "QUERY_STATUS": {"target_phrase", "about"},
+            "UNSUPPORTED": {"note"},
+        }[self.kind]
+        values = {
+            "zone_ref": self.zone_ref,
+            "target_phrase": self.target_phrase,
+            "up_to_step": self.up_to_step,
+            "about": self.about,
+            "note": self.note,
+        }
+        unexpected = sorted(
+            key for key, value in values.items() if value is not None and key not in allowed
+        )
+        if unexpected:
+            raise ValueError(f"{self.kind} cannot populate slots: {', '.join(unexpected)}")
+        return self
+
+    def to_internal(self) -> IntentEnvelope:
+        allowed = {
+            "NEW_MISSION": (),
+            "REPORT_INCIDENT": ("zone_ref",),
+            "UPDATE_MISSION": ("target_phrase", "up_to_step"),
+            "QUERY_STATUS": ("target_phrase", "about"),
+            "UNSUPPORTED": ("note",),
+        }[self.kind]
+        payload = {"kind": self.kind}
+        payload.update(
+            {
+                key: value
+                for key in allowed
+                if (value := getattr(self, key)) is not None
+            }
+        )
+        return IntentEnvelope.model_validate({"intent": payload})
+
+
+def wire_intent(kind: str, **slots) -> IntentWireEnvelope:
+    """Test/demo helper that still crosses the exact live wire boundary."""
+    payload = {
+        "kind": kind,
+        "zone_ref": None,
+        "target_phrase": None,
+        "up_to_step": None,
+        "about": None,
+        "note": None,
+    }
+    payload.update(slots)
+    return IntentWireEnvelope.model_validate(payload)
+
+
 __all__ = [
     "UpToStep",
     "NewMissionIntent",
@@ -103,4 +181,6 @@ __all__ = [
     "UnsupportedIntent",
     "OperatorIntent",
     "IntentEnvelope",
+    "IntentWireEnvelope",
+    "wire_intent",
 ]

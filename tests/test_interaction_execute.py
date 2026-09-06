@@ -14,7 +14,7 @@ from execution.executor import Termination
 from interaction.audit_io import session_audit_payload
 from interaction.execute import execute_session
 from interaction.orchestrator import TurnOutcome, handle_turn
-from interaction.schemas import IntentEnvelope
+from interaction.schemas import IntentWireEnvelope, wire_intent
 from interaction.session import (
     MissionSession,
     PendingClarification,
@@ -30,8 +30,8 @@ from validator.hashing import pre_state_hash, scene_hash
 SCENARIOS = Path(__file__).parents[1] / "scenarios"
 
 
-def _intent(kind: str, **slots) -> IntentEnvelope:
-    return IntentEnvelope.model_validate({"intent": {"kind": kind, **slots}})
+def _intent(kind: str, **slots) -> IntentWireEnvelope:
+    return wire_intent(kind, **slots)
 
 
 @pytest.fixture

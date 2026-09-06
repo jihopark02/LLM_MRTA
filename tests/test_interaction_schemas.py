@@ -5,16 +5,21 @@ clarification member, no task generation. These tests pin the D-027 removals
 (`tasks`, `label`, `urgent`, `priority`) at the schema level.
 """
 
+import json
+
 import pytest
 from pydantic import ValidationError
 
+from interaction.prompts import intent_system
 from interaction.schemas import (
     IntentEnvelope,
+    IntentWireEnvelope,
     NewMissionIntent,
     QueryStatusIntent,
     ReportIncidentIntent,
     UnsupportedIntent,
     UpdateMissionIntent,
+    wire_intent,
 )
 
 
@@ -128,3 +133,92 @@ def test_extra_top_level_key_on_envelope_is_rejected():
         IntentEnvelope.model_validate(
             {"intent": {"kind": "NEW_MISSION"}, "confidence": 0.9}
         )
+
+
+# -- D-034: API wire shape stays flat, then restores the internal union ---
+
+
+def test_wire_schema_has_no_openai_rejected_one_of_and_requires_every_key():
+    schema = IntentWireEnvelope.model_json_schema()
+    assert '"oneOf"' not in json.dumps(schema)
+    assert set(schema["required"]) == set(schema["properties"])
+    assert set(schema["properties"]) == {
+        "kind",
+        "zone_ref",
+        "target_phrase",
+        "up_to_step",
+        "about",
+        "note",
+    }
+
+
+@pytest.mark.parametrize(
+    ("wire", "expected_type", "expected"),
+    [
+        (wire_intent("NEW_MISSION"), NewMissionIntent, {}),
+        (
+            wire_intent("REPORT_INCIDENT", zone_ref="A 구역"),
+            ReportIncidentIntent,
+            {"zone_ref": "A 구역"},
+        ),
+        (
+            wire_intent(
+                "UPDATE_MISSION",
+                target_phrase="거기",
+                up_to_step="GROUND_SUPPRESSION",
+            ),
+            UpdateMissionIntent,
+            {"target_phrase": "거기", "up_to_step": "GROUND_SUPPRESSION"},
+        ),
+        (
+            wire_intent("QUERY_STATUS", about="agents", target_phrase="그 화재"),
+            QueryStatusIntent,
+            {"about": "agents", "target_phrase": "그 화재"},
+        ),
+        (
+            wire_intent("UNSUPPORTED", note="outside scope"),
+            UnsupportedIntent,
+            {"note": "outside scope"},
+        ),
+    ],
+)
+def test_wire_converts_deterministically_to_the_internal_discriminated_union(
+    wire, expected_type, expected
+):
+    internal = wire.to_internal().intent
+    assert isinstance(internal, expected_type)
+    for key, value in expected.items():
+        assert getattr(internal, key) == value
+
+
+@pytest.mark.parametrize(
+    ("kind", "irrelevant"),
+    [
+        ("NEW_MISSION", {"zone_ref": "ZONE_A"}),
+        ("REPORT_INCIDENT", {"target_phrase": "거기"}),
+        ("UPDATE_MISSION", {"about": "mission"}),
+        ("QUERY_STATUS", {"up_to_step": "GROUND_SUPPRESSION"}),
+        ("UNSUPPORTED", {"zone_ref": "ZONE_A"}),
+    ],
+)
+def test_wire_rejects_non_null_slots_owned_by_another_kind(kind, irrelevant):
+    with pytest.raises(ValidationError, match="cannot populate slots"):
+        wire_intent(kind, **irrelevant)
+
+
+def test_wire_requires_explicit_nulls_and_strict_types():
+    payload = wire_intent("QUERY_STATUS").model_dump()
+    payload.pop("note")
+    with pytest.raises(ValidationError):
+        IntentWireEnvelope.model_validate(payload)
+
+    payload = wire_intent("REPORT_INCIDENT").model_dump()
+    payload["zone_ref"] = 123
+    with pytest.raises(ValidationError):
+        IntentWireEnvelope.model_validate(payload)
+
+
+def test_intent_prompt_explains_the_flat_null_slot_protocol():
+    prompt = intent_system("PHASE: PLANNING")
+    assert "kind, zone_ref, target_phrase" in prompt
+    assert "use null" in prompt

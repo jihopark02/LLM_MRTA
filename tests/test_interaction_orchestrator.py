@@ -17,7 +17,7 @@ from interaction.orchestrator import (
     handle_turn,
     select_clarification_candidate,
 )
-from interaction.schemas import IntentEnvelope
+from interaction.schemas import IntentWireEnvelope, wire_intent
 from interaction.session import MissionSession, SessionPhase
 from llm.backend import MockBackend
 from llm.schemas import LLMEdge, LLMTask, Step1Output, Step2Output
@@ -37,8 +37,8 @@ def sess(scene, **kw) -> MissionSession:
     return MissionSession(session_id="S1", scene=scene, **kw)
 
 
-def intent(kind: str, **slots) -> IntentEnvelope:
-    return IntentEnvelope.model_validate({"intent": {"kind": kind, **slots}})
+def intent(kind: str, **slots) -> IntentWireEnvelope:
+    return wire_intent(kind, **slots)
 
 
 def mission_steps(incident_id: str, steps=CHAIN):
