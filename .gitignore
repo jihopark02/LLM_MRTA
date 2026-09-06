@@ -10,4 +10,6 @@ dist/
 results/
 *.log
 .env
+data/interaction_runs/*.json
+data/llm_cache/*.json
 .DS_Store
