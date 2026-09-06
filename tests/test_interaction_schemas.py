@@ -6,10 +6,12 @@ clarification member, no task generation. These tests pin the D-027 removals
 """
 
 import json
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
+from interaction.interpret import classify
 from interaction.prompts import intent_system
 from interaction.schemas import (
     IntentEnvelope,
@@ -21,6 +23,11 @@ from interaction.schemas import (
     UpdateMissionIntent,
     wire_intent,
 )
+from interaction.session import MissionSession
+from llm.backend import MockBackend
+from scenarios.scene import load_scene
+
+SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
 
 
 def _envelope(payload: dict) -> IntentEnvelope:
@@ -222,3 +229,14 @@ def test_intent_prompt_explains_the_flat_null_slot_protocol():
     prompt = intent_system("PHASE: PLANNING")
     assert "kind, zone_ref, target_phrase" in prompt
     assert "use null" in prompt
+
+
+def test_classifier_requests_wire_schema_then_returns_internal_intent():
+    backend = MockBackend([wire_intent("QUERY_STATUS", about="agents")])
+    session = MissionSession("WIRE", load_scene(SCENE))
+
+    result = classify(session, "로봇 상태", backend)
+
+    assert isinstance(result, QueryStatusIntent)
+    assert result.about == "agents"
+    assert backend.calls[0][2] == "IntentWireEnvelope"

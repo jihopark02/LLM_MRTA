@@ -30,7 +30,9 @@ turn with nothing left to do. Without it, "거기 진압까지" answered with
 NO_CHANGE would drop the referent the operator is about to reuse. A patch the
 Validator rejects is a failed UPDATE (§18.5) and adds nothing.
 
-Not here yet: the execute action, live/cached backends and the UI (P8.3).
+P8.3's Streamlit UI is only a caller of this module. Deterministic execution
+and exact live-response caching remain separate in ``interaction.execute`` and
+``llm.cache`` so neither concern changes turn semantics.
 """
 
 from dataclasses import dataclass, field

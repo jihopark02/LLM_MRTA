@@ -1,9 +1,8 @@
 """Typed audit records for the planning session (RESEARCH_CONTRACT.md §18.9).
 
 Replaces the untyped ``turn_log: list[dict]`` scaffolding from P8.1a. Every
-turn produces a ``TurnAudit``; pressing run will produce an ``ExecutionAudit``
-(its producer arrives with the execute action in P8.3 — the schema is fixed
-here because §18.9 specifies it).
+turn produces a ``TurnAudit``; pressing run produces an ``ExecutionAudit`` via
+``interaction.execute``.
 
 The point of these records is that a reader can reconstruct *why* a turn did
 what it did: which intent, which slots, how the referent resolved, which patch
@@ -125,8 +124,8 @@ class TurnAudit:
 class ExecutionAudit:
     """One press of run (§18.9, ``event_type: EXECUTION``).
 
-    Execution is a deterministic UI action, never an LLM intent. The producer
-    arrives with the execute action in P8.3; the shape is fixed here.
+    Execution is a deterministic UI action, never an LLM intent. Its producer
+    is ``interaction.execute.execute_session``.
     """
 
     session_id: str
