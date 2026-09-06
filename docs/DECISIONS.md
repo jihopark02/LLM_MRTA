@@ -1189,3 +1189,16 @@ pending 중 입력 차단), `interaction/ground.py`(`scenarios.naming` 사용), 
 **영향** `interaction/{ground,audit,session,orchestrator,audit_io}.py`, 실행 action 신규 모듈,
 `tests/test_interaction_*`. Validator 판정 규칙·hash payload·P6 평가 하네스는 바뀌지 않으므로
 `VALIDATOR_VERSION`은 1.4 그대로다.
+
+## D-033: 실행 실패 뒤 동일 graph 재시도 보존 (계약 v1.31)
+
+**배경** D-032는 실행 action의 전제를 `phase == PLANNING`으로 적었지만, 기존 §18.1은 실행
+실패 시 graph 수정은 금지하되 **동일 graph 재시도는 허용**한다. 그대로 구현하면
+`EXECUTION_FAILED`에 들어간 세션이 재시도할 수 없어 두 조항이 충돌한다.
+
+**결정** 실행 action은 state·plan이 있고 pending이 없으며 phase가 `PLANNING` 또는
+`EXECUTION_FAILED`일 때 허용한다. 실패 뒤 재시도는 새 `ExecutionAudit`을 append하고 최근
+`session.execution`을 교체한다. 이미 `EXECUTED`인 세션의 재실행은 거부한다.
+
+**영향** §18.9 실행 전제와 P8.3 실행 action 테스트. Validator 규칙·hash·평가 하네스는
+바뀌지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.

@@ -19,14 +19,14 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-032, 계약 v1.30)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-033, 계약 v1.31)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-06 기준)
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0·P8.1·P8.2 승인 완료
-(브랜치 `feature/operator-interaction`). 계약 v1.30 (D-032 — P8.3 착수 전 보완 확정).**
+(브랜치 `feature/operator-interaction`). 계약 v1.31 (D-033 — 실행 재시도 경계 정정).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
 `VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 530개 통과, ruff clean.
@@ -95,7 +95,8 @@ P8.3 설계 (D-031, D-032, 계약 v1.30 — 착수 전 확정 완료):
   `AMBIGUOUS_ENTITY` + 나머지 필수 slot 완전 조건에서만 생성. 후보 선택·취소는 `mode`를
   명시적으로 받고 잘못된 선택·pending 중 자연어도 감사 턴으로 남긴다.
 - 세션의 private append boundary가 event 순서를 소유한다. 실행 action은 COMPLETED뿐 아니라
-  DEADLOCK·STEP_LIMIT·예외도 즉시 `ExecutionAudit`로 기록한다(D-032).
+  DEADLOCK·STEP_LIMIT·예외도 즉시 `ExecutionAudit`로 기록하며, `EXECUTION_FAILED`에서는
+  동일 graph 재시도를 허용한다(D-032, D-033).
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.

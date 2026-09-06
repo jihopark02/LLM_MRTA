@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.30 (D-032). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.31 (D-033). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,6 +62,9 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
+- v1.31 (D-033): D-032의 실행 전제를 §18.1 lifecycle과 정렬한다. 실행은 `PLANNING`뿐 아니라
+  `EXECUTION_FAILED`에서도 같은 graph 재시도를 허용하며, `EXECUTED`에서만 거부한다.
+  `VALIDATOR_VERSION` 불변(1.4).
 - v1.30 (D-032): P8.3 구현 전 D-031의 남은 경계를 닫는다. `GroundingOutcome`과 감사 로그에
   `ClarificationReason`을 추가해 **실제 entity ambiguity**와 unknown/missing 조건을 구분하고,
   `PendingClarification`은 `AMBIGUOUS_ENTITY`이면서 재개에 필요한 나머지 slot이 완전할 때만
@@ -1079,8 +1082,10 @@ entity 목록이 들어갈 수 있다. 오직 `reason == AMBIGUOUS_ENTITY`인 �
 `live|cached|mock` 중 하나로 명시적으로 받는다. `COMPLETED` → `phase = EXECUTED`;
 `DEADLOCK`·`STEP_LIMIT` 또는 executor 예외 → `phase = EXECUTION_FAILED`. 예외도
 `execution_termination = ERROR`와 원인을 감사하고 밖으로 전파하지 않는다. 실행 전제(state와
-plan 존재, PLANNING phase, pending 없음) 위반은 UI 배선 오류이므로 실행 event를 만들기 전에
-`ValueError`로 거부한다. 실행은 graph·scene·plan을 바꾸지 않는다.
+plan 존재, phase가 `PLANNING` 또는 `EXECUTION_FAILED`, pending 없음) 위반은 UI 배선 오류이므로
+실행 event를 만들기 전에 `ValueError`로 거부한다. `EXECUTION_FAILED`에서의 재호출은 §18.1의
+"동일 graph 재시도"이며 새 `ExecutionAudit`을 append하고 최근 실행 결과를 교체한다.
+`EXECUTED`에서는 재실행하지 않는다. 실행은 graph·scene·plan을 바꾸지 않는다.
 
 - `plan_assignment_changes`: `added`(이전 plan에 없고 새 plan에 존재), `removed`(이전에
   있고 새 plan에 없음), `changed`(둘 다 존재하나 agent가 달라짐). **이는 실행 중 재할당이
