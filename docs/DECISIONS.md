@@ -1317,3 +1317,27 @@ online UPDATE는 checkpoint clone에서 patch·release·epoch를 모두 성공�
 **영향** §1 RQ4, §15 P9.0~P9.4, §17 범위, 신규 §19, incremental `SimExecutor`, online
 interaction audit/UI/evaluation. whole-graph Validator 판정 규칙과 hash payload는 바뀌지 않으므로
 `VALIDATOR_VERSION`은 1.4 그대로다.
+
+## D-040: P9 보존 지표 의미와 대표 비교 결과 (계약 v1.37)
+
+**배경** P9.4 대표 fixture를 실행해 보니 release된 task가 같은 agent에게 다시 낙찰되는 경우가
+있었다. 이를 `preserved_active_assignments`로 세면 “owner가 최종적으로 같음”과 “기존 commitment를
+release하지 않음”이 섞인다. 선택 정책이 줄이는 것은 owner change가 아니라 release 범위이므로
+두 값을 분리해야 한다.
+
+**결정** preserved assignment는 release되지 않았고 전후 owner도 같은 task만 센다. release 후
+같은 agent가 재낙찰한 task는 `released_tasks`에는 남고 `existing_owner_changes`는 0일 수 있지만,
+preserved에는 포함하지 않는다. 비교 입력은 결과 확인 전에 커밋한
+`data/online_reallocation_fixture.yaml`로 고정한다. 이 fixture는 event 10(t=121.643s)에
+COMPLETED 10개, RUNNING 5개, 미시작 ASSIGNED 2개가 있으며, ZONE_B의 FIRE_SITE_6 full chain을
+추가한다.
+
+**결과** no-reset은 0개 release/2개 보존, full-reset은 2개 release/0개 보존, selective는
+`AREA_RECON__ZONE_C` 1개 release/`GROUND_INSPECTION__FIRE_SITE_1` 1개 보존이었다. 세 정책 모두
+COMPLETED, capability/precedence violation 0, makespan 453.883s였고 기존 owner change도 0이었다.
+따라서 이 결과는 selective가 release 범위를 줄였다는 것만 보이며 성능 또는 최적성 우위를
+보이지 않는다.
+
+**영향** §19.4 보존 지표 정의, `allocation/online.py`, P9 Streamlit UI,
+`evaluation/online_reallocation.py`, `docs/P9_RESULTS.md`. whole-graph Validator의 판정·hash는
+바뀌지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.

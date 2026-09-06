@@ -1,8 +1,12 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.36 (D-039). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.37 (D-040). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.37 (D-040): P9 감사의 `preserved active assignment`를 **release되지 않았고 전후 owner도
+  같은 commitment**로 명확히 한다. release 후 같은 agent가 다시 낙찰한 경우는 owner change
+  0이지만 preserved로 세지 않는다. P9.4 고정 fixture·세 정책 결과와 온라인 Streamlit 경로를
+  기록한다. whole-graph 판정 규칙은 불변이므로 `VALIDATOR_VERSION`은 1.4 그대로다.
 - v1.36 (D-039): P8.4 완료 후 선택 확장 RQ4/P9를 추가한다. 실행은 결정론적 task-completion
   event에서 pause/resume하며, COMPLETED와 현재 RUNNING task는 보존한다. 새로 READY가 된
   task와 bidder set을 공유하는 아직 시작하지 않은 ASSIGNED task를 찾고, agent별 최초 영향
@@ -1374,6 +1378,9 @@ accepted online UPDATE의 `TurnAudit`에는 `OnlineReallocationAudit`을 포함�
 simulation time, patch added task, directly affected task, selectively released suffix, preserved
 active assignment, before/after assignment, assignment changes, 새 epoch consensus rounds.
 최종 완료/실패는 기존 `ExecutionAudit`을 사용하되 전체 실행 시작 시각과 종료 시각을 기록한다.
+여기서 preserved active assignment는 release 집합에 들어가지 않았고 전후 owner도 같은
+commitment만 뜻한다. release된 뒤 우연히 같은 agent가 다시 낙찰한 task는 owner change는 0이지만
+preserved로 세지 않는다.
 
 ### 19.5 P9 대표 실험
 
