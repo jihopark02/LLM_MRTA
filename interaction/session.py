@@ -25,6 +25,7 @@ from core.enums import TaskStatus, TaskType
 from core.mission_state import MissionState
 from core.task_graph import TaskGraph
 from execution.executor import ExecutionResult
+from interaction.audit import TurnAudit
 from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.scene import Scene
 
@@ -98,7 +99,7 @@ class MissionSession:
     phase: SessionPhase = SessionPhase.PLANNING
     recent_referents: list[Referent] = field(default_factory=list)
     turn_count: int = 0
-    turn_log: list[dict] = field(default_factory=list)
+    turn_log: list[TurnAudit] = field(default_factory=list)
 
     # -- derived (never stored, D-027) ---------------------------------
     @property
