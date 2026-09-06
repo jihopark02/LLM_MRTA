@@ -12,6 +12,7 @@ RESEARCH_CONTRACT.md §12 / §15, D-021 · D-022 · D-023 · D-024. 소표본(9�
 | 모델 (실제 resolved, 전 호출) | `gpt-5-mini-2025-08-07` |
 | scene_hash | `0e8f098cd95aba26f1384fc6ad5c89ad047ec84912cf595936a7b56d75672c6d` |
 | validator_version | `1.3` (candidate 경로 invariant **#1~#12**) |
+| 재현 기준점 | 태그 **`v0.6.5-baseline`** (`ec7b379`) — 아래 주의 참고 |
 | 실행 시각 (UTC) | 2026-09-02 09:39:33 – 09:42:17 |
 | 입력 | `data/reference_annotations/{A1..C3}.yaml` (LLM 호출 전 커밋: `c3ed0f3`) |
 | 원자료 | `data/eval_results/p6_gpt-5-mini.{json,txt}`, 그림 `.png/.pdf` |
@@ -23,6 +24,15 @@ task·edge precision/recall·exact match를 독립 재계산할 수 있다.
 
 재현: `pip install -e '.[llm,viz]'` 후
 `python3 -m evaluation --model gpt-5-mini --out data/eval_results/p6_gpt-5-mini --plot`.
+
+> **이 표의 `validator_version`과 `scene_hash`는 baseline 시점의 역사적 값이다.**
+> 위 값을 그대로 재현하려면 태그 `v0.6.5-baseline`에서 실행해야 한다
+> (`git worktree add /tmp/llm-mrta-baseline v0.6.5-baseline`). P8.1 이후의 `main`
+> 계열 브랜치에서 같은 명령을 돌리면 **정상적으로** `validator_version 1.4`와 새
+> `scene_hash 3141d8d3…`가 기록된다 — D-027이 `AddTask` op schema를 바꾸고(1.3 → 1.4)
+> zone response point를 scene에 추가했기 때문이다(§14, §18.10). 두 변경 모두 candidate
+> 경로의 판정 규칙(#1~#12)을 바꾸지 않으므로 **아래 결과 수치(9/9, P/R 1.00, exact match
+> 9/9)는 그대로 유효하며, 라이브 재실행은 하지 않았다**(D-027).
 
 ## 집계 (X/9)
 

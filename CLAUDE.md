@@ -19,16 +19,17 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-027, 계약 v1.25)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-028, 계약 v1.26)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
-## 지금 어디까지 왔는지 (2026-09-02 기준)
+## 지금 어디까지 왔는지 (2026-09-06 기준)
 
-**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`). P8.0(RQ3 계약) 승인 완료. 계약 v1.25 (D-027).**
+**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0·P8.1 승인 완료
+(브랜치 `feature/operator-interaction`). 계약 v1.26 (D-028).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
-(P6 평가 + P6.5 `integration.py`). `VALIDATOR_VERSION` — baseline 코드는 아직 `"1.3"`,
-D-027이 P8.1에서 `"1.4"`로 올림. `λ = 0.999`. pytest 232개 통과, ruff clean.
+(P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1). `VALIDATOR_VERSION = "1.4"`
+(D-027), `λ = 0.999`. pytest 426개 통과, ruff clean.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 실행 개시 전 다중 턴 자연어 계획 세션.
 5종 대화 행위(NEW_MISSION/REPORT_INCIDENT/UPDATE_MISSION/QUERY_STATUS/UNSUPPORTED). LLM은
@@ -38,9 +39,35 @@ MissionPatch 생성, `apply_patch`(P2 기존 엔진)가 atomic commit/rollback. 
 `core/`·`allocation/`·`execution/`·`llm/pipeline.py`·`evaluation/` 무변경. 게이트 P8.0~P8.5는
 §15.
 
-다음: **P8.1** — `interaction/` schema + `Referent` state + 결정론적 grounder +
-`register_incident`(scene 트랜잭션) + canonical patch builder + `AddTask` op priority 제거
-(`VALIDATOR_VERSION` 1.3 → 1.4). 게이트는 §15.
+P8.1 구조 (D-027, D-028):
+- `interaction/schemas.py`: strict·`kind` discriminated `OperatorIntent`(5종) +
+  `IntentEnvelope`. `NewMissionIntent`는 슬롯 없음(raw utterance → `generate_mission`),
+  슬롯은 전부 optional(부분 추출), **CLARIFICATION 멤버 없음**.
+- `interaction/session.py`: `SessionPhase`{PLANNING,EXECUTED,EXECUTION_FAILED},
+  `ReferentKind`/`Referent`(scene 멤버십 검증), `MissionSession`(plan·execution 분리),
+  referent window K=3, `fresh_session_state`(scene의 mutable Agent 비공유),
+  `build_context_summary`(결정론). `known_incident_ids`·context는 **derived**.
+- `interaction/workflow.py`: `WORKFLOW_CHAIN` + Validator `WORKFLOW_PREDECESSOR`와 import 시
+  일관성 assert.
+- `interaction/scene_mut.py`: `register_incident` — ID `FIRE_SITE_<max n+1>`(malformed는
+  카운터 제외·충돌 검사 포함), priority 고정 7, zone response point 사용, **원본 Scene 불변**.
+- `interaction/ground.py`: **fail-closed** grounder(D-028) — zone alias 3형태, incident 해석
+  5단계 우선순위, **허용 지시어 allowlist**(계약 §18.5 고정), 정규화 충돌 → clarification,
+  정규화가 비는 ID는 명시 매칭에서 제외. `build_chain_patch` = canonical 연장만, 이미
+  완성이면 **NO_CHANGE**(중복 AddTask·빈 patch commit 금지).
+- Validator 1.4(P8.1b atomic cut): `AddTask` op `{task_type,target}`, field schema/conflict
+  분리, `patch_hash`+`pre_state_hash`, zone response point가 `scene_hash`에 포함.
+
+다음: **P8.2** — orchestrator + intent interpreter(게이트는 `MockBackend`). I1~I8 headless,
+session lifecycle·NO_CHANGE·referent 규칙 강제, 턴별 감사 JSON. 게이트는 §15.
+
+P8.2 이월(검토 지적):
+- referent 추가는 `note_referent()` 경유만 / `turn_count` 턴마다 단조 증가 /
+  clarification·UNSUPPORTED·실패 턴은 referent 추가 없고 state 불변 — **end-to-end 테스트로 고정**.
+- `MissionSession.turn_log: list[dict]` → `TurnAudit`/`ExecutionAudit` typed schema.
+- clarification 후보로 제시된 **정규화가 비는 malformed ID**는 사용자가 그 문자열을 다시
+  입력해도 명시 매칭이 안 된다. UI 후보 선택을 grounder 재경유 없이 **구조화된 `entity_id`로**
+  처리하거나, scene 입력 단계에서 그런 ID를 금지할 것.
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
@@ -89,7 +116,6 @@ P6.5 (D-025, D-026): `evaluation/integration.py` `run_full` — NL → `generate
 일치 → makespan P3/P4 골든(359.8/257.9) 일치, wrong-but-valid graph는 op-clean이나
 demo_pass 아님. CLI `python3 -m evaluation.integration [--mock]`.
 
-다음: P8.1 (interaction schema + grounder). P7(Gazebo)은 보류.
 
 P4 구조:
 - `execution/executor.py` `SimExecutor.run()` — clone 위 event loop: recompute → `run_epoch`
