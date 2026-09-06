@@ -182,6 +182,65 @@ def test_normalized_id_collision_clarifies_instead_of_picking_one(scene):
     assert out.candidates == ("FIRE SITE 1", "FIRE_SITE_1")
 
 
+# -- a malformed id must not become a catch-all bucket (D-028) --------
+
+
+@pytest.fixture
+def scene_with_malformed_incident(scene):
+    # P8.1c's next_incident_id tolerates malformed ids, so one can be present.
+    from dataclasses import replace as dc_replace
+
+    return dc_replace(
+        scene,
+        incidents={
+            **scene.incidents,
+            "!!!": dc_replace(scene.incidents["FIRE_SITE_1"], incident_id="!!!"),
+        },
+    )
+
+
+@pytest.mark.parametrize("phrase", ["!!!", "---", "?", "...", "@@"])
+def test_punctuation_phrase_does_not_match_an_id_that_normalizes_to_nothing(
+    scene_with_malformed_incident, phrase
+):
+    # "!!!" as an id normalizes to "", which would otherwise be a bucket that
+    # every punctuation-only phrase falls into.
+    s = session(scene_with_malformed_incident)
+    s.note_referent("incident", "FIRE_SITE_2")
+    out = resolve_incident(s, phrase)
+    assert out.status is GroundingStatus.CLARIFICATION_REQUIRED, phrase
+    assert out.entity_id is None
+
+
+@pytest.mark.parametrize("phrase", [None, "", "   ", "\t"])
+def test_blank_phrase_still_takes_the_fallback_despite_a_malformed_id(
+    scene_with_malformed_incident, phrase
+):
+    # Whitespace is truthy in Python; it must still count as "no referent
+    # given" rather than matching the empty normalized key.
+    s = session(scene_with_malformed_incident)
+    s.note_referent("incident", "FIRE_SITE_2")
+    out = resolve_incident(s, phrase)
+    assert out.resolved and out.entity_id == "FIRE_SITE_2"
+
+
+def test_well_formed_ids_still_resolve_alongside_a_malformed_one(
+    scene_with_malformed_incident,
+):
+    s = session(scene_with_malformed_incident)
+    assert resolve_incident(s, "FIRE_SITE_1").entity_id == "FIRE_SITE_1"
+    assert resolve_incident(s, "FIRE_SITE_2").entity_id == "FIRE_SITE_2"
+
+
+def test_a_malformed_id_is_still_reachable_as_a_referent(
+    scene_with_malformed_incident,
+):
+    # It has no textual handle, but the session can still point at it.
+    s = session(scene_with_malformed_incident)
+    s.note_referent("incident", "!!!")
+    assert resolve_incident(s, "거기").entity_id == "!!!"
+
+
 def test_a_unique_normalized_id_still_resolves_alongside_a_collision(scene):
     from dataclasses import replace as dc_replace
 

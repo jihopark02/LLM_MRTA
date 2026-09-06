@@ -162,13 +162,21 @@ def resolve_incident(session: MissionSession, target_phrase: str | None) -> Grou
     known = session.known_incident_ids
 
     # 1. normalized match against known ids; a shared normalized form is
-    #    ambiguous, not a coin flip (D-028).
+    #    ambiguous, not a coin flip (D-028). An id that normalizes to nothing
+    #    (a malformed "!!!" — next_incident_id tolerates those) has no textual
+    #    handle at all, so it is excluded rather than becoming a bucket that
+    #    swallows every punctuation-only phrase.
     by_normalized: dict[str, list[str]] = {}
     for iid in known:
-        by_normalized.setdefault(_normalize(iid), []).append(iid)
+        normalized = _normalize(iid)
+        if normalized:
+            by_normalized.setdefault(normalized, []).append(iid)
 
-    if target_phrase:
-        hits = by_normalized.get(_normalize(target_phrase), [])
+    # Only a phrase that survives normalization can name an id; "!!!" and "   "
+    # must fall through to the deixis check, not match an empty key.
+    needle = _normalize(target_phrase) if target_phrase and target_phrase.strip() else ""
+    if needle:
+        hits = by_normalized.get(needle, [])
         if len(hits) == 1:
             return _resolved(ReferentKind.INCIDENT, hits[0])
         if len(hits) > 1:
