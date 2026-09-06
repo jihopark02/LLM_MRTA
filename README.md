@@ -17,8 +17,8 @@ Unmanned Systems
 9개 입력 평가 하네스 + 감사 JSON + 시각화; P6.5: 통합 runner). **P8.1~P8.3 승인 완료** —
 `interaction/`(intent schema, planning session, 결정론적 grounder, incident 등록,
 canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행 감사, live/cached/mock)
-+ `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가 완료**.
-테스트 601개 통과.
++ `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가와 P9
+실행 중 명령·선택적 재할당까지 완료**. 테스트 625개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -33,15 +33,16 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.36 / 최신 결정 D-039 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.37 / 최신 결정 D-040 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
 [`docs/RESEARCH_CONTRACT.md`](docs/RESEARCH_CONTRACT.md) §15 참고.
 
-다음 확장은 **P9**: task-completion checkpoint에서 실행을 멈추고, 운용자 업데이트로 생긴
-새 READY task와 bidder를 공유하는 미시작 bundle suffix만 release/rebid한 뒤 재개한다.
-COMPLETED/RUNNING은 보존하며 전역 최소·최적 재할당은 주장하지 않는다(§19).
+P9는 task-completion checkpoint에서 실행을 멈추고, 운용자 업데이트로 생긴 새 READY task와
+bidder를 공유하는 미시작 bundle suffix만 release/rebid한 뒤 재개한다. 대표 비교에서
+no-reset/full-reset/selective release 수는 0/2/1, 세 정책 모두 COMPLETED·위반 0이며 makespan은
+동일했다. 따라서 release 범위 축소만 주장한다. 상세는 [`docs/P9_RESULTS.md`](docs/P9_RESULTS.md).
 
 ## 운영자 UI
 

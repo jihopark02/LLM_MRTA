@@ -19,17 +19,17 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-039, 계약 v1.36)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-040, 계약 v1.37)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
-## 지금 어디까지 왔는지 (2026-09-06 기준)
+## 지금 어디까지 왔는지 (2026-09-07 기준)
 
-**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.4 완료
-(브랜치 `feature/operator-interaction`). 계약 v1.36, 최신 결정 D-039.**
+**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.4와
+P9.0~P9.4 완료 (브랜치 `feature/operator-interaction`). 계약 v1.37, 최신 결정 D-040.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 601개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 625개 통과, ruff clean.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 실행 개시 전 다중 턴 자연어 계획 세션.
 5종 대화 행위(NEW_MISSION/REPORT_INCIDENT/UPDATE_MISSION/QUERY_STATUS/UNSUPPORTED). LLM은
@@ -85,9 +85,13 @@ precision 3/11이며, 한국어 조사 포함 slot과 금지 `note` 출력이 �
 `docs/P8_4_RESULTS.md`와 `data/eval_results/p8_4_*` 참고. 같은 12개를 사후 튜닝 결과의 새
 headline으로 재사용하지 않는다.
 
-다음: **P9.1** — §19의 `SimExecutor` task-completion checkpoint/resume. P9.2에서
-bidder-connected bundle-suffix release, P9.3에서 paused 자연어 turn, P9.4에서 UI·비교 실험.
-P8.5 graph·2D 경로 UI 폴리싱은 보류 가능하다.
+P9 (§19, D-039/D-040): `SimExecutor` task-completion checkpoint/resume, bidder-connected
+bundle-suffix release, paused REPORT/UPDATE/QUERY, typed `CheckpointAudit`/
+`OnlineReallocationAudit`, Streamlit 온라인 실행 버튼, no-reset/full-reset/selective 고정 비교까지
+완료. 대표 fixture의 release 수 0/2/1, 세 정책 모두 COMPLETED·위반 0·makespan 453.883s.
+selective의 성능/최적성 우위가 아니라 **불필요한 release 범위 감소**만 주장한다.
+`docs/P9_RESULTS.md`와 `data/eval_results/p9_online_reallocation.*` 참고. 다음은 발표 자료 정리이며
+P8.5 graph·2D 경로 UI 폴리싱은 선택 사항이다.
 
 P8.3 구조 (D-031~D-034, 계약 v1.32):
 - **통합 `event_log: list[TurnAudit | ExecutionAudit]`** — list 순서가 event 순서의 유일한
