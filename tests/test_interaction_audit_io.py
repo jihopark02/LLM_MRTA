@@ -213,3 +213,33 @@ def test_an_execution_record_joins_the_same_event_stream(seven_turn_session):
     assert payload["events"][-1]["execution_termination"] == "COMPLETED"
     # every event is self-describing, so a reader can split the stream by type
     assert all("event_type" in e for e in payload["events"])
+    # Scope, stated so the shape is not mistaken for more than it is: turns come
+    # first, then executions. That is faithful only while execution is terminal.
+    # P8.3 adds post-execution turns, and interleaving them needs a single
+    # ordered event log on the session (or an event index to merge on) — this
+    # test does not cover ordering and must not be read as if it did.
+
+
+# -- the id is a path component (§18.9, D-030) ------------------------
+
+
+@pytest.mark.parametrize("session_id", ["../escape", "../../outside", "/tmp/absolute", "a/b"])
+def test_audit_path_refuses_an_id_that_would_leave_the_directory(session_id, tmp_path):
+    with pytest.raises(ValueError, match="session_id"):
+        audit_path(session_id, tmp_path)
+
+
+def test_a_bad_id_writes_nothing_and_creates_no_directory(seven_turn_session, tmp_path):
+    # MissionSession refuses such an id at construction, so reaching the writer
+    # takes a post-construction mutation; the writer must still not act on it.
+    target = tmp_path / "runs"
+    seven_turn_session.session_id = "../escape"
+    with pytest.raises(ValueError, match="session_id"):
+        write_session_audit(seven_turn_session, target)
+    assert not target.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_good_id_stays_inside_the_directory(tmp_path):
+    resolved = audit_path("demo-01", tmp_path).resolve()
+    assert resolved.parent == tmp_path.resolve()

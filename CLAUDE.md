@@ -19,7 +19,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-028, 계약 v1.26)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-030, 계약 v1.28)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
@@ -60,6 +60,12 @@ P8.1 구조 (D-027, D-028):
 
 다음: **P8.2** — orchestrator + intent interpreter(게이트는 `MockBackend`). I1~I8 headless,
 session lifecycle·NO_CHANGE·referent 규칙 강제, 턴별 감사 JSON. 게이트는 §15.
+
+P8.3 이월(검토 지적):
+- `session_audit_payload`는 turn 전체 → execution 전체 순으로 event를 쌓는다. execution이
+  마지막인 동안만 실제 시간 순서와 같다 — P8.3이 실행 후 turn을 허용하면
+  `t1 t2 EXECUTION t3`이 `t1 t2 t3 EXECUTION`으로 기록된다. session에 단일 순서 event log를
+  두거나 모든 event에 단조 증가 index를 부여해 병합 정렬할 것.
 
 P8.2 이월(검토 지적):
 - referent 추가는 `note_referent()` 경유만 / `turn_count` 턴마다 단조 증가 /

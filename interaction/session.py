@@ -17,6 +17,7 @@ must not share a mutable ``Agent`` with the scene — the P6.5 fork is unaffecte
 because ``allocate``/``SimExecutor`` clone their input immediately.
 """
 
+import re
 from dataclasses import dataclass, field, replace
 from enum import Enum
 
@@ -33,6 +34,13 @@ from scenarios.scene import Scene
 #: (§18.5). Small on purpose: an operator saying "거기" means something they
 #: just mentioned, not something from five turns ago.
 REFERENT_WINDOW_TURNS = 3
+
+
+#: §18.9 / D-030. The session id becomes the audit filename, so a free string
+#: would let "../" or an absolute path write outside the directory the contract
+#: pins. Leading char is alphanumeric so an id can never be ".", ".." or look
+#: like a flag; 64 chars keeps it inside filename limits.
+SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
 class SessionPhase(str, Enum):
@@ -100,6 +108,18 @@ class MissionSession:
     recent_referents: list[Referent] = field(default_factory=list)
     turn_count: int = 0
     turn_log: list[TurnAudit] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # An input boundary, not a formatting preference (D-030): this value is
+        # the audit filename and is copied into every TurnAudit, so it is
+        # checked once here rather than at each use.
+        if not isinstance(self.session_id, str) or not SESSION_ID_PATTERN.match(
+            self.session_id
+        ):
+            raise ValueError(
+                f"session_id must match {SESSION_ID_PATTERN.pattern}, "
+                f"got {self.session_id!r}"
+            )
 
     # -- derived (never stored, D-027) ---------------------------------
     @property
@@ -225,6 +245,7 @@ def build_context_summary(session: MissionSession) -> str:
 
 __all__ = [
     "REFERENT_WINDOW_TURNS",
+    "SESSION_ID_PATTERN",
     "SessionPhase",
     "ReferentKind",
     "Referent",

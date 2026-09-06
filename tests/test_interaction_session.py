@@ -12,6 +12,7 @@ import pytest
 from core.enums import TaskType
 from interaction.session import (
     REFERENT_WINDOW_TURNS,
+    SESSION_ID_PATTERN,
     MissionSession,
     Referent,
     ReferentKind,
@@ -304,3 +305,46 @@ def test_context_summary_lists_live_referents(scene):
 def test_phase_values(scene):
     assert session(scene).phase is SessionPhase.PLANNING
     assert [p.value for p in SessionPhase] == ["PLANNING", "EXECUTED", "EXECUTION_FAILED"]
+
+
+# -- session_id is an input boundary (§18.9, D-030) -----------------------
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    ["S1", "demo-01", "a", "0", "3f2b9c1e-4d7a-4f11-8c2e-9b6d0a1f5e33", "run.2026-09-06"],
+)
+def test_a_well_formed_session_id_is_accepted(scene, session_id):
+    assert MissionSession(session_id=session_id, scene=scene).session_id == session_id
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    [
+        "../escape",          # the audit filename would leave the pinned directory
+        "../../outside",
+        "/tmp/absolute",      # an absolute path swallows the join entirely
+        "a/b",
+        "a\\b",
+        "..",
+        ".",
+        ".hidden",
+        "-flag",
+        "",
+        " ",
+        "with space",
+        "a" * 65,             # filename length
+        "화재",                # ascii only: the id is a path component
+    ],
+)
+def test_a_malformed_session_id_is_refused(scene, session_id):
+    with pytest.raises(ValueError, match="session_id"):
+        MissionSession(session_id=session_id, scene=scene)
+
+
+def test_the_pattern_is_anchored(scene):
+    # An unanchored pattern would accept "../escape" on its trailing segment.
+    assert SESSION_ID_PATTERN.pattern.startswith("^")
+    assert SESSION_ID_PATTERN.pattern.endswith("$")
+    with pytest.raises(ValueError, match="session_id"):
+        MissionSession(session_id="ok\nbad/x", scene=scene)
