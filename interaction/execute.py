@@ -30,6 +30,8 @@ def _preconditions(session: MissionSession) -> None:
         raise ValueError("a committed mission and plan are required before execution")
     if session.pending_clarification is not None:
         raise ValueError("resolve or cancel the pending clarification before execution")
+    if session.runtime is not None:
+        raise ValueError("an online runtime cannot be executed through the one-shot action")
     if session.phase not in {SessionPhase.PLANNING, SessionPhase.EXECUTION_FAILED}:
         raise ValueError("an already completed session cannot be executed again")
 

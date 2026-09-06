@@ -434,10 +434,12 @@ def _do_update_mission(
         if not online.accepted:
             codes = ", ".join(c.value for c in online.patch_result.error_codes)
             return _finish(turn, TurnOutcome.REJECTED, f"변경이 거부됐습니다 ({codes}).")
-        # note_referent performs the only remaining validation.  Publish the
-        # candidate runtime/state together after it succeeds (§19.4).
+        # Build every fallible derived value before touching session state.
+        # note_referent performs the only remaining session validation; publish
+        # the candidate runtime/state together only after it succeeds (§19.4).
+        online_audit = _online_reallocation_audit(online)
         _note(turn, ReferentKind.INCIDENT, incident.entity_id)
-        turn.online_reallocation = _online_reallocation_audit(online)
+        turn.online_reallocation = online_audit
         session.runtime = online.executor
         session.state = online.executor.work
         return _finish(

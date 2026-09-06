@@ -184,10 +184,11 @@ def apply_online_patch(
     rounds = candidate.auction_ready()
 
     after = _active_assignments(candidate)
+    all_released = set(released) | set(patch_result.directly_released_tasks)
     preserved = {
         task_id: agent_id
         for task_id, agent_id in before.items()
-        if after.get(task_id) == agent_id
+        if task_id not in all_released and after.get(task_id) == agent_id
     }
     return OnlinePatchApplication(
         policy=policy,

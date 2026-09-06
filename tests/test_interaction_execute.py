@@ -205,3 +205,16 @@ def test_completed_session_cannot_run_twice(planned_session):
     with pytest.raises(ValueError, match="already completed"):
         execute_session(planned_session, mode="mock")
     assert planned_session.event_log == before
+
+
+def test_one_shot_action_cannot_consume_an_online_runtime(planned_session):
+    from interaction.online_execute import advance_online_session
+
+    advance_online_session(planned_session, mode="mock")
+    runtime = planned_session.runtime
+    events = planned_session.event_log
+
+    with pytest.raises(ValueError, match="online runtime"):
+        execute_session(planned_session, mode="mock")
+    assert planned_session.runtime is runtime
+    assert planned_session.event_log == events

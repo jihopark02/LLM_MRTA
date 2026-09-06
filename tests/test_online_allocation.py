@@ -96,6 +96,7 @@ def test_selective_policy_releases_affected_uav_suffix_and_not_running_task():
     assert result.released_tasks
     assert running.isdisjoint(result.released_tasks)
     assert running <= result.preserved_active_assignments.keys()
+    assert set(result.released_tasks).isdisjoint(result.preserved_active_assignments)
     assert "THERMAL_RECON__FIRE_SITE_3" in result.after_assignments
 
 

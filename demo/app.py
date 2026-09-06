@@ -28,8 +28,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from demo.mock_script import MOCK_COMMANDS, make_mock_backend
+from interaction.audit import CheckpointAudit
 from interaction.audit_io import write_session_audit
 from interaction.execute import execute_session
+from interaction.online_execute import advance_online_session
 from interaction.orchestrator import (
     cancel_clarification,
     handle_turn,
@@ -180,6 +182,21 @@ def _last_turn_panel(session: MissionSession) -> None:
     else:
         st.caption("검증 대상 graph/patch가 없는 턴입니다.")
 
+    if turn.online_reallocation is not None:
+        online = turn.online_reallocation
+        st.write("실행 중 selective release / rebid")
+        st.json(
+            {
+                "policy": f"{online.policy} v{online.policy_version}",
+                "simulation_time": online.simulation_time,
+                "directly_affected_tasks": online.directly_affected_tasks,
+                "released_tasks": online.selectively_released_tasks,
+                "preserved_active_assignments": online.preserved_active_assignments,
+                "assignment_changes": asdict(online.assignment_changes),
+                "consensus_rounds": online.consensus_rounds,
+            }
+        )
+
 
 def _plan_panel(session: MissionSession) -> None:
     st.subheader("Plan-time CBBA")
@@ -204,6 +221,50 @@ def _plan_panel(session: MissionSession) -> None:
 
 def _execution_panel(session: MissionSession) -> None:
     st.subheader("2D 실행 결과")
+    if session.phase is SessionPhase.EXECUTION_PAUSED and session.runtime is not None:
+        runtime = session.runtime
+        checkpoint = next(
+            (
+                event
+                for event in reversed(session.event_log)
+                if isinstance(event, CheckpointAudit)
+            ),
+            None,
+        )
+        st.info(
+            "온라인 실행이 task 완료 경계에서 일시정지됐습니다. "
+            "지금 후속 명령을 입력하거나 다음 완료까지 계속할 수 있습니다."
+        )
+        st.metric("Current simulation time", f"{runtime.now:.1f} s")
+        if checkpoint is not None:
+            st.write("이번 checkpoint에서 완료")
+            st.write(", ".join(checkpoint.completed_now) or "없음")
+            st.write("RUNNING")
+            st.dataframe(
+                [
+                    {
+                        "task_id": task_id,
+                        "agent_id": value["agent_id"],
+                        "finish_time": value["finish_time"],
+                    }
+                    for task_id, value in sorted(checkpoint.running.items())
+                ],
+                width="stretch",
+                hide_index=True,
+            )
+            st.write("READY")
+            st.write(", ".join(checkpoint.ready_tasks) or "없음")
+        st.write("현재 active assignment")
+        st.dataframe(
+            [
+                {"task_id": task_id, "agent_id": agent_id}
+                for task_id, agent_id in sorted(runtime.assignments.items())
+                if runtime.graph[task_id].status.value in {"ASSIGNED", "RUNNING"}
+            ],
+            width="stretch",
+            hide_index=True,
+        )
+        return
     if session.execution is None:
         if session.phase is SessionPhase.EXECUTION_FAILED:
             st.error("최근 실행이 예외로 종료됐습니다. 감사 로그에서 원인을 확인하세요.")
@@ -296,23 +357,49 @@ def main() -> None:
         _persist(session)
         st.rerun()
 
-    run_disabled = (
+    one_shot_disabled = (
         session.state is None
         or session.plan is None
         or pending
-        or session.phase is SessionPhase.EXECUTED
+        or session.runtime is not None
+        or session.phase not in {SessionPhase.PLANNING, SessionPhase.EXECUTION_FAILED}
     )
     run_label = (
         "동일 graph 재시도"
         if session.phase is SessionPhase.EXECUTION_FAILED
         else "임무 실행"
     )
-    if st.button(run_label, type="primary", disabled=run_disabled):
+    online_disabled = (
+        session.state is None
+        or session.plan is None
+        or pending
+        or session.phase
+        not in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}
+    )
+    online_label = (
+        "다음 task 완료까지 계속"
+        if session.phase is SessionPhase.EXECUTION_PAUSED
+        else "온라인 실행 시작"
+    )
+    one_shot_col, online_col = st.columns(2)
+    if one_shot_col.button(run_label, type="primary", disabled=one_shot_disabled):
         audit = execute_session(session, mode=mode)
         text = f"실행 종료: {audit.execution_termination}, makespan {audit.makespan:.1f}s"
         if audit.error_type:
             text += f" ({audit.error_type}: {audit.error_detail})"
-        _record("[결정론적 실행 버튼]", text)
+        _record("[한 번에 끝까지 실행]", text)
+        _persist(session)
+        st.rerun()
+    if online_col.button(online_label, disabled=online_disabled):
+        audit = advance_online_session(session, mode=mode)
+        if isinstance(audit, CheckpointAudit):
+            completed = ", ".join(audit.completed_now) or "없음"
+            text = f"t={audit.simulation_time:.1f}s에서 일시정지 (완료: {completed})"
+        else:
+            text = f"실행 종료: {audit.execution_termination}, makespan {audit.makespan:.1f}s"
+            if audit.error_type:
+                text += f" ({audit.error_type}: {audit.error_detail})"
+        _record("[온라인 실행: 다음 완료 이벤트]", text)
         _persist(session)
         st.rerun()
 
