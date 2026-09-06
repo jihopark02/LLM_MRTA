@@ -17,8 +17,9 @@ turns:
     utterance: 등록된 화재 지점 목록을 알려줘.
     intent: {kind: QUERY_STATUS, about: incidents}
     outcome: ANSWERED
-final_graph:
+initial_graph: &initial
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:
     FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
     FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+final_graph: *initial

@@ -1247,3 +1247,17 @@ strict YAML은 자연어 발화의 기대 intent/slot/outcome/grounding/patch와
 
 **영향** §18.11, `data/interaction_dialogues/`, P8.4 annotation loader/harness/report.
 Validator 판정 규칙·hash payload는 바뀌지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.
+
+## D-036: P8.4 gold에 initial graph 분리 (계약 v1.34)
+
+**배경** D-035의 gold schema는 마지막 `final_graph`만 고정했다. 그러나 모든 dialogue가
+`NEW_MISSION`으로 시작하고 일부는 뒤에서 patch를 적용하므로, final만으로는 첫 생성 graph의
+정답을 후속 patch에서 역산해야 한다. 그러면 초기 생성 오류와 patch 오류가 한 정답에 섞인다.
+
+**결정** 모든 dialogue에 `initial_graph`와 `final_graph`를 함께 둔다. initial은 첫 NEW의
+정답이고 final은 모든 turn 후의 정답이다. strict loader는 둘을 각각 Validator로 self-check하고,
+turn별 기대 patch 합집합이 initial→final의 task/edge 차이와 정확히 일치하는지 확인한다. 신규
+incident를 포함한 final은 gold REPORT를 결정론적으로 적용한 scene에서 검증한다.
+
+**영향** §18.11, P8.4 gold 12개, annotation loader. Validator 판정 규칙·hash payload는
+바뀌지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.

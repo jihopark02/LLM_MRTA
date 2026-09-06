@@ -18,8 +18,9 @@ turns:
     intent: {kind: QUERY_STATUS, about: tasks, target_phrase: FIRE_SITE_2}
     outcome: ANSWERED
     grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_2, via: explicit}
-final_graph:
+initial_graph: &initial
   recon_zones: []
   incident_chains:
     FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
     FIRE_SITE_2: [THERMAL_RECON]
+final_graph: *initial

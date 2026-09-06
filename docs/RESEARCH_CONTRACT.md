@@ -1,8 +1,12 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.33 (D-035). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.34 (D-036). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.34 (D-036): P8.4 gold에 `initial_graph`를 필수화한다. `final_graph`만 두면 첫
+  `NEW_MISSION` 정답을 후속 patch에서 역산해야 해 생성 오류와 patch 오류를 독립적으로
+  판별할 수 없다. strict loader는 initial/final graph를 각각 검증하고 기대 patch 합집합이
+  두 graph의 정확한 diff인지 확인한다. `VALIDATOR_VERSION`은 1.4 그대로다.
 - v1.33 (D-035): P8.4 interaction 평가의 12개 dialogue 구성을 고정한다. P6의
   A/B/C mission profile마다 `NEW-only`/`REPORT+UPDATE`/`QUERY`/`ambiguous-selection`
   한 건씩 두며, gold schema·strict loader·분모 규칙을 §18.11에 명시한다. 구조화된 후보
@@ -1149,14 +1153,18 @@ shape를 정확히 하나씩 둔다: (1) NEW-only 뒤 read-only 확인, (2) NEW�
 (3) NEW 뒤 QUERY, (4) NEW 뒤 entity ambiguity→구조화된 후보 선택. 따라서 id는
 `A1..A4`, `B1..B4`, `C1..C4`이고 각 파일은 2~5 operator turn이다.
 
-각 YAML은 top-level `id`, `family`, `profile`, `shape`, `rationale`, `turns`, `final_graph`만
-허용한다. 자연어 turn은 `input_kind=NATURAL_LANGUAGE`, `utterance`, `intent`(kind와 기대 slot),
+각 YAML은 top-level `id`, `family`, `profile`, `shape`, `rationale`, `turns`, `initial_graph`,
+`final_graph`만 허용한다. 자연어 turn은 `input_kind=NATURAL_LANGUAGE`, `utterance`,
+`intent`(kind와 기대 slot),
 `outcome`, 선택적 `grounding`, 선택적 `patch`를 가진다. 후보 클릭 turn은
 `input_kind=CANDIDATE_SELECTION`, `entity_id`, `outcome`, `grounding`, 선택적 `patch`를
 가지며 LLM intent를 갖지 않는다. `patch`는 `added_tasks`와 `added_edges`를 정확히 고정한다.
-`final_graph`는 P6 annotation과 같은 `recon_zones` + incident별 연속 workflow prefix다.
+`initial_graph`와 `final_graph`는 P6 annotation과 같은 `recon_zones` + incident별 연속
+workflow prefix다. initial은 첫 `NEW_MISSION`의 정답, final은 모든 turn 이후 정답이다.
 loader는 알 수 없는 키·중복 id·family/profile/shape 불일치·2~5 turn 위반을 거부하고,
-모든 final graph를 scene 기준 whole-graph Validator로 self-check한다.
+두 graph를 각각 scene 기준 whole-graph Validator로 self-check한다. 신규 incident가 있는
+final은 gold REPORT를 결정론적으로 적용한 scene으로 검사한다. 모든 turn의 기대 patch에서
+`added_tasks`/`added_edges`를 합친 집합은 `final_graph - initial_graph`와 정확히 같아야 한다.
 
 operator/audit turn 수에는 자연어와 후보 선택을 모두 포함한다. **LLM intent classification과
 slot extraction 분모에는 `NATURAL_LANGUAGE` turn만 포함**하고, 후보 선택은 LLM 0회인

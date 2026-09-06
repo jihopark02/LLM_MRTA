@@ -29,6 +29,11 @@ turns:
     intent: {kind: QUERY_STATUS, about: mission, target_phrase: 거기}
     outcome: ANSWERED
     grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_3, via: referent}
+initial_graph:
+  recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
+  incident_chains:
+    FIRE_SITE_1: [THERMAL_RECON]
+    FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
 final_graph:
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:

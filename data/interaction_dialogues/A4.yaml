@@ -21,8 +21,9 @@ turns:
     entity_id: FIRE_SITE_1
     outcome: NO_CHANGE
     grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_1, via: explicit}
-final_graph:
+initial_graph: &initial
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:
     FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
     FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+final_graph: *initial

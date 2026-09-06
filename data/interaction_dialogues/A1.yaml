@@ -12,8 +12,9 @@ turns:
     utterance: 현재 전체 임무 상태를 알려줘.
     intent: {kind: QUERY_STATUS, about: mission}
     outcome: ANSWERED
-final_graph:
+initial_graph: &initial
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:
     FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
     FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+final_graph: *initial

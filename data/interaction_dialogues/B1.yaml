@@ -12,8 +12,9 @@ turns:
     utterance: 현재 계획을 요약해줘.
     intent: {kind: QUERY_STATUS, about: mission}
     outcome: ANSWERED
-final_graph:
+initial_graph: &initial
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:
     FIRE_SITE_1: [THERMAL_RECON]
     FIRE_SITE_2: [THERMAL_RECON]
+final_graph: *initial
