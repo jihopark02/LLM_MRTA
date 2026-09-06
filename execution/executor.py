@@ -209,6 +209,63 @@ class SimExecutor:
             self._run_epoch()
             self._epoch_pending = False
 
+    def replace_state(self, state: MissionState, scene: Scene) -> None:
+        """Adopt an atomically validated graph/state without changing time.
+
+        P9 applies a patch to a checkpoint clone, then calls this only after
+        Validator acceptance.  Current RUNNING commitments must describe the
+        same agent/task pairs as the simulator clocks; otherwise accepting the
+        state would detach execution physics from the task graph.
+        """
+        if set(state.agents) != set(self.agents):
+            raise ValueError("replacement state must contain the same executor agents")
+        for aid, sim in self.sim.items():
+            agent = state.agents[aid]
+            if sim.current is None:
+                if agent.current_task is not None:
+                    raise ValueError(f"{aid}: idle simulator has current_task")
+                continue
+            if sim.current not in state.graph:
+                raise ValueError(f"{aid}: RUNNING task disappeared from replacement graph")
+            task = state.graph[sim.current]
+            if (
+                task.status is not TaskStatus.RUNNING
+                or task.assigned_agent != aid
+                or agent.current_task != sim.current
+            ):
+                raise ValueError(f"{aid}: replacement state changed a RUNNING commitment")
+        self.work = state
+        self.graph = state.graph
+        self.agents = state.agents
+        self.scene = scene
+
+    def release_assignments(self, task_ids: list[str] | tuple[str, ...]) -> None:
+        """Release validated, not-yet-started assignments atomically (§19.3)."""
+        ordered = tuple(dict.fromkeys(task_ids))
+        for task_id in ordered:
+            if task_id not in self.graph:
+                raise ValueError(f"cannot release unknown task {task_id}")
+            task = self.graph[task_id]
+            if task.status is not TaskStatus.ASSIGNED:
+                raise ValueError(f"cannot release {task_id} from {task.status.value}")
+            if task.assigned_agent is None or task_id not in self.assignments:
+                raise ValueError(f"{task_id} has no executor assignment to release")
+        for task_id in ordered:
+            self.work.clear_assignment(task_id)
+            self.graph[task_id].status = TaskStatus.PENDING
+            self.assignments.pop(task_id, None)
+            self.winning_bids.pop(task_id, None)
+        self.graph.recompute_ready()
+
+    def auction_ready(self) -> tuple[int, ...]:
+        """Run the deferred READY-frontier epoch and return newly added rounds."""
+        before = len(self.consensus_rounds)
+        self.graph.recompute_ready()
+        self._run_epoch()
+        self._started = True
+        self._epoch_pending = False
+        return tuple(self.consensus_rounds[before:])
+
     def _epoch_scene(self) -> Scene:
         return replace(self.scene, agent_access_nodes=dict(self.access_nodes))
 
