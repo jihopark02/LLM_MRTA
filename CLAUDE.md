@@ -19,17 +19,17 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-033, 계약 v1.31)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-034, 계약 v1.32)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-06 기준)
 
-**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0·P8.1·P8.2 승인 완료
-(브랜치 `feature/operator-interaction`). 계약 v1.31 (D-033 — 실행 재시도 경계 정정).**
+**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.3 승인 완료
+(브랜치 `feature/operator-interaction`). 계약 v1.32 (D-034 — OpenAI intent wire 경계).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 530개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 593개 통과, ruff clean.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 실행 개시 전 다중 턴 자연어 계획 세션.
 5종 대화 행위(NEW_MISSION/REPORT_INCIDENT/UPDATE_MISSION/QUERY_STATUS/UNSUPPORTED). LLM은
@@ -62,7 +62,8 @@ P8.1 구조 (D-027, D-028):
 
 P8.2 구조 (D-029, D-030):
 - `interaction/audit.py`: `TurnAudit`/`ExecutionAudit`/`GroundingAudit`/`PatchAudit`/
-  `GenerationAudit`/`PlanAssignmentChanges` typed schema (`turn_log: list[TurnAudit]`).
+  `GenerationAudit`/`PlanAssignmentChanges` typed schema (`turn_log`은 event stream에서 파생한
+  read-only tuple).
 - `interaction/orchestrator.py`: `handle_turn` — **턴 전체** 예외 격리(backend가
   `generate_mission` Step1/2/repair나 `allocate` 안에서 죽어도 `TURN_ERROR`, 세션 불변),
   NEW/UPDATE는 candidate state+plan을 만든 뒤 **한 번에** 교체, `resolved_models`는 그 턴
@@ -78,10 +79,10 @@ P8.2 구조 (D-029, D-030):
 - `interaction/session.py`: `SESSION_ID_PATTERN` + `valid_session_id`(fullmatch) — id가
   파일명이 되므로 생성자에서 강제(D-030), `audit_path`도 공유.
 
-다음: **P8.3** — 최소 Streamlit UI + 실행 버튼 + `ExecutionAudit` 생산자 + live/cached/mock.
-게이트는 §15 / §18.12(UI 최소 표시 14항목).
+다음: **P8.4** — §18.11의 12-dialogue interaction 평가. P8.5 graph·2D 경로 UI 폴리싱은
+그 다음 선택 단계다.
 
-P8.3 설계 (D-031~D-034, 계약 v1.32):
+P8.3 구조 (D-031~D-034, 계약 v1.32):
 - **통합 `event_log: list[TurnAudit | ExecutionAudit]`** — list 순서가 event 순서의 유일한
   진실 원천. `event_seq`는 직렬화 시 `enumerate`로 파생(dataclass 필드 아님). `turn_log`는
   제거하고 read-only property로만. execution은 `turn_count` 미소비.
@@ -99,6 +100,11 @@ P8.3 설계 (D-031~D-034, 계약 v1.32):
 - 세션의 private append boundary가 event 순서를 소유한다. 실행 action은 COMPLETED뿐 아니라
   DEADLOCK·STEP_LIMIT·예외도 즉시 `ExecutionAudit`로 기록하며, `EXECUTION_FAILED`에서는
   동일 graph 재시도를 허용한다(D-032, D-033).
+- `interaction/execute.py`: 결정론적 실행 버튼 경로. `llm/cache.py`: live 성공 응답 exact cache
+  + cached-only 재생(모드 혼동 금지). `demo/app.py`: §18.12 14항목 Streamlit UI.
+- D-034: actual API가 내부 discriminated union의 `oneOf`를 거부해 평면
+  `IntentWireEnvelope`→내부 `OperatorIntent` adapter를 추가. 실제 한국어 3턴 모두 COMMITTED,
+  최종 16 tasks / 9 edges, 실행 COMPLETED 404.0321 s, 위반 0/0. cached 재생도 동일.
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
