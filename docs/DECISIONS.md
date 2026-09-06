@@ -1291,3 +1291,29 @@ grounder-only의 intent·slot exact는 gold 주입 경계 검사이며 LLM 성�
 **영향** `docs/P8_4_RESULTS.md`, P8.4 감사 JSON·text 결과, README/CLAUDE 상태. 계약의 평가
 방법과 Validator 판정 규칙은 바뀌지 않으므로 계약은 v1.35, `VALIDATOR_VERSION`은 1.4를
 유지한다.
+
+## D-039: P9 실행 중 명령과 bidder-connected 선택적 재할당 (계약 v1.36)
+
+**배경** P8은 실행 전 대화와 graph 수정까지만 지원한다. 운용자가 실제로 원하는 흐름은 실행
+중 새 상황을 보고하고, 완료된 작업을 다시 하지 않으면서 필요한 미시작 할당만 바꿔 계속
+수행하는 것이다. 기존 D-006은 고정 어휘의 valid patch가 predecessor diff를 만들지 않으므로
+Validator reconciliation만으로 release가 나오지 않는다고 정확히 지적했지만, 이는 새 READY
+task와 기존 미시작 task 사이의 입찰 경쟁까지 금지하는 근거는 아니다.
+
+**결정** RQ4/P9를 선택 확장으로 추가한다. executor는 task-completion event에서만
+checkpoint/pause하며, 동시에 남아 있는 RUNNING task와 모든 COMPLETED task는 잠근다. online
+patch로 새로 READY가 된 task의 bidder union과 bidder를 공유하는 기존 ASSIGNED task를 직접
+영향으로 보고, agent별 최초 영향 task부터 CBBA bundle suffix만 release한 뒤 새 READY와 함께
+rebid한다. 정책 이름은 `bidder-connected bundle suffix`; 전역 최소·최적이라고 주장하지 않는다.
+
+P9는 신규 recheck 어휘를 추가하지 않고 기존 canonical incident workflow 확장으로 시연한다.
+online UPDATE는 checkpoint clone에서 patch·release·epoch를 모두 성공시킨 뒤 runtime/state를
+한 번에 교체한다. P8 one-shot 실행과 P8.4 결과는 변경하지 않는다.
+
+**대안 검토** 모든 미시작 task full reset은 단순하지만 선택적 보존 주장을 할 수 없고, held를
+전부 보존하는 no-reset은 새 task만 빈 자리에 넣어 기존 commitment가 새 정보에 반응하지 않는다.
+임의 wall-clock 중단과 RUNNING abort는 남은 travel/dwell·물리 상태 정의가 필요해 제외했다.
+
+**영향** §1 RQ4, §15 P9.0~P9.4, §17 범위, 신규 §19, incremental `SimExecutor`, online
+interaction audit/UI/evaluation. whole-graph Validator 판정 규칙과 hash payload는 바뀌지 않으므로
+`VALIDATOR_VERSION`은 1.4 그대로다.

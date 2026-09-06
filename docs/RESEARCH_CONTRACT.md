@@ -1,8 +1,14 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.35 (D-037). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.36 (D-039). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.36 (D-039): P8.4 완료 후 선택 확장 RQ4/P9를 추가한다. 실행은 결정론적 task-completion
+  event에서 pause/resume하며, COMPLETED와 현재 RUNNING task는 보존한다. 새로 READY가 된
+  task와 bidder set을 공유하는 아직 시작하지 않은 ASSIGNED task를 찾고, agent별 최초 영향
+  task부터 bundle suffix만 release/rebid한다. 이는 결정론적 선택 정책이지 전역 최소·최적
+  재할당 주장이 아니다. 신규 task type 없이 canonical incident chain 확장만 사용한다.
+  `VALIDATOR_VERSION`은 1.4 그대로다.
 - v1.35 (D-037): P8.4 patch gold에 §18.11이 원래 요구한 `accepted`와
   `directly_released_tasks`를 필수 필드로 명문화한다. canonical chain update의 정답은
   `accepted=true`, release 빈 목록이며 loader가 암묵 기본값 없이 이를 강제한다.
@@ -187,10 +193,19 @@ commit / 거부 시 원본 완전 보존하고, (d) 의미가 불명확하면 �
 RQ3는 RQ1/RQ2의 모든 통과 조건이 충족되고 발표 가능한 정량 결과·시각화가 확보된 이후에만
 착수한다(P8, P0~P6.5 완료 후). RQ3를 구현하지 못해도 실패로 간주하지 않으며, 후속 연구로
 명시한다. RQ3가 구현되기 전에는 제목·초록·결론·발표자료 어디에도 "동적 재할당" 또는
-"dynamic reallocation"을 완료된 결과로 주장하지 않는다. **P8 첫 범위는 실행 개시 전의 계획
-세션이며, "임무 실행 중 자연어 업데이트"와 "영향받은 commitment의 선택적 재할당"은 §18의
-후속 과제다** — 고정 5종 task 어휘에서는 어떤 유효 patch도 기존 task의 predecessor 집합을
-바꾸지 못하므로(D-006) 선택적 재할당은 recheck 계열 어휘 확장 없이 시연되지 않는다.
+"dynamic reallocation"을 완료된 결과로 주장하지 않는다. P8의 검증 범위는 실행 개시 전의
+계획 세션이다.
+
+**RQ4 (선택 확장)**: 실행 중 결정론적 checkpoint에서 운용자의 명시적 상황 보고·후속 명령을
+받아, 이미 완료됐거나 실행 중인 commitment를 훼손하지 않고 영향받은 미시작 task만 선택적으로
+release/rebid한 뒤 같은 시뮬레이션 시각·로봇 위치에서 임무를 재개할 수 있는가?
+
+RQ4는 P8.4 결과까지 동결한 뒤 P9에서만 다룬다. P9의 release 집합은 §19.3의 결정론적
+`bidder-connected bundle suffix` 정책으로 정의하며, 전역적으로 가장 작은 reset 또는 최적
+재계획이라고 주장하지 않는다. D-006의 기존 서술은 **predecessor diff에 의한 Validator
+reconciliation만으로는** release가 일어나지 않는다는 뜻으로 유지한다. P9는 새 READY task가
+기존 미시작 task와 같은 bidder를 두고 경쟁한다는 별도 allocation 정책이므로 recheck task
+type 없이도 release/rebid가 가능하다.
 
 ---
 
@@ -483,9 +498,9 @@ schema — top-level `{tasks, edges}`, task entry `{task_type, target}`). **#13~
 MissionPatch 경로 전용**이며 RQ3(P8) 전에는 end-to-end로 도달하지 않는다(D-006). "승인된
 candidate graph가 14개 invariant를 만족한다"고 서술하지 않는다 — "#1~#12를 만족한다".
 
-**#13은 RQ3(P8)를 염두에 둔 것**: "화재 재발 위험 보고" 시나리오는 `SUPPRESSANT_DROP_F2`(이미
-COMPLETED)의 outgoing edge를 `GROUND_INSPECTION_F2`에서 신규 `THERMAL_RECHECK_F2`로 재배선해야
-한다. #13이 outgoing edge까지 불변으로 두면 이 재배선 자체가 구조적으로 불가능해진다.
+**#13의 outgoing 재배선 허용은 미래 일반 patch를 위한 경계**다. P9의 canonical chain
+extension은 기존 edge를 재배선하지 않으므로 이 예외를 사용하지 않는다. P9의 선택적 release는
+whole-graph Validator가 아니라 승인된 patch 뒤의 allocation 정책(§19.3)에서 발생한다.
 
 **멀티 트랜잭션 우회 테스트 필수**: invariant는 단일 patch뿐 아니라 여러 patch에 걸친 edge
 추가·삭제 시퀀스로도 테스트한다(이전 저장소 D-079에서 실제로 겪은 교훈: 검사 대상을 그
@@ -862,7 +877,11 @@ invariant를 통과해야 한다.
 | P8.3 | 최소 Streamlit UI + 통합 `event_log` + 구조화된 후보 선택 (D-031, D-032) | 자동: private append boundary가 보존하는 `event_log` 순서 = event 순서 유일 진실 원천, `event_seq` 직렬화 파생, `t1 t2 EXECUTION t3` JSON 순서 일치, execution이 `turn_count` 미소비 / `ClarificationReason`이 ambiguity와 unknown·missing을 구분 / `select_clarification_candidate`는 LLM 호출 0·`input_kind=CANDIDATE_SELECTION`·`resumed_from_turn_id` 기록 / pending은 `AMBIGUOUS_ENTITY`이면서 나머지 필수 slot이 완전할 때만 생성, pending 중 자유 입력은 LLM 미전달·실행 비활성, 잘못된 후보는 pending 유지, 취소는 graph·scene·referent 불변 / 실행 성공·비정상 종료·예외가 모두 `ExecutionAudit`로 기록 / scene 로더가 정규화 빈 incident id 거부 / `VALIDATOR_VERSION == "1.4"` / 전체 단위테스트 green. 수동: §18.12 최소 표시 항목(1~14) 전부 렌더 / 실제 API 3턴 / PLANNING↔EXECUTED↔EXECUTION_FAILED / 실행은 결정론 버튼 / live 실패 시 cached·mock + 모드 배너(cached를 live로 표시 금지) |
 | P8.4 | N=12 정량 평가 (live) | grounder-only + end-to-end 표 / dialogue + turn + 지표별 분모 보고 / gold 사전 커밋 / 감사 JSON |
 | P8.5 | UI graph·2D 실행 시각화 폴리싱 | — |
-| 후속 (선택) | post-execution update, `executor.snapshot()`/checkpoint-resume, incremental allocation, recheck 어휘 | 별도 계약 개정 |
+| P9.0 | RQ4 온라인 명령·선택적 재할당 계약 | v1.36 / D-039 커밋 |
+| P9.1 | `SimExecutor` checkpoint/resume | P4 one-shot 골든 불변 / task-completion event pause / checkpoint→restore 결과가 중단 없는 실행과 동일 / 상태·시각·위치·경로·누적 지표 보존 |
+| P9.2 | bidder-connected bundle-suffix release + incremental CBBA | COMPLETED/RUNNING 불변 / 영향 없는 ASSIGNED 보존 / release suffix 일관성 / 재경매 뒤 assignment invariant·capability·precedence 위반 0 |
+| P9.3 | paused-session REPORT/UPDATE/QUERY + typed audit | 턴 전체 atomicity / accepted update에서만 runtime 교체 / clarification·거부·오류 시 runtime identity·hash 불변 / 온라인 assignment 변화와 release 집합 감사 |
+| P9.4 | Streamlit checkpoint·계속·온라인 명령 UI + 비교 실험 | 명령 전/후 assignment·release·현재 시각 표시 / 대표 scenario 완주 / no-reset·full-reset·selective 원시 지표 비교 |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
 
@@ -901,9 +920,9 @@ target tracking, 일반 조건부 task graph, SLAM, 동적 장애물 회피, 일
 agent 할당, 새로운 CBBA 알고리즘 제안, P0~P6.5 완료 전 RQ3 구현(P7 Gazebo는 RQ3의
 선행조건이 아님 — §16 cut-order·§15·§1 참고, D-027), MP4MR A~G 체계 복제, 모든
 agent가 최소 1개 task를 받아야 한다는 제약, bundle 길이 ≥2를 Phase 1 invariant나 완료 게이트로
-쓰는 것(P8에서는 실험 precondition으로 재검토 가능 — §15 P8), 임무 실행 중 자연어 patch 주입
-및 실행 후 graph 수정(§18 후속), 영향받은 commitment의 선택적 재할당(recheck 어휘 필요, §18
-후속).
+쓰는 것(P8에서는 실험 precondition으로 재검토 가능 — §15 P8), 임의 wall-clock 시점의 강제
+중단, RUNNING task abort·migration, 실행 후 terminal graph 수정, 자동 perception event,
+P9 정책의 전역 최소성·최적성 주장.
 
 ---
 
@@ -917,7 +936,8 @@ agent가 최소 1개 task를 받아야 한다는 제약, bundle 길이 ≥2를 P
 `ExecutionResult` 조회(`QUERY_STATUS`)만 가능. 실패 시 동일 graph 재시도만 허용하고 graph
 변경은 금지한다.
 
-"임무 실행 중 자연어 업데이트"는 주장하지 않는다(checkpoint/resume 후속). perception·자동
+P8 결과만으로는 "임무 실행 중 자연어 업데이트"를 주장하지 않는다. 이는 P9 §19의 별도
+checkpoint/resume 게이트를 모두 통과한 경우에만 선택 확장 결과로 주장한다. perception·자동
 화재 탐지 없음(§3 재확인) — 신규 incident는 운용자의 명시적 보고로만 시스템에 진입한다.
 고정 5종 task 어휘에서는 어떤 유효 patch도 기존 task의 predecessor 집합을 바꾸지 못하므로
 (D-006), 정상 대화에서 기존 assignment의 release·재할당은 발생하지 않는다.
@@ -1271,3 +1291,100 @@ graph·scene·state·plan·referent 불변, pending만 제거한다. 후보 선�
 **pending 제거 시점**: 성공한 `COMMITTED`·`NO_CHANGE`·`ANSWERED` / 명시적 취소 / phase 변경 ·
 새 session → 제거. 후보가 아닌 id 선택 / Validator·`allocate`·기타 처리 실패 → **유지**
 (재시도 가능). 한 세션에 pending은 최대 1개.
+
+---
+
+## 19. Online command injection and selective reallocation (P9, D-039)
+
+### 19.1 범위와 lifecycle
+
+P9는 P8의 실행 전 planning session을 없애지 않고 그 뒤에 붙는 선택 확장이다. 운용자가 기존
+계획을 먼저 만들고 온라인 실행을 시작하면, simulator가 **task completion event**까지 진행한
+뒤 `EXECUTION_PAUSED`가 된다. 이때 `REPORT_INCIDENT`, `UPDATE_MISSION`, `QUERY_STATUS`를
+처리하고 다시 다음 event까지 진행하거나 끝까지 실행할 수 있다. `NEW_MISSION`은 paused
+상태에서 허용하지 않는다.
+
+지원하지 않는 것: 임의 wall-clock 시각에 thread를 강제 정지, RUNNING task abort·migration,
+이미 COMPLETED인 task/edge 수정, 실행 완료 뒤 graph 수정, perception이 자동으로 incident를
+만드는 것. 신규 incident는 여전히 운용자의 `REPORT_INCIDENT`로만 들어온다. executor 시간은
+wall-clock이 아니라 기존 2D discrete-event simulation time이다.
+
+phase는 `PLANNING → EXECUTION_PAUSED ↔ EXECUTION_PAUSED → EXECUTED|EXECUTION_FAILED`다.
+각 pause/continue action은 LLM turn이 아니며 `turn_count`를 소비하지 않는다. pending
+clarification이 있으면 실행을 계속할 수 없다. P8의 one-shot `execute_session()`은 보존하고,
+P9 UI가 명시적으로 온라인 실행을 선택한 경우에만 checkpoint 경로를 사용한다.
+
+### 19.2 checkpoint/restore 의미
+
+`SimExecutor.checkpoint()`는 다음을 빠짐없이 복제한다: 현재 simulation time, 전체
+`MissionState`(task status/assignment, agent position/bundle/path/current_task, winning bids),
+UGV access node, agent별 현재 task·finish time·누적 busy time, assignments·winning bids,
+task departure/start/completion 시각, consensus round history, 누적 UAV/UGV 거리, 그리고 다음
+resume에서 READY frontier epoch가 필요한지 여부. bundle/path **내부 순서는 보존**한다.
+
+`restore(checkpoint, scene)` 뒤 끝까지 실행한 결과는 같은 event에서 중단하지 않고 실행한
+결과와 termination, completed, assignment, task timing, makespan, 거리, workload, violation이
+같아야 한다. checkpoint는 외부가 바꿀 수 없는 deep snapshot이어야 하며 원 executor와 mutable
+객체를 공유하지 않는다.
+
+pause 지점은 `_advance()`가 가장 이른 completion 시각으로 진행하고 그 시각에 끝난 task를
+모두 COMPLETED 처리한 직후다. 동시에 끝나지 않은 다른 agent task는 RUNNING인 채 보존할 수
+있다. 새 READY 상태는 recompute하되 다음 CBBA epoch는 명령을 받을 기회를 주기 위해 pause
+뒤 resume 또는 accepted update에서 수행한다.
+
+### 19.3 선택적 release 정책
+
+accepted online patch를 candidate checkpoint 복제본에 적용한 뒤 다음 순서로 release 집합을
+결정한다.
+
+1. patch로 새로 추가됐고 현재 `READY`인 task 각각의 eligible bidder set을 계산한다. bidder는
+   platform과 required capabilities를 모두 만족하는 agent다.
+2. 기존 `ASSIGNED`(아직 시작 안 함) task 중 bidder set이 위 새 task bidder union과 교집합인
+   task를 **직접 영향 task**로 본다. COMPLETED·CANCELLED·RUNNING·새 task는 대상이 아니다.
+3. 직접 영향 task를 보유한 agent별로 CBBA `bundle`에서 가장 이른 영향 task를 찾고, 그
+   위치부터 뒤의 `ASSIGNED` task 전체를 release한다. 이는 bundle prefix commitment를
+   보존하기 위한 suffix rule이다. 같은 task를 `path`, task owner, bid에서도 원자적으로
+   제거한다.
+4. 새 READY task와 released task를 하나의 READY frontier로 `run_epoch`에 넣는다. 보존된
+   ASSIGNED/RUNNING task는 `held`, RUNNING agent의 남은 시간은 기존 residual-path
+   `start_delay`로 유지한다.
+
+이 정책은 같은 상태·patch에서 항상 같은 release 집합을 만들지만, 전역 최소 reset이나 최적
+makespan을 증명하지 않는다. `no-reset`(기존 held 전부 유지), `full-reset`(모든 미시작 ASSIGNED
+release), `selective`를 비교할 때도 우열의 일반화가 아니라 고정 scenario의 원시 결과로만
+보고한다.
+
+### 19.4 online turn atomicity와 감사
+
+paused turn도 기존 intent classifier·strict schema·grounder·canonical patch builder·whole-
+graph Validator를 재사용한다. `REPORT_INCIDENT`는 scene만 갱신하며 그 자체로 재할당하지 않는다.
+그 incident에 대한 accepted `UPDATE_MISSION`이 graph를 실제로 늘릴 때만 §19.3을 수행한다.
+`QUERY_STATUS`, clarification, `NO_CHANGE`, `UNSUPPORTED`, rejected patch에는 runtime 교체나
+CBBA 호출이 없다.
+
+온라인 UPDATE는 현재 executor checkpoint를 deep clone한 candidate에서
+`apply_patch → selective release → run_epoch`까지 모두 성공한 뒤에만 session runtime/state를
+한 번에 교체한다. 어느 단계든 실패하면 scene·graph·task status·agent state·simulation time·
+assignment와 원 runtime object identity를 전부 보존하고 `TURN_ERROR` 또는 `REJECTED`로
+감사한다.
+
+`CheckpointAudit(event_type=EXECUTION_CHECKPOINT)`은 simulation time, 이번 event에서 완료된
+task, 누적 completed, RUNNING map(task/agent/finish time), READY, active assignment를 기록한다.
+accepted online UPDATE의 `TurnAudit`에는 `OnlineReallocationAudit`을 포함한다: policy version,
+simulation time, patch added task, directly affected task, selectively released suffix, preserved
+active assignment, before/after assignment, assignment changes, 새 epoch consensus rounds.
+최종 완료/실패는 기존 `ExecutionAudit`을 사용하되 전체 실행 시작 시각과 종료 시각을 기록한다.
+
+### 19.5 P9 대표 실험
+
+고정 initial graph와 고정 checkpoint event를 먼저 commit한다. 같은 checkpoint clone에 같은
+incident REPORT+UPDATE를 적용해 `no-reset`, `full-reset`, `selective` 세 정책을 실행한다.
+각 정책에서 다음 원시값을 저장한다: completed/RUNNING 보존 수, released 수와 id, 보존된
+ASSIGNED 수와 id, 기존 task owner change 수, 신규 task assignment, 추가 consensus rounds,
+최종 makespan·UAV/UGV 거리·capability/precedence violation·termination. bundle 길이가 suffix
+차이를 만들지 못하는 checkpoint는 실험 fixture로 사용하지 않는다.
+
+필수 안전 게이트: 세 정책 모두 같은 완료 prefix와 RUNNING commitment를 보존, 최종
+`COMPLETED`, capability/precedence violation 0. selective는 full-reset보다 적어도 한 개 이상의
+미시작 assignment를 더 보존해야 하며, no-reset과 달리 적어도 한 개의 기존 미시작 task를
+release/rebid해야 한다. 이 조건은 알고리즘 일반 성질이 아니라 대표 fixture의 식별 조건이다.
