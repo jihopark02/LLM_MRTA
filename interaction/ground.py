@@ -7,23 +7,29 @@ quality is then a property of code we can test exhaustively, not of a prompt.
 
 Nothing here mutates a session, a scene or a graph. Callers apply the result.
 
-Resolution precedence for an incident referent:
+Resolution is **fail-closed** (§18.5, D-028): a non-empty phrase that cannot be
+interpreted never falls through to the most recent referent or to a lone
+incident. The deixis test is an allowlist, not a "does it look like an id"
+denylist — an earlier denylist let "FIRE_SITE_9.", "FIRE-SITE-9" and "북쪽 화재"
+resolve to whatever was mentioned last, which is exactly the wrong-guess
+behaviour §18.11 measures.
 
-1. the phrase names a known incident id           -> RESOLVED
-2. the phrase has the shape of an incident id but
-   names none of them                             -> CLARIFICATION (unknown)
-3. no incident is registered at all               -> CLARIFICATION (§18 example 1)
-4. referents introduced on the most recent live
-   turn: exactly one -> RESOLVED, two or more     -> CLARIFICATION (§18 example 4)
-5. no live referent: exactly one incident exists   -> RESOLVED (nothing to
-   choose between); two or more                    -> CLARIFICATION
+Precedence for an incident referent:
 
-Rule 5 is the one judgement call: with a single registered incident there is no
-ambiguity to resolve, so asking would be pedantic. Every resolution is reported
-with the concrete id so the operator sees which one was used (§18 example 2).
+1. the phrase matches a known incident id after normalization -> RESOLVED;
+   two ids sharing a normalized form                          -> CLARIFICATION
+2. the phrase is not an allowed deictic                       -> CLARIFICATION
+3. no incident is registered at all             -> CLARIFICATION (§18 example 1)
+4. referents from the most recent live turn: exactly one -> RESOLVED,
+   two or more                                  -> CLARIFICATION (§18 example 4)
+5. no live referent: exactly one registered incident -> RESOLVED (nothing to
+   choose between); two or more                      -> CLARIFICATION
+
+Rule 5 is an explicit contract policy, not an implementation convenience
+(§18.5). Every resolution reports the concrete id so the operator sees which
+one was used (§18 example 2).
 """
 
-import re
 from dataclasses import dataclass
 from enum import Enum
 
@@ -35,8 +41,36 @@ from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.scene import Scene
 from validator.patch import AddEdge, AddTask, MissionPatch
 
-_INCIDENT_SHAPE = re.compile(r"^FIRE[_ ]?SITE[_ ]?[0-9]*$", re.IGNORECASE)
 _ZONE_SUFFIXES = ("구역", "지역")
+
+
+def _normalize(text: str) -> str:
+    """Uppercase, drop everything but letters and digits.
+
+    A trailing Korean zone word is removed first so "A 구역" and "ZONE_A" and
+    "Warehouse" all reduce to something matchable.
+    """
+    stripped = text.strip()
+    for suffix in _ZONE_SUFFIXES:
+        if stripped.endswith(suffix):
+            stripped = stripped[: -len(suffix)]
+            break
+    return "".join(ch for ch in stripped.upper() if ch.isalnum())
+
+
+#: The only phrases that may fall back to a referent or to a lone incident
+#: (§18.5, D-028). Everything else that is non-empty clarifies. Normalized with
+#: ``_normalize``, so spacing and case do not matter. Extending this list is a
+#: contract revision.
+_DEIXIS_PHRASES = (
+    "거기", "그것", "그거", "그 화재", "그 화재 지점", "해당 화재", "해당 화재 지점",
+    "이 화재", "저 화재", "현장", "그 현장",
+    "there", "it", "that", "that fire", "this fire", "the fire",
+    "the incident", "that incident",
+)
+
+#: Normalized once; the allowlist is consulted on every UPDATE and QUERY turn.
+_DEIXIS = frozenset(_normalize(p) for p in _DEIXIS_PHRASES)
 
 
 class GroundingStatus(str, Enum):
@@ -67,18 +101,6 @@ def _clarify(question: str, candidates: tuple[str, ...] = ()) -> GroundingOutcom
     )
 
 
-def _normalize(text: str) -> str:
-    """Uppercase, drop everything but letters and digits.
-
-    A trailing Korean zone word is removed first so "A 구역" and "ZONE_A" and
-    "Warehouse" all reduce to something matchable.
-    """
-    stripped = text.strip()
-    for suffix in _ZONE_SUFFIXES:
-        if stripped.endswith(suffix):
-            stripped = stripped[: -len(suffix)]
-            break
-    return "".join(ch for ch in stripped.upper() if ch.isalnum())
 
 
 # -- zones -------------------------------------------------------------
@@ -120,21 +142,46 @@ def resolve_zone(scene: Scene, zone_ref: str | None) -> GroundingOutcome:
 # -- incidents ---------------------------------------------------------
 
 
+def _is_deixis(phrase: str | None) -> bool:
+    """True when the phrase may fall back to a referent (§18.5 allowlist).
+
+    Only a missing or whitespace-only phrase counts as "no referent given".
+    Something like "!!!" is a non-empty phrase that means nothing here, so it
+    clarifies rather than being read as silence.
+    """
+    if phrase is None or not phrase.strip():
+        return True
+    return _normalize(phrase) in _DEIXIS
+
+
 def resolve_incident(session: MissionSession, target_phrase: str | None) -> GroundingOutcome:
-    """Resolve an incident referent against the scene and the session (§18.5)."""
+    """Resolve an incident referent against the scene and the session (§18.5).
+
+    Fail-closed: see the module docstring for the precedence.
+    """
     known = session.known_incident_ids
-    by_normalized = {_normalize(iid): iid for iid in known}
+
+    # 1. normalized match against known ids; a shared normalized form is
+    #    ambiguous, not a coin flip (D-028).
+    by_normalized: dict[str, list[str]] = {}
+    for iid in known:
+        by_normalized.setdefault(_normalize(iid), []).append(iid)
 
     if target_phrase:
-        needle = _normalize(target_phrase)
-        if needle in by_normalized:
-            return _resolved(ReferentKind.INCIDENT, by_normalized[needle])
-        if _INCIDENT_SHAPE.match(target_phrase.strip()):
-            # Named something specific that does not exist — do not silently
-            # fall through to whatever was mentioned last.
+        hits = by_normalized.get(_normalize(target_phrase), [])
+        if len(hits) == 1:
+            return _resolved(ReferentKind.INCIDENT, hits[0])
+        if len(hits) > 1:
             return _clarify(
-                f"'{target_phrase}'에 해당하는 화재 지점을 찾을 수 없습니다.", tuple(known)
+                f"'{target_phrase}'에 해당하는 화재 지점이 여러 개입니다. 어느 쪽입니까?",
+                tuple(sorted(hits)),
             )
+
+    # 2. anything specific but uninterpretable stops here — never guess.
+    if not _is_deixis(target_phrase):
+        return _clarify(
+            f"'{target_phrase}'에 해당하는 화재 지점을 찾을 수 없습니다.", tuple(known)
+        )
 
     if not known:
         return _clarify("현재 등록된 화재 지점이 없습니다. 먼저 화재를 보고해 주세요.")

@@ -102,14 +102,100 @@ def test_explicit_id_wins_over_a_recent_referent(scene):
     assert resolve_incident(s, "FIRE_SITE_2").entity_id == "FIRE_SITE_2"
 
 
-def test_unknown_but_incident_shaped_phrase_does_not_fall_through(scene):
-    # Naming something specific that does not exist must not silently resolve
-    # to whatever was mentioned last.
+# -- fail-closed: nothing uninterpretable may reach the fallback (D-028) --
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "FIRE_SITE_9",     # id-shaped, unknown
+        "FIRE_SITE_9.",    # ... with punctuation, missed by the old regex
+        "FIRE-SITE-9",     # ... with hyphens, missed by the old regex
+        "FIRE SITE 9",
+        "북쪽 화재",         # specific but not resolvable
+        "the big one",
+        "!!!",             # non-empty but meaningless: not silence
+        "동쪽 구역 화재",
+    ],
+)
+def test_uninterpretable_phrase_never_falls_back_to_a_referent(scene, phrase):
+    # The pre-D-028 grounder decided "unknown id" with a regex on the raw
+    # phrase, so anything the regex missed resolved to the recent referent.
     s = session(scene)
     s.note_referent("incident", "FIRE_SITE_1")
-    out = resolve_incident(s, "FIRE_SITE_9")
+    out = resolve_incident(s, phrase)
+    assert out.status is GroundingStatus.CLARIFICATION_REQUIRED, phrase
+    assert out.entity_id is None
+
+
+@pytest.mark.parametrize("phrase", ["FIRE_SITE_9", "북쪽 화재", "the big one"])
+def test_uninterpretable_phrase_does_not_take_the_lone_incident_either(tmp_path, phrase):
+    one = tmp_path / "one.yaml"
+    one.write_text(
+        "scene_id: t\n"
+        "zones: {ZONE_A: {name: A, recon_waypoint: [0, 0],"
+        " reported_incident_position: [1, 1], reported_incident_access_node: N0}}\n"
+        "incidents: {F1: {zone: ZONE_A, priority: 7, position: [1, 1], access_node: N0,"
+        " status: RESPONSE_REQUIRED}}\n"
+        "route_graph: {nodes: {N0: [0, 0]}, lanes: []}\n"
+        "fleet: []\n"
+    )
+    out = resolve_incident(session(load_scene(one)), phrase)
     assert out.status is GroundingStatus.CLARIFICATION_REQUIRED
-    assert "FIRE_SITE_9" in out.clarification
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    ["거기", "그 화재", "해당 화재", "그것", "현장", "there", "it", "THAT FIRE", "the incident"],
+)
+def test_allowed_deixis_reaches_the_referent(scene, phrase):
+    s = session(scene)
+    s.note_referent("incident", "FIRE_SITE_2")
+    out = resolve_incident(s, phrase)
+    assert out.resolved and out.entity_id == "FIRE_SITE_2", phrase
+
+
+@pytest.mark.parametrize("phrase", [None, "", "   ", "\t"])
+def test_absent_phrase_is_treated_as_no_referent_given(scene, phrase):
+    s = session(scene)
+    s.note_referent("incident", "FIRE_SITE_2")
+    out = resolve_incident(s, phrase)
+    assert out.resolved and out.entity_id == "FIRE_SITE_2"
+
+
+def test_normalized_id_collision_clarifies_instead_of_picking_one(scene):
+    # A legacy id can share a normalized form with a canonical one; P8.1c's
+    # next_incident_id tolerates such ids, so this is reachable.
+    from dataclasses import replace as dc_replace
+
+    legacy = dc_replace(
+        scene,
+        incidents={
+            **scene.incidents,
+            "FIRE SITE 1": dc_replace(
+                scene.incidents["FIRE_SITE_1"], incident_id="FIRE SITE 1"
+            ),
+        },
+    )
+    out = resolve_incident(session(legacy), "FIRE_SITE_1")
+    assert out.status is GroundingStatus.CLARIFICATION_REQUIRED
+    assert out.candidates == ("FIRE SITE 1", "FIRE_SITE_1")
+
+
+def test_a_unique_normalized_id_still_resolves_alongside_a_collision(scene):
+    from dataclasses import replace as dc_replace
+
+    legacy = dc_replace(
+        scene,
+        incidents={
+            **scene.incidents,
+            "FIRE SITE 1": dc_replace(
+                scene.incidents["FIRE_SITE_1"], incident_id="FIRE SITE 1"
+            ),
+        },
+    )
+    out = resolve_incident(session(legacy), "FIRE_SITE_2")
+    assert out.resolved and out.entity_id == "FIRE_SITE_2"
 
 
 def test_example_1_no_incident_registered_clarifies(tmp_path):
