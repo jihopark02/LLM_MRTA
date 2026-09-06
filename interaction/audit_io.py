@@ -18,7 +18,7 @@ import json
 from pathlib import Path
 
 from interaction.audit import ExecutionAudit, TurnAudit
-from interaction.session import SESSION_ID_PATTERN, MissionSession
+from interaction.session import MissionSession, valid_session_id
 from validator.hashing import VALIDATOR_VERSION, scene_hash
 
 #: §18.9. One file per session.
@@ -64,8 +64,8 @@ def audit_path(session_id: str, directory: str | Path = AUDIT_DIR) -> Path:
     """The record's path. ``session_id`` is constrained at the session boundary
     (D-030) so the join cannot leave ``directory``; re-checked here because
     this function is also reachable with a bare id."""
-    if not SESSION_ID_PATTERN.match(session_id):
-        raise ValueError(f"session_id must match {SESSION_ID_PATTERN.pattern}, got {session_id!r}")
+    if not valid_session_id(session_id):
+        raise ValueError(f"session_id is not a usable path component: {session_id!r}")
     return Path(directory) / f"{session_id}.json"
 
 

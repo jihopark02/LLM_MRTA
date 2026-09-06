@@ -12,13 +12,13 @@ import pytest
 from core.enums import TaskType
 from interaction.session import (
     REFERENT_WINDOW_TURNS,
-    SESSION_ID_PATTERN,
     MissionSession,
     Referent,
     ReferentKind,
     SessionPhase,
     build_context_summary,
     fresh_session_state,
+    valid_session_id,
 )
 from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.fixture import load_reference_fixture
@@ -342,9 +342,12 @@ def test_a_malformed_session_id_is_refused(scene, session_id):
         MissionSession(session_id=session_id, scene=scene)
 
 
-def test_the_pattern_is_anchored(scene):
-    # An unanchored pattern would accept "../escape" on its trailing segment.
-    assert SESSION_ID_PATTERN.pattern.startswith("^")
-    assert SESSION_ID_PATTERN.pattern.endswith("$")
+@pytest.mark.parametrize("session_id", ["S1\n", "\nS1", "S1\n\n", "ok\nbad/x", None, 123, True])
+def test_session_id_requires_a_full_string_match(scene, session_id):
+    # Python anchors ``$`` before a trailing newline, so ``"S1\n"`` slips past
+    # ``re.match``; ``fullmatch`` is what actually enforces D-030's no-whitespace
+    # rule. None / non-str must raise ValueError, not TypeError, since the id is
+    # a public input.
+    assert not valid_session_id(session_id)
     with pytest.raises(ValueError, match="session_id"):
-        MissionSession(session_id="ok\nbad/x", scene=scene)
+        MissionSession(session_id=session_id, scene=scene)

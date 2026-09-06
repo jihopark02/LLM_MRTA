@@ -40,7 +40,18 @@ REFERENT_WINDOW_TURNS = 3
 #: would let "../" or an absolute path write outside the directory the contract
 #: pins. Leading char is alphanumeric so an id can never be ".", ".." or look
 #: like a flag; 64 chars keeps it inside filename limits.
-SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+SESSION_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+def valid_session_id(value: object) -> bool:
+    """Whether ``value`` is a usable session id (D-030).
+
+    ``fullmatch``, not ``match``: Python anchors ``$`` before a trailing
+    newline too, so ``"S1\n"`` would otherwise pass and D-030 rules out
+    whitespace. Shared by the ``MissionSession`` constructor and
+    ``audit_path`` so the rule cannot drift between them.
+    """
+    return isinstance(value, str) and SESSION_ID_PATTERN.fullmatch(value) is not None
 
 
 class SessionPhase(str, Enum):
@@ -113,11 +124,9 @@ class MissionSession:
         # An input boundary, not a formatting preference (D-030): this value is
         # the audit filename and is copied into every TurnAudit, so it is
         # checked once here rather than at each use.
-        if not isinstance(self.session_id, str) or not SESSION_ID_PATTERN.match(
-            self.session_id
-        ):
+        if not valid_session_id(self.session_id):
             raise ValueError(
-                f"session_id must match {SESSION_ID_PATTERN.pattern}, "
+                f"session_id must match {SESSION_ID_PATTERN.pattern!r} exactly, "
                 f"got {self.session_id!r}"
             )
 
@@ -246,6 +255,7 @@ def build_context_summary(session: MissionSession) -> str:
 __all__ = [
     "REFERENT_WINDOW_TURNS",
     "SESSION_ID_PATTERN",
+    "valid_session_id",
     "SessionPhase",
     "ReferentKind",
     "Referent",
