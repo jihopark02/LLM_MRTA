@@ -1152,3 +1152,40 @@ writer 검증), `interaction/orchestrator.py`(`select_clarification_candidate`, 
 pending 중 입력 차단), `interaction/ground.py`(`scenarios.naming` 사용), `scenarios/naming.py`
 (신규), `scenarios/scene.py`(로더 거부), `demo/app.py`(P8.3). 판정 규칙·hash·평가 하네스
 불변 — `VALIDATOR_VERSION` 1.4 그대로.
+
+## D-032: clarification reason·event append 경계·실행 감사 의미 확정 (계약 v1.30)
+
+**배경** D-031 구현 전 재검토에서 세 가지 빈틈을 확인했다.
+
+1. 현재 grounder는 unknown 표현에도 사용자가 참고할 known entity 목록을 `candidates`로 돌려준다.
+   따라서 `len(candidates) >= 2`만으로 pending을 만들면 실제 모호성이 아닌
+   `"북쪽 화재"`·미지 zone까지 후보 클릭 흐름으로 잘못 분류된다.
+2. 후보 선택·취소와 실행은 LLM backend를 받지 않는데 감사 레코드는 `mode`를 요구한다.
+   D-031의 함수 시그니처만으로는 그 값을 정직하게 정할 수 없다.
+3. public mutable `event_log`는 외부 코드가 이미 기록된 event를 재배열할 수 있어, "list 순서가
+   실제 시간 순서"라는 주장 자체를 세션이 보장하지 못한다. 실행기 예외의 감사 형상도 비어 있다.
+
+**결정** 계약 v1.30:
+
+- `ClarificationReason`을 grounder 결과와 감사 schema에 추가한다. 고정 값은
+  `AMBIGUOUS_ENTITY`, `UNKNOWN_ENTITY`, `MISSING_ENTITY`, `NO_ENTITIES`, `MISSING_MISSION`,
+  `MISSING_STEP`, `ACTIVE_MISSION`, `PENDING_SELECTION`, `INVALID_SELECTION`. pending은 오직
+  `AMBIGUOUS_ENTITY` + 후보 2개 이상이며 다른 필수 slot도 완전할 때만 생성한다. 후보 목록은
+  reason을 대신하지 않는다.
+- 후보 선택·취소는 `mode`를 명시적으로 받는 결정론 함수다. 잘못된 후보와 pending 중 자연어도
+  각각 새 감사 턴으로 남고 pending을 유지한다. 취소는 `CLARIFICATION_CANCELLED` outcome과
+  `CLARIFICATION_CANCEL` input kind를 쓰며 pending만 제거한다.
+- 세션이 private `_event_log`와 `append_event()`를 소유한다. 외부에는 read-only tuple을
+  노출하고 writer는 순서를 재구성하지 않는다.
+- 실행 진입점은 `execute_session(session, *, mode)`. 정상 종료뿐 아니라 DEADLOCK·STEP_LIMIT·
+  executor 예외도 `ExecutionAudit`에 기록하며 예외는 `ERROR` termination과 원인을 남긴다.
+  state/plan 부재·비-PLANNING phase·pending 존재는 event 생성 전 `ValueError`로 거부한다.
+
+**대안 검토** 후보 수만으로 pending을 결정하는 방안은 unknown과 ambiguity를 구별하지 못해
+채택하지 않았다. public event list + writer 검증만 두는 방안도 writer 호출 전 메모리 이력이
+바뀌는 것을 막지 못해 채택하지 않았다. LLM 없는 action의 mode를 session에 고정하는 방안은 한
+세션에서 live 실패 후 cached/mock로 전환하는 P8.3 요구와 충돌하므로 caller가 명시하도록 했다.
+
+**영향** `interaction/{ground,audit,session,orchestrator,audit_io}.py`, 실행 action 신규 모듈,
+`tests/test_interaction_*`. Validator 판정 규칙·hash payload·P6 평가 하네스는 바뀌지 않으므로
+`VALIDATOR_VERSION`은 1.4 그대로다.

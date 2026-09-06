@@ -1,6 +1,6 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.29 (D-031). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.30 (D-032). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 - v1.0 (D-001): 초판.
@@ -62,6 +62,12 @@
   최종 `candidate`/`validation`을 분리 보존 명시.
 - v1.19 (D-020): §12에 prompt task glossary(의미+담당 platform) 포함을 명시 — P6 결과가
   task 이름의 영어 의미 추측 능력이 아니라 임무 분해 능력을 재도록.
+- v1.30 (D-032): P8.3 구현 전 D-031의 남은 경계를 닫는다. `GroundingOutcome`과 감사 로그에
+  `ClarificationReason`을 추가해 **실제 entity ambiguity**와 unknown/missing 조건을 구분하고,
+  `PendingClarification`은 `AMBIGUOUS_ENTITY`이면서 재개에 필요한 나머지 slot이 완전할 때만
+  만든다. 후보 선택·잘못된 후보·pending 중 자연어·취소의 턴/감사/보존 의미와 LLM 없는
+  action의 명시적 `mode` 입력을 고정한다. 세션의 private append boundary가 통합 event 순서를
+  소유하며, 실행 action의 성공·실패/예외 감사 의미를 확정한다. `VALIDATOR_VERSION` 불변(1.4).
 - v1.29 (D-031): P8.3 착수 전 계약 확정. §18.9의 turn 감사 스토리지를 통합
   `event_log`(`TurnAudit | ExecutionAudit`)로 바꾸고 **list 순서를 event 순서의 유일한
   진실 원천**으로 고정 — `event_seq`는 직렬화 시 파생. 신규 §18.13(구조화된 clarification
@@ -831,7 +837,7 @@ invariant를 통과해야 한다.
 | P8.0 | RQ3 계약: §1 재서술, §18, `VALIDATOR_VERSION` 1.4 + `patch_hash`/`pre_state_hash`, zone response point + priority 7, `allocate` 사용 규정, §17 정정 | v1.25 / D-027 커밋 |
 | P8.1 | interaction schema + `Referent` state + 결정론적 grounder + `register_incident`(scene 트랜잭션) + canonical patch builder + `AddTask` op priority 제거 | referent 해석 단위테스트 / 모든 (incident, step)에 유효 `MissionPatch` / `register_incident`가 Validator-loadable Scene + **원본 Scene 불변 검증**(scene_hash·모든 필드) / `VALIDATOR_VERSION == "1.4"` / 전체 단위테스트 green |
 | P8.2 | orchestrator + intent interpreter (게이트 `MockBackend`) | I1~I8 headless / session lifecycle·NO_CHANGE·referent 규칙 강제 / CLARIFICATION·QUERY·UNSUPPORTED 턴에 `session.state`·`session.scene` identity 불변 / 턴별 감사 JSON |
-| P8.3 | 최소 Streamlit UI + 통합 `event_log` + 구조화된 후보 선택 (D-031) | 자동: `event_log` list 순서 = event 순서 유일 진실 원천, `event_seq` 직렬화 파생, `t1 t2 EXECUTION t3` JSON 순서 일치, execution이 `turn_count` 미소비 / `select_clarification_candidate`는 LLM 호출 0·`input_kind=CANDIDATE_SELECTION`·`resumed_from_turn_id` 기록 / pending은 entity ambiguity에서만 생성, pending 중 자유 입력은 LLM 미전달·실행 비활성, 취소는 graph·scene·referent 불변 / scene 로더가 정규화 빈 incident id 거부 / `VALIDATOR_VERSION == "1.4"` / 전체 단위테스트 green. 수동: §18.12 최소 표시 항목(1~14) 전부 렌더 / 실제 API 3턴 / PLANNING↔EXECUTED↔EXECUTION_FAILED / 실행은 결정론 버튼 / live 실패 시 cached·mock + 모드 배너(cached를 live로 표시 금지) |
+| P8.3 | 최소 Streamlit UI + 통합 `event_log` + 구조화된 후보 선택 (D-031, D-032) | 자동: private append boundary가 보존하는 `event_log` 순서 = event 순서 유일 진실 원천, `event_seq` 직렬화 파생, `t1 t2 EXECUTION t3` JSON 순서 일치, execution이 `turn_count` 미소비 / `ClarificationReason`이 ambiguity와 unknown·missing을 구분 / `select_clarification_candidate`는 LLM 호출 0·`input_kind=CANDIDATE_SELECTION`·`resumed_from_turn_id` 기록 / pending은 `AMBIGUOUS_ENTITY`이면서 나머지 필수 slot이 완전할 때만 생성, pending 중 자유 입력은 LLM 미전달·실행 비활성, 잘못된 후보는 pending 유지, 취소는 graph·scene·referent 불변 / 실행 성공·비정상 종료·예외가 모두 `ExecutionAudit`로 기록 / scene 로더가 정규화 빈 incident id 거부 / `VALIDATOR_VERSION == "1.4"` / 전체 단위테스트 green. 수동: §18.12 최소 표시 항목(1~14) 전부 렌더 / 실제 API 3턴 / PLANNING↔EXECUTED↔EXECUTION_FAILED / 실행은 결정론 버튼 / live 실패 시 cached·mock + 모드 배너(cached를 live로 표시 금지) |
 | P8.4 | N=12 정량 평가 (live) | grounder-only + end-to-end 표 / dialogue + turn + 지표별 분모 보고 / gold 사전 커밋 / 감사 JSON |
 | P8.5 | UI graph·2D 실행 시각화 폴리싱 | — |
 | 후속 (선택) | post-execution update, `executor.snapshot()`/checkpoint-resume, incremental allocation, recheck 어휘 | 별도 계약 개정 |
@@ -1018,14 +1024,17 @@ interaction 계층에 둔다). `phase` ∈ {`PLANNING`, `EXECUTED`, `EXECUTION_F
 경로가 위 디렉터리 밖의 파일을 덮어쓸 수 있다 — 즉 이 문법 제약이 "감사 기록은 항상
 `data/interaction_runs/` 안에 있다"는 위 경로 보장의 근거다.
 
-**event 순서(D-031)**: 세션은 turn과 execution을 **단일 `event_log: list[TurnAudit |
-ExecutionAudit]`** 에 실제 발생 순서대로 append한다. `handle_turn`은 `TurnAudit`을, 실행
-함수는 실행이 끝나는 즉시 `ExecutionAudit`을 append하며, 실행 후 `QUERY_STATUS`는 그 뒤에
-`TurnAudit`을 append한다. **list의 순서가 event 시간 순서의 유일한 진실 원천이다** —
-병합 정렬용 index를 따로 저장하지 않는다. `event_seq`(0..N-1)는 dataclass 필드가 아니라
-직렬화 시 `enumerate`로 파생한다(감사 파일에서 순서를 확인하기 위한 파생값이지 두 번째
-상태가 아니다). execution은 `turn_count`를 소비하지 않는다. `turn_log`는 제거하고, 필요하면
-`event_log`에서 `TurnAudit`만 거르는 read-only property로만 둔다.
+**event 순서(D-031, D-032)**: 세션은 turn과 execution을 **단일 event stream**에 실제 발생
+순서대로 append한다. 저장소는 private `_event_log: list[TurnAudit | ExecutionAudit]`이며,
+`MissionSession.append_event()`만 append할 수 있다. 이 경계는 event 타입과
+`event.session_id == session.session_id`를 검사한다. 외부에는 tuple인 read-only
+`event_log` property를 노출한다. `handle_turn`은 `TurnAudit`을, 실행 함수는 실행이 끝나는 즉시
+`ExecutionAudit`을 append하며, 실행 후 `QUERY_STATUS`는 그 뒤에 `TurnAudit`을 append한다.
+**append된 list의 순서가 event 시간 순서의 유일한 진실 원천이다** — 병합 정렬용 index를
+따로 저장하지 않는다. `event_seq`(0..N-1)는 dataclass 필드가 아니라 직렬화 시 `enumerate`로
+파생한다(감사 파일에서 순서를 확인하기 위한 파생값이지 두 번째 상태가 아니다). execution은
+`turn_count`를 소비하지 않는다. `turn_log`는 `event_log`에서 `TurnAudit`만 거르는 read-only
+tuple property다. writer는 순서를 만들어내지 않고 이미 append된 순서와 session id만 검증한다.
 
 `write_session_audit`가 검증하는 것: 모든 event의 `session_id == session.session_id` /
 직렬화된 `event_seq`가 `0..N-1` / append 후에도 기존 event의 상대 순서 불변 /
@@ -1044,10 +1053,17 @@ status_changes},
 `plan_assignment_changes`{`added`, `removed`, `changed`},
 `scene_changed`, `state_changed`, `referent_noted`, `answer`, `resolved_models`,
 `error_type`·`error_detail`(`TURN_ERROR`일 때 원인 — 영구 기록에 남긴다),
-`input_kind`(`NATURAL_LANGUAGE` | `CANDIDATE_SELECTION`),
+`input_kind`(`NATURAL_LANGUAGE` | `CANDIDATE_SELECTION` | `CLARIFICATION_CANCEL`),
 `resumed_from_turn_id`(후보 선택 턴이 재개한 clarification 턴의 `turn_id`, 그 외 null),
 `selected_entity_id`(후보 선택으로 확정된 id — LLM 추출값이 아니므로 `extracted_slots`에
 섞지 않고 별도 필드; D-031).
+
+`grounding`에는 `reason`(`ClarificationReason` 또는 null)을 추가한다(D-032). 고정 값은
+`AMBIGUOUS_ENTITY`, `UNKNOWN_ENTITY`, `MISSING_ENTITY`, `NO_ENTITIES`, `MISSING_MISSION`,
+`MISSING_STEP`, `ACTIVE_MISSION`, `PENDING_SELECTION`, `INVALID_SELECTION`이다. 후보 목록이
+있다는 사실만으로 ambiguity라고 간주하지 않는다 — unknown 표현에도 재설명을 돕기 위한 known
+entity 목록이 들어갈 수 있다. 오직 `reason == AMBIGUOUS_ENTITY`인 결과만 구조화 선택 pending의
+후보다.
 
 `grounding`은 incident뿐 아니라 zone 해석에도 쓰이므로 `entity_kind` + `entity_id`로 일반화한다.
 `via` ∈ {`explicit`, `referent`, `sole_incident`}는 §18.5 우선순위의 어느 단계로 해석됐는지를
@@ -1058,8 +1074,13 @@ status_changes},
 
 실행(`event_type: EXECUTION`): `pre_graph_hash`, `pre_scene_hash`, `plan_assignments`,
 `execution_termination`, `execution_assignments`, `makespan`, `capability_violations`,
-`precedence_violations`, `mode`, `started_at`, `finished_at`. 성공 → `phase = EXECUTED`,
-실패 → `phase = EXECUTION_FAILED`.
+`precedence_violations`, `mode`, `started_at`, `finished_at`, `error_type`, `error_detail`.
+결정론적 진입점은 `execute_session(session, *, mode)`이며 `mode`를
+`live|cached|mock` 중 하나로 명시적으로 받는다. `COMPLETED` → `phase = EXECUTED`;
+`DEADLOCK`·`STEP_LIMIT` 또는 executor 예외 → `phase = EXECUTION_FAILED`. 예외도
+`execution_termination = ERROR`와 원인을 감사하고 밖으로 전파하지 않는다. 실행 전제(state와
+plan 존재, PLANNING phase, pending 없음) 위반은 UI 배선 오류이므로 실행 event를 만들기 전에
+`ValueError`로 거부한다. 실행은 graph·scene·plan을 바꾸지 않는다.
 
 - `plan_assignment_changes`: `added`(이전 plan에 없고 새 plan에 존재), `removed`(이전에
   있고 새 plan에 없음), `changed`(둘 다 존재하나 agent가 달라짐). **이는 실행 중 재할당이
@@ -1147,7 +1168,13 @@ grounder가 **entity ambiguity**로 `CLARIFICATION_REQUIRED`를 반환하면 세
 `extracted_slots`, `unresolved_slot`(`zone_ref` | `target_phrase`), `entity_kind`
 (`ReferentKind`), `candidates: tuple[str, ...]`, `original_utterance`.
 
-**생성 조건 — entity ambiguity만.** pending을 만드는 clarification:
+**생성 조건 — entity ambiguity만(D-032에서 기계적으로 판별 가능하게 보강).** grounder는 모든
+clarification에 위 §18.9의 `ClarificationReason`을 붙인다. pending은
+`reason == AMBIGUOUS_ENTITY`이고 후보가 2개 이상이며, **선택 후 원래 처리를 재개하는 데 필요한
+다른 slot이 모두 완전할 때만** 만든다. 특히 `UPDATE_MISSION`은 `up_to_step`까지 있어야 한다.
+후보를 골라도 즉시 다시 다른 slot을 물어야 하는 턴은 pending으로 잠그지 않는다.
+
+pending을 만드는 clarification:
 - incident 후보 ≥ 2 (`UPDATE_MISSION`, 또는 `target_phrase`를 가진 `QUERY_STATUS` —
   지시어·명시 지칭 무관)
 - zone 후보를 구조적으로 고를 수 있는 경우 (`REPORT_INCIDENT`)
@@ -1157,7 +1184,8 @@ mission 자체가 없음 / `up_to_step` 누락 / 활성 mission이 있는데 `NE
 0개 / fail-closed 2단계(해석 불가 표현) / `UNSUPPORTED`. **첫 버전의 구조화 선택은 entity
 모호성만 해소한다** — 누락된 workflow step을 UI 선택으로 채우는 것은 별도 설계다.
 
-**진입점 — LLM 없는 결정론 함수** `select_clarification_candidate(session, entity_id) -> TurnResult`:
+**진입점 — LLM 없는 결정론 함수**
+`select_clarification_candidate(session, entity_id, *, mode) -> TurnResult`:
 (1) pending 존재 확인 (2) `entity_id in pending.candidates` (3) 그 entity가 현재 scene에도
 존재 (4) 보류된 intent·slot 복원 (5) 선택 id를 이미 resolved된 값으로 주입 (6) 원래
 `UPDATE`/`QUERY`/`REPORT` 처리 재개 (7) 성공 시 pending 제거.
@@ -1166,15 +1194,22 @@ mission 자체가 없음 / `up_to_step` 누락 / 활성 mission이 있는데 `NE
 `resolved_models = []`, `mode`는 현재 UI 실행 모드, `input_kind = "CANDIDATE_SELECTION"`,
 `resumed_from_turn_id = pending.source_turn_id`, `selected_entity_id` 기록. grounding은
 `via` = `explicit`이다 — 운용자가 후보를 직접 골랐으므로 지시어 해석이 아니라 명시 지칭이다.
+`mode`는 backend에서 추론할 수 없으므로 caller가 `live|cached|mock` 중 하나를 명시한다.
 referent window는 그 결과 §18.5의 **명시 지칭** 규칙을 따른다: `UPDATE_MISSION`과
 `QUERY_STATUS` 모두 갱신, `REPORT_INCIDENT`는 새 incident를 추가. (원래 발화가 지시어였더라도
 클릭으로 확정된 시점에는 명시 지칭이 된다.)
 
 **pending 중 다른 입력.** pending 상태에서는 후보 선택 또는 취소만 허용한다. 일반 자연어
-입력은 **LLM에 보내지 않고** "후보를 선택하거나 취소해 주세요"로 응답한다(새 clarification을
-자동으로 덮어쓰지 않는다 — backend 실패 시 기존 clarification을 잃는 상태 전이를 막는다).
-`CANCEL_CLARIFICATION`은 UI의 결정론적 버튼이며, 취소 시 graph·scene·referent 불변, pending만
-제거한다. pending 동안 실행 버튼은 비활성이다.
+입력은 **LLM에 보내지 않고**, 새 감사 턴(`outcome=CLARIFICATION`,
+`reason=PENDING_SELECTION`)으로 "후보를 선택하거나 취소해 주세요"라고 응답한다. pending과
+graph·scene·state·plan·referent는 그대로다. 후보 목록에 없는 id 선택도 LLM 없이 새 감사 턴
+(`reason=INVALID_SELECTION`)으로 남기고 pending을 유지한다.
+
+`cancel_clarification(session, *, mode) -> TurnResult`는 UI의 결정론적 버튼이다. 취소도
+`turn_count`를 1 소비하는 감사 턴이며 `input_kind=CLARIFICATION_CANCEL`,
+`resumed_from_turn_id`를 기록하고 `outcome=CLARIFICATION_CANCELLED`로 끝난다. LLM 호출 0,
+graph·scene·state·plan·referent 불변, pending만 제거한다. 후보 선택·취소의 `mode`도
+`live|cached|mock` 중 하나를 caller가 명시한다. pending 동안 실행 버튼은 비활성이다.
 
 **pending 제거 시점**: 성공한 `COMMITTED`·`NO_CHANGE`·`ANSWERED` / 명시적 취소 / phase 변경 ·
 새 session → 제거. 후보가 아닌 id 선택 / Validator·`allocate`·기타 처리 실패 → **유지**

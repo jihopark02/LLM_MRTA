@@ -19,14 +19,14 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-031, 계약 v1.29)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-032, 계약 v1.30)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-06 기준)
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0·P8.1·P8.2 승인 완료
-(브랜치 `feature/operator-interaction`). 계약 v1.29 (D-031 — P8.3 착수 전 확정).**
+(브랜치 `feature/operator-interaction`). 계약 v1.30 (D-032 — P8.3 착수 전 보완 확정).**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
 `VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 530개 통과, ruff clean.
@@ -77,9 +77,9 @@ P8.2 구조 (D-029, D-030):
   파일명이 되므로 생성자에서 강제(D-030), `audit_path`도 공유.
 
 다음: **P8.3** — 최소 Streamlit UI + 실행 버튼 + `ExecutionAudit` 생산자 + live/cached/mock.
-게이트는 §15 / §18.12(UI 최소 표시 13항목).
+게이트는 §15 / §18.12(UI 최소 표시 14항목).
 
-P8.3 설계 (D-031, 계약 v1.29 — 착수 전 확정 완료):
+P8.3 설계 (D-031, D-032, 계약 v1.30 — 착수 전 확정 완료):
 - **통합 `event_log: list[TurnAudit | ExecutionAudit]`** — list 순서가 event 순서의 유일한
   진실 원천. `event_seq`는 직렬화 시 `enumerate`로 파생(dataclass 필드 아님). `turn_log`는
   제거하고 read-only property로만. execution은 `turn_count` 미소비.
@@ -91,6 +91,11 @@ P8.3 설계 (D-031, 계약 v1.29 — 착수 전 확정 완료):
   계층 역전 방지. scene 로더가 정규화 빈 incident id 거부.
 - P8.3 순서: 위 두 스키마 변경 먼저 → Streamlit UI → 실행 버튼 → `ExecutionAudit` 생산자 →
   live/cached/mock. §18.12 최소 표시 항목 1~14, `VALIDATOR_VERSION` 1.4 불변.
+- `ClarificationReason`이 실제 entity ambiguity와 unknown/missing을 구분하며, pending은
+  `AMBIGUOUS_ENTITY` + 나머지 필수 slot 완전 조건에서만 생성. 후보 선택·취소는 `mode`를
+  명시적으로 받고 잘못된 선택·pending 중 자연어도 감사 턴으로 남긴다.
+- 세션의 private append boundary가 event 순서를 소유한다. 실행 action은 COMPLETED뿐 아니라
+  DEADLOCK·STEP_LIMIT·예외도 즉시 `ExecutionAudit`로 기록한다(D-032).
 
 workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
 (D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
