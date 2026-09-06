@@ -129,8 +129,26 @@ class _Turn:
         return list(getattr(self.backend, "resolved_models", ())[self.models_before :])
 
 
+_MODES = frozenset({"live", "cached", "mock"})
+
+
 def _mode_of(backend) -> str:
-    return "mock" if type(backend).__name__ == "MockBackend" else "live"
+    """Response provenance for the audit (§18.9).
+
+    Read from the backend rather than inferred from its class name: a
+    ``MockBackend`` subclass or a wrapper would otherwise be logged as live,
+    and the contract forbids presenting cached or mocked answers as live. A
+    backend that declares nothing is a wiring bug, so it fails immediately
+    instead of silently defaulting to "live" — that is a misconfiguration, not
+    a turn failure, and must not be swallowed as one.
+    """
+    mode = getattr(backend, "mode", None)
+    if mode not in _MODES:
+        raise ValueError(
+            f"backend {type(backend).__name__} declares mode {mode!r}; "
+            f"expected one of {sorted(_MODES)}"
+        )
+    return mode
 
 
 def _graph_hash_of(session: MissionSession) -> str | None:
@@ -424,20 +442,26 @@ def _dispatch(turn: _Turn, backend) -> TurnResult:
 def handle_turn(session: MissionSession, utterance: str, backend) -> TurnResult:
     """Run one operator turn.
 
-    Never raises. **The whole turn** is isolated, not just the intent call: a
+    Never raises for a model or backend *failure*. **The whole turn** is
+    isolated, not just the intent call: a
     backend that dies inside ``generate_mission``'s Step1/Step2/repair, or an
     ``allocate`` that blows up, is recorded as ``TURN_ERROR`` and the session
     is left exactly as it was (D-029). A model output that fails the pydantic
     *schema* is a different thing — inside ``generate_mission`` that stays P5's
     explicit ``REJECTED`` with a ``GenerationAudit``.
+
+    A backend that does not declare a valid ``mode`` is the one exception: that
+    is a wiring bug and raises, because logging its answers under the wrong
+    provenance would be worse than stopping (§18.9).
     """
+    mode = _mode_of(backend)  # before the counter: a refused turn must not consume a turn id
     session.turn_count += 1
     turn = _Turn(
         session=session,
         utterance=utterance,
         backend=backend,
         models_before=len(getattr(backend, "resolved_models", ())),
-        mode=_mode_of(backend),
+        mode=mode,
         turn_id=f"t{session.turn_count}",
         pre_scene_hash=scene_hash(session.scene),
         pre_graph_hash=_graph_hash_of(session),

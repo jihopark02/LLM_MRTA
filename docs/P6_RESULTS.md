@@ -27,8 +27,9 @@ task·edge precision/recall·exact match를 독립 재계산할 수 있다.
 
 > **이 표의 `validator_version`과 `scene_hash`는 baseline 시점의 역사적 값이다.**
 > 위 값을 그대로 재현하려면 태그 `v0.6.5-baseline`에서 실행해야 한다
-> (`git worktree add /tmp/llm-mrta-baseline v0.6.5-baseline`). P8.1 이후의 `main`
-> 계열 브랜치에서 같은 명령을 돌리면 **정상적으로** `validator_version 1.4`와 새
+> (`git worktree add /tmp/llm-mrta-baseline v0.6.5-baseline`). `main`은 baseline에서
+> 동결돼 있고, P8.1 코드가 들어간 `feature/operator-interaction` 브랜치에서 같은 명령을
+> 돌리면 **정상적으로** `validator_version 1.4`와 새
 > `scene_hash 3141d8d3…`가 기록된다 — D-027이 `AddTask` op schema를 바꾸고(1.3 → 1.4)
 > zone response point를 scene에 추가했기 때문이다(§14, §18.10). 두 변경 모두 candidate
 > 경로의 판정 규칙(#1~#12)을 바꾸지 않으므로 **아래 결과 수치(9/9, P/R 1.00, exact match

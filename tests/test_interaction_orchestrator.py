@@ -593,6 +593,8 @@ def test_execution_audit_schema_is_serializable():
 
 def test_intent_classifier_exception_is_recorded_not_propagated(scene):
     class Boom:
+        mode = "live"
+
         def complete(self, *a, **k):
             raise RuntimeError("network down")
 
@@ -620,6 +622,8 @@ def test_mission_step_exception_is_recorded_not_propagated(scene):
     # The old try/except only wrapped the intent call, so a backend that died
     # in generate_mission's Step1/Step2/repair escaped handle_turn entirely.
     class BoomAfterIntent:
+        mode = "live"
+
         def __init__(self):
             self.calls = 0
 
@@ -816,3 +820,57 @@ def test_audit_records_how_a_referent_resolved(scene):
     )
     assert r.audit.grounding.via == "referent"
     assert r.audit.grounding.entity_kind == "incident"
+
+
+# -- backend provenance (§18.9, D-029) ------------------------------------
+
+
+def test_mock_backend_and_its_subclasses_are_recorded_as_mock(scene):
+    class ChildMock(MockBackend):
+        pass
+
+    s = sess(scene)
+    r1 = handle_turn(s, "상태", MockBackend([intent("QUERY_STATUS")]))
+    r2 = handle_turn(s, "상태", ChildMock([intent("QUERY_STATUS")]))
+    # a class-name comparison reported the subclass as live, which the contract
+    # forbids: cached and mocked answers must never be presented as live.
+    assert r1.audit.mode == "mock" and r2.audit.mode == "mock"
+
+
+def test_a_live_backend_is_recorded_as_live(scene):
+    class LiveFake:
+        mode = "live"
+
+        def complete(self, system, user, schema):
+            return intent("QUERY_STATUS")
+
+    r = handle_turn(sess(scene), "상태", LiveFake())
+    assert r.audit.mode == "live"
+
+
+def test_a_cached_backend_is_recorded_as_cached(scene):
+    # P8.3 will add a real one; the mode plumbing already carries it.
+    class CachedFake:
+        mode = "cached"
+
+        def complete(self, system, user, schema):
+            return intent("QUERY_STATUS")
+
+    r = handle_turn(sess(scene), "상태", CachedFake())
+    assert r.audit.mode == "cached"
+
+
+@pytest.mark.parametrize("declared", [None, "LIVE", "fake", ""])
+def test_a_backend_without_a_valid_mode_is_refused(scene, declared):
+    # A wiring bug, not a turn failure: mislabelling provenance is worse than
+    # stopping, so this raises instead of defaulting to "live".
+    ns = {"complete": lambda self, sy, u, sc: intent("QUERY_STATUS")}
+    if declared is not None:
+        ns["mode"] = declared
+    Backend = type("Backend", (), ns)
+
+    s = sess(scene)
+    with pytest.raises(ValueError, match="mode"):
+        handle_turn(s, "상태", Backend())
+    # the refused turn never happened: no turn id burned, no audit record
+    assert s.turn_count == 0 and s.turn_log == []

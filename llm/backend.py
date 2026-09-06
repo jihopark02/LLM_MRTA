@@ -37,6 +37,12 @@ def _load_dotenv() -> None:
 
 
 class LLMBackend(Protocol):
+    #: Provenance of the responses this backend returns, recorded in every
+    #: audit entry (contract §18.9). A cached or mocked answer must never be
+    #: reported as live, so each backend declares this rather than having a
+    #: caller guess from the class name.
+    mode: str
+
     def complete(self, system: str, user: str, schema: type[T]) -> T:
         """Return one structured response validated against ``schema``."""
         ...
@@ -49,6 +55,8 @@ class MockBackend:
     validated against the call's schema (so a test can feed deliberately broken
     shapes and check the pipeline rejects them).
     """
+
+    mode = "mock"
 
     def __init__(self, scripted: list[BaseModel | dict]) -> None:
         self._it: Iterator[BaseModel | dict] = iter(scripted)
@@ -76,6 +84,8 @@ class OpenAIBackend:
     "gpt-5-mini" can resolve to a dated snapshot — log the resolved id for
     reproducibility, contract §14).
     """
+
+    mode = "live"
 
     def __init__(
         self,
