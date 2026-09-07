@@ -130,6 +130,8 @@ def _finite_number(raw: dict, key: str, label: str) -> float:
         raise ValueError(f"{label}.{key} must be a number, got {value!r}")
     if not math.isfinite(value):
         raise ValueError(f"{label}.{key} must be finite, got {value!r}")
+    if value < 0:
+        raise ValueError(f"{label}.{key} must not be negative, got {value!r}")
     return float(value)
 
 

@@ -369,15 +369,17 @@ def main() -> None:
         if session.phase is SessionPhase.EXECUTION_FAILED
         else "임무 실행"
     )
-    # §19.1/D-041: a failed advance keeps its runtime, so that state offers a
-    # retry rather than a dead end. Without the runtime it was a one-shot
-    # failure and belongs to the one-shot button instead.
+    # §19.1/D-041: an advance that died from an exception keeps its runtime, so
+    # that state offers a retry rather than a dead end. Without the runtime it
+    # was a one-shot failure and belongs to the one-shot button. With an
+    # ExecutionResult it ended on DEADLOCK/STEP_LIMIT and is terminal (D-042).
+    online_retryable = (
+        session.phase is SessionPhase.EXECUTION_FAILED
+        and session.runtime is not None
+        and session.execution is None
+    )
     online_resumable = (
-        session.phase is SessionPhase.EXECUTION_PAUSED
-        or (
-            session.phase is SessionPhase.EXECUTION_FAILED
-            and session.runtime is not None
-        )
+        session.phase is SessionPhase.EXECUTION_PAUSED or online_retryable
     )
     online_disabled = (
         session.state is None
@@ -387,7 +389,7 @@ def main() -> None:
     )
     online_label = (
         "마지막 checkpoint에서 온라인 실행 재시도"
-        if session.phase is SessionPhase.EXECUTION_FAILED and session.runtime is not None
+        if online_retryable
         else "다음 task 완료까지 계속"
         if session.phase is SessionPhase.EXECUTION_PAUSED
         else "온라인 실행 시작"

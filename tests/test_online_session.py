@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from allocation.allocate import allocate
-from execution.executor import SimExecutor
+from execution.executor import CompletionAdvance, SimExecutor, Termination
 from interaction.audit import CheckpointAudit, ExecutionAudit
 from interaction.audit_io import session_audit_payload
 from interaction.online_execute import advance_online_session
@@ -389,4 +389,54 @@ def test_a_completed_online_run_cannot_be_advanced_again(planned_session):
 
     assert planned_session.phase is SessionPhase.EXECUTED
     with pytest.raises(ValueError, match="before completion"):
+        advance_online_session(planned_session, mode="mock")
+
+
+def test_a_terminal_deadlock_keeps_its_runtime_but_is_not_resumable(
+    planned_session, monkeypatch
+):
+    """§19.1 table / D-042: an ExecutionResult means the run ended, not crashed."""
+    advance_online_session(planned_session, mode="mock")
+
+    def deadlocked(self, *args, **kwargs):
+        return CompletionAdvance(
+            self.checkpoint(), (), self._result(Termination.DEADLOCK)
+        )
+
+    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", deadlocked)
+    audit = advance_online_session(planned_session, mode="mock")
+    monkeypatch.undo()
+
+    assert isinstance(audit, ExecutionAudit)
+    assert audit.execution_termination == "DEADLOCK"
+    assert planned_session.phase is SessionPhase.EXECUTION_FAILED
+    assert planned_session.execution is not None       # a result, not an exception
+    assert planned_session.runtime is not None         # the runtime is still there
+
+    # Resuming would repeat the same ending AND erase the recorded terminal
+    # state by flipping the phase back to EXECUTION_PAUSED.
+    with pytest.raises(ValueError, match="DEADLOCK"):
+        advance_online_session(planned_session, mode="mock")
+
+    assert planned_session.phase is SessionPhase.EXECUTION_FAILED
+    assert planned_session.execution.termination is Termination.DEADLOCK
+    assert [event.event_type for event in planned_session.event_log] == [
+        "EXECUTION_CHECKPOINT",
+        "EXECUTION",
+    ]
+
+
+def test_a_terminal_step_limit_is_also_not_resumable(planned_session, monkeypatch):
+    advance_online_session(planned_session, mode="mock")
+
+    def capped(self, *args, **kwargs):
+        return CompletionAdvance(
+            self.checkpoint(), (), self._result(Termination.STEP_LIMIT)
+        )
+
+    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", capped)
+    advance_online_session(planned_session, mode="mock")
+    monkeypatch.undo()
+
+    with pytest.raises(ValueError, match="STEP_LIMIT"):
         advance_online_session(planned_session, mode="mock")

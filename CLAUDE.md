@@ -19,17 +19,17 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-041, 계약 v1.38)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-042, 계약 v1.39)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-07 기준)
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.4와
-P9.0~P9.4 완료 (브랜치 `feature/operator-interaction`). 계약 v1.38, 최신 결정 D-041.**
+P9.0~P9.4 완료 (브랜치 `feature/operator-interaction`). 계약 v1.39, 최신 결정 D-042.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 652개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 657개 통과, ruff clean.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 실행 개시 전 다중 턴 자연어 계획 세션.
 5종 대화 행위(NEW_MISSION/REPORT_INCIDENT/UPDATE_MISSION/QUERY_STATUS/UNSUPPORTED). LLM은
@@ -90,12 +90,15 @@ selective release**, paused REPORT/UPDATE/QUERY, typed `CheckpointAudit`/
 `OnlineReallocationAudit`, Streamlit 온라인 실행 버튼, no-reset/full-reset/selective 고정 비교까지
 완료. 대표 fixture의 release 수 0/2/1, 세 정책 모두 COMPLETED·위반 0·makespan 453.883s.
 selective의 성능/최적성 우위가 아니라 **불필요한 release 범위 감소**만 주장한다.
-**D-041**: §19.3 3단계의 bundle-suffix 확장은 **실증되지 않았다**
-(`suffix_extra_release_count = 0`) — `build_chain_patch`가 `AREA_RECON`을 만들지 않아 신규
-incident의 즉시 READY task는 `THERMAL_RECON`뿐이고 그 bidder가 UAV 전체라 섞인 bundle이 생길 수
-없다. suffix는 보수적 구현 규칙으로 남기고 단위테스트로 **분기만** 고정한다(end-to-end 실증 아님).
-online advance 예외는 runtime을 보존하므로 `EXECUTION_FAILED` + runtime에서 checkpoint 재개가
-가능하다(§19.1 표). 평가 fixture는 strict schema로 읽는다(D-023과 동일).
+**D-041/D-042**: §19.3 3단계의 bundle-suffix 확장은 **실증되지 않았다**
+(`suffix_extra_release_count = 0`, `selective`에만 정의). 신규 incident 전체-chain 경로에서는
+즉시 READY가 `THERMAL_RECON`뿐이라 섞인 bundle이 안 나왔지만, **도메인 전체에서 불가능하다고
+단정하지 않는다**(D-042) — 기존 incident의 부분 workflow 연장은 `SUPPRESSANT_DROP`을 새 READY로
+만들 수 있고 그러면 `AREA_RECON`이 비영향이 되어 S-agent bundle이 섞일 여지가 있다(도달 가능성
+미검증). suffix는 보수적 구현 규칙으로 남기고 단위테스트로 **분기만** 고정한다(end-to-end 실증 아님).
+online advance **예외**는 runtime을 보존하므로 재개 가능하지만, `DEADLOCK`/`STEP_LIMIT` **결과**로
+끝난 경우는 terminal이라 재개하지 않는다 — 재시도 조건은 `EXECUTION_FAILED` + runtime 있음 +
+`execution is None`이다(§19.1 표, D-042). 평가 fixture는 strict schema로 읽는다(D-023과 동일).
 `docs/P9_RESULTS.md`와 `data/eval_results/p9_online_reallocation.*` 참고. 다음은 발표 자료 정리이며
 P8.5 graph·2D 경로 UI 폴리싱은 선택 사항이다.
 

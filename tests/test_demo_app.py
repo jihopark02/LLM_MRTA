@@ -117,3 +117,77 @@ def test_streamlit_mock_path_accepts_an_update_while_execution_is_paused(
     ]
     assert len(online_turns) == 1
     assert online_turns[0]["online_reallocation"]["policy"] == "selective"
+
+
+# -- online retry button states (§19.1 table, D-042) ----------------------
+
+
+def _paused_app(tmp_path, monkeypatch):
+    monkeypatch.setenv("LLM_MRTA_RUNTIME_ROOT", str(tmp_path))
+    at = AppTest.from_file(APP, default_timeout=20).run()
+    at = at.selectbox[0].select("mock").run()
+    at = _submit(at, MOCK_COMMANDS[0])
+    start = next(button for button in at.button if button.label == "온라인 실행 시작")
+    return start.click().run()
+
+
+def _online_button(at):
+    labels = {
+        "온라인 실행 시작",
+        "다음 task 완료까지 계속",
+        "마지막 checkpoint에서 온라인 실행 재시도",
+    }
+    return next(button for button in at.button if button.label in labels)
+
+
+def test_an_exception_failure_offers_the_checkpoint_retry_button(tmp_path, monkeypatch):
+    from execution.executor import SimExecutor
+
+    at = _paused_app(tmp_path, monkeypatch)
+
+    def boom(self, *args, **kwargs):
+        raise RuntimeError("sim exploded")
+
+    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", boom)
+    at = _online_button(at).click().run()
+    assert not at.exception
+    assert ("Phase", "EXECUTION_FAILED") in [
+        (metric.label, metric.value) for metric in at.metric
+    ]
+
+    monkeypatch.undo()
+    at = at.run()
+    retry = _online_button(at)
+    assert retry.label == "마지막 checkpoint에서 온라인 실행 재시도"
+    assert not retry.disabled
+    # one-shot must not adopt the online runtime
+    assert next(b for b in at.button if b.label.startswith(("임무 실행", "동일 graph"))).disabled
+
+    at = retry.click().run()
+    assert not at.exception
+    assert ("Phase", "EXECUTION_PAUSED") in [
+        (metric.label, metric.value) for metric in at.metric
+    ]
+
+
+def test_a_terminal_deadlock_does_not_offer_a_retry(tmp_path, monkeypatch):
+    from execution.executor import CompletionAdvance, SimExecutor, Termination
+
+    at = _paused_app(tmp_path, monkeypatch)
+
+    def deadlocked(self, *args, **kwargs):
+        return CompletionAdvance(
+            self.checkpoint(), (), self._result(Termination.DEADLOCK)
+        )
+
+    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", deadlocked)
+    at = _online_button(at).click().run()
+    assert not at.exception
+    assert ("Phase", "EXECUTION_FAILED") in [
+        (metric.label, metric.value) for metric in at.metric
+    ]
+
+    monkeypatch.undo()
+    at = at.run()
+    # DEADLOCK is a result, not a crash: the run is over, so no resume is offered.
+    assert _online_button(at).disabled

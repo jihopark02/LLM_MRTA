@@ -18,7 +18,7 @@ Unmanned Systems
 `interaction/`(intent schema, planning session, 결정론적 grounder, incident 등록,
 canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행 감사, live/cached/mock)
 + `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가와 P9
-실행 중 명령·선택적 재할당까지 완료**. 테스트 652개 통과.
+실행 중 명령·선택적 재할당까지 완료**. 테스트 657개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -33,7 +33,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.38 / 최신 결정 D-041 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.39 / 최신 결정 D-042 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
@@ -43,8 +43,8 @@ P9는 task-completion checkpoint에서 실행을 멈추고, 운용자 업데이�
 **입찰자가 겹치는 미시작 assignment만** release/rebid한 뒤 재개한다(bidder-connected selective
 release). 대표 비교에서 no-reset/full-reset/selective release 수는 0/2/1, 세 정책 모두
 COMPLETED·위반 0이며 makespan은 동일했다. 따라서 release 범위 축소만 주장한다. §19.3의
-bundle-suffix 확장은 현재 운용 경로에서 동작하지 않으며(`suffix_extra_release_count = 0`)
-실증된 결과로 서술하지 않는다(D-041). 상세는 [`docs/P9_RESULTS.md`](docs/P9_RESULTS.md).
+bundle-suffix 확장은 테스트된 경로에서 동작하지 않았으며(`suffix_extra_release_count = 0`)
+실증된 결과로 서술하지 않는다 — 다른 update 형태에서 도달 가능한지는 미검증이다(D-041/D-042). 상세는 [`docs/P9_RESULTS.md`](docs/P9_RESULTS.md).
 
 ## 운영자 UI
 

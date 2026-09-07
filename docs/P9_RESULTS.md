@@ -1,6 +1,6 @@
 # P9 실행 중 명령과 선택적 재할당 결과
 
-재현 기준: 계약 v1.38 / D-041, `ONLINE_POLICY_VERSION=1.0`, `VALIDATOR_VERSION=1.4`.
+재현 기준: 계약 v1.39 / D-042, `ONLINE_POLICY_VERSION=1.0`, `VALIDATOR_VERSION=1.4`.
 
 ## 구현 범위
 
@@ -61,11 +61,19 @@ no-reset과 달리 영향받은 항공 task를 release/rebid했다. COMPLETED/RU
 규칙을 포함한다. 이 실행에서 그 확장은 **한 번도 동작하지 않았다** —
 `suffix_extra_release_count = 0`, 즉 `released == directly_affected`다.
 
-이는 fixture를 잘못 골라서가 아니라 현재 운용 경로의 구조 때문이다. canonical online
-update(`build_chain_patch`)는 `AREA_RECON`을 만들지 않으므로 신규 incident에서 즉시 READY가
-되는 task는 `THERMAL_RECON` 하나뿐이고, 그 bidder union은 UAV 전체다. 따라서 모든 UAV task가
-영향, 모든 UGV task가 비영향이 되는데 bundle은 한 agent(=UAV이거나 UGV)의 것이므로 **섞인
-bundle이 존재할 수 없다**.
+이는 fixture를 잘못 골라서만은 아니다. 이 실험이 다루는 online update는 **신규 incident에
+전체 workflow chain을 추가**하는 경로인데, `build_chain_patch`는 `AREA_RECON`을 만들지 않으므로
+그 경우 즉시 READY가 되는 task는 `THERMAL_RECON` 하나뿐이고 그 bidder union은 UAV 전체다.
+따라서 모든 UAV task가 영향, 모든 UGV task가 비영향이 되는데 bundle은 한 agent(=UAV이거나
+UGV)의 것이므로 이 경로에서는 섞인 bundle이 나오지 않았다.
+
+**다만 이것을 도메인 전체의 불가능성으로 일반화하지 않는다(D-042).** `build_chain_patch`는
+기존 incident의 **부분 workflow 연장**도 만든다 — 예컨대 `THERMAL_RECON`이 이미 COMPLETED인
+incident를 `SUPPRESSANT_DROP`까지 늘리면 신규 READY의 bidder는 R1/R2가 되고 `AREA_RECON`
+(bidder S1/S2)은 비영향이 되므로, S-agent bundle이 `THERMAL_RECON`(영향) → `AREA_RECON`(비영향)
+순서를 갖는다면 suffix 확장이 일어날 여지가 있다. 그런 상태가 현재 CBBA·priority에서 실제로
+도달 가능한지는 **검증하지 않았다**. 즉 "이 실험에서 관측되지 않았다"와 "불가능하다"는 다르며,
+이 문서는 앞의 것만 주장한다.
 
 그러므로 이 문서가 주장하는 것은 다음까지다.
 

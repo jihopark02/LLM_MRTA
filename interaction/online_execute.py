@@ -38,6 +38,15 @@ def _preconditions(session: MissionSession) -> None:
         # An EXECUTION_FAILED without a runtime is a one-shot failure; §18.1
         # sends that back through execute_session, not through here.
         raise ValueError("resuming online execution requires the preserved runtime")
+    if session.phase is SessionPhase.EXECUTION_FAILED and session.execution is not None:
+        # The run ended on a DEADLOCK/STEP_LIMIT *result*, not an exception
+        # (§19.1 table, D-042). Resuming would deterministically repeat that
+        # ending and would overwrite the recorded terminal state with a new
+        # EXECUTION_PAUSED, so this is terminal.
+        raise ValueError(
+            "online execution ended in "
+            f"{session.execution.termination.value}; it cannot be resumed"
+        )
 
 
 def _active_assignments(executor: SimExecutor) -> dict[str, str]:
@@ -118,10 +127,13 @@ def advance_online_session(
     replaced only after a successful advance, so an exception cannot leave a
     half-advanced clock or task status behind (§19.4).
 
-    A failed advance keeps the last good runtime, so calling this again retries
-    from that checkpoint (§19.1, D-041) — the counterpart of §18.1's one-shot
-    "retry the same graph".  Retrying resumes the same run: it does not rewind
-    simulation time or the completed prefix.
+    An advance that dies from an *exception* keeps the last good runtime, so
+    calling this again retries from that checkpoint (§19.1, D-041) — the
+    counterpart of §18.1's one-shot "retry the same graph". Retrying resumes the
+    same run: it does not rewind simulation time or the completed prefix. An
+    advance that ends on a DEADLOCK/STEP_LIMIT *result* is terminal instead
+    (D-042): it produced an ``ExecutionResult``, and resuming would repeat that
+    ending while erasing the record of it.
     """
     checked_mode = require_mode(mode)
     _preconditions(session)

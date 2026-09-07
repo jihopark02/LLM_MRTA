@@ -127,3 +127,10 @@ def test_the_report_states_the_suffix_count_rather_than_hiding_it():
     report = text_report(run_comparison())
     assert "suffix_extra_release_count=0" in report
     assert "suffix_extra_release_count=n/a" in report
+
+
+def test_a_negative_simulation_time_is_refused(tmp_path):
+    raw = _fixture_dict()
+    raw["expected_checkpoint"]["simulation_time"] = -1.0
+    with pytest.raises(ValueError, match="negative"):
+        load_online_fixture(_write(tmp_path, raw))
