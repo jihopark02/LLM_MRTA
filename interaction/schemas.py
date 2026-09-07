@@ -1,11 +1,12 @@
 """Operator intent schemas for the planning session (RESEARCH_CONTRACT.md §18).
 
-The interaction LLM does exactly two things (§18.7): classify the utterance into
-one of the five supported dialogue acts (§18.2) and extract slots. It never
+The interaction LLM classifies the utterance into one of the five supported
+dialogue acts (§18.2) and extracts bounded slots. It never
 emits a clarification, a MissionPatch, a task list, an agent, a priority or a
 coordinate. For ``NEW_MISSION`` the task/edge generation is the existing RQ1
-``llm.pipeline.generate_mission`` on the raw utterance (§12) — that is why
-``NewMissionIntent`` carries no slots at all (D-027).
+``llm.pipeline.generate_mission`` on the raw utterance (§12). P12 adds one
+mission-level slot beside that graph: the canonical response step for a future
+detected or reported incident. It cannot name a future target or an agent.
 
 Slot extraction may be partial: every slot is optional, so "불이 났어" with no
 location is a ``REPORT_INCIDENT`` with ``zone_ref=None``. Turning a missing or
@@ -38,10 +39,10 @@ UpToStep = Literal[
 
 
 class NewMissionIntent(_StrictModel):
-    """Create the first mission. No slots — the raw utterance goes to
-    ``generate_mission`` (D-027); the classifier must not decompose it."""
+    """Create the first mission and optionally retain its incident policy."""
 
     kind: Literal["NEW_MISSION"]
+    incident_response_up_to: UpToStep | None = None
 
 
 class ReportIncidentIntent(_StrictModel):
@@ -51,6 +52,7 @@ class ReportIncidentIntent(_StrictModel):
 
     kind: Literal["REPORT_INCIDENT"]
     zone_ref: str | None = None  # raw phrase; grounder matches zone_id + aliases
+    response_up_to: UpToStep | None = None
 
 
 class UpdateMissionIntent(_StrictModel):
@@ -113,14 +115,16 @@ class IntentWireEnvelope(_StrictModel):
     zone_ref: str | None
     target_phrase: str | None
     up_to_step: UpToStep | None
+    incident_response_up_to: UpToStep | None
+    response_up_to: UpToStep | None
     about: Literal["agents", "tasks", "incidents", "mission"] | None
     note: str | None
 
     @model_validator(mode="after")
     def _kind_owns_non_null_slots(self):
         allowed = {
-            "NEW_MISSION": set(),
-            "REPORT_INCIDENT": {"zone_ref"},
+            "NEW_MISSION": {"incident_response_up_to"},
+            "REPORT_INCIDENT": {"zone_ref", "response_up_to"},
             "UPDATE_MISSION": {"target_phrase", "up_to_step"},
             "QUERY_STATUS": {"target_phrase", "about"},
             "UNSUPPORTED": {"note"},
@@ -129,6 +133,8 @@ class IntentWireEnvelope(_StrictModel):
             "zone_ref": self.zone_ref,
             "target_phrase": self.target_phrase,
             "up_to_step": self.up_to_step,
+            "incident_response_up_to": self.incident_response_up_to,
+            "response_up_to": self.response_up_to,
             "about": self.about,
             "note": self.note,
         }
@@ -141,8 +147,8 @@ class IntentWireEnvelope(_StrictModel):
 
     def to_internal(self) -> IntentEnvelope:
         allowed = {
-            "NEW_MISSION": (),
-            "REPORT_INCIDENT": ("zone_ref",),
+            "NEW_MISSION": ("incident_response_up_to",),
+            "REPORT_INCIDENT": ("zone_ref", "response_up_to"),
             "UPDATE_MISSION": ("target_phrase", "up_to_step"),
             "QUERY_STATUS": ("target_phrase", "about"),
             "UNSUPPORTED": ("note",),
@@ -165,6 +171,8 @@ def wire_intent(kind: str, **slots) -> IntentWireEnvelope:
         "zone_ref": None,
         "target_phrase": None,
         "up_to_step": None,
+        "incident_response_up_to": None,
+        "response_up_to": None,
         "about": None,
         "note": None,
     }

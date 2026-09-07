@@ -55,6 +55,7 @@ from interaction.audit import (
     RuntimeAssignmentChanges,
     TurnAudit,
 )
+from interaction.directive import MissionDirective
 from interaction.ground import (
     ClarificationReason,
     GroundingOutcome,
@@ -349,7 +350,14 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
     # Build state and plan as candidates, then swap both in one step.
     candidate_state = fresh_session_state(gen.graph, session.scene)
     candidate_plan = _plan_for(candidate_state, session.scene)
-    session.state, session.plan = candidate_state, candidate_plan
+    candidate_directive = MissionDirective.from_slot(
+        turn.slots.get("incident_response_up_to")
+    )
+    session.state, session.plan, session.directive = (
+        candidate_state,
+        candidate_plan,
+        candidate_directive,
+    )
     return _finish(
         turn,
         TurnOutcome.COMMITTED,

@@ -29,6 +29,7 @@ from core.mission_state import MissionState
 from core.task_graph import TaskGraph
 from execution.executor import ExecutionResult, SimExecutor
 from interaction.audit import CheckpointAudit, ExecutionAudit, TurnAudit
+from interaction.directive import MissionDirective
 from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.scene import Scene
 
@@ -170,6 +171,7 @@ class MissionSession:
     runtime: SimExecutor | None = field(default=None, repr=False)
     online_started_at: str | None = None
     phase: SessionPhase = SessionPhase.PLANNING
+    directive: MissionDirective = field(default_factory=MissionDirective)
     recent_referents: list[Referent] = field(default_factory=list)
     turn_count: int = 0
     pending_clarification: PendingClarification | None = None
@@ -299,6 +301,12 @@ def build_context_summary(session: MissionSession) -> str:
     scene = session.scene
     lines = [
         f"PHASE: {session.phase.value}",
+        "INCIDENT_RESPONSE_POLICY: "
+        + (
+            session.directive.incident_response_up_to.value
+            if session.directive.incident_response_up_to is not None
+            else "none"
+        ),
         "ZONES: " + ", ".join(sorted(scene.zones)),
         "INCIDENTS:",
     ]

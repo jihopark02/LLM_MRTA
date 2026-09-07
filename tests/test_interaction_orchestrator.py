@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from interaction.audit import ExecutionAudit, PlanAssignmentChanges, TurnAudit
+from interaction.directive import MissionDirective
 from interaction.ground import ResolutionVia
 from interaction.orchestrator import (
     TurnOutcome,
@@ -61,6 +62,41 @@ def start_mission(session, incident_id="FIRE_SITE_1", steps=CHAIN):
     result = handle_turn(session, f"{incident_id} 대응 시작", backend)
     assert result.outcome is TurnOutcome.COMMITTED, result.message
     return result
+
+
+# -- P12.1: initial graph and future-incident policy are separate ----------
+
+
+def test_new_mission_commits_the_llm_extracted_incident_policy_with_the_graph(scene):
+    s = sess(scene)
+    backend = MockBackend(
+        [
+            intent(
+                "NEW_MISSION",
+                incident_response_up_to="GROUND_SUPPRESSION",
+            ),
+            *mission_steps("FIRE_SITE_1", steps=["THERMAL_RECON"]),
+        ]
+    )
+
+    result = handle_turn(
+        s,
+        "화재가 발견되면 지상 진압까지 대응해줘",
+        backend,
+    )
+
+    assert result.outcome is TurnOutcome.COMMITTED
+    assert s.directive == MissionDirective.from_slot("GROUND_SUPPRESSION")
+    assert len(s.state.graph) == 1  # the future policy did not invent future tasks
+    assert result.audit.extracted_slots == {
+        "incident_response_up_to": "GROUND_SUPPRESSION"
+    }
+
+
+def test_new_mission_without_a_conditional_clause_has_no_incident_policy(scene):
+    s = sess(scene)
+    start_mission(s, steps=["THERMAL_RECON"])
+    assert s.directive == MissionDirective()
 
 
 # -- I1: ambiguous first command, then a deixis with nothing registered ----

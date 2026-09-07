@@ -29,3 +29,9 @@ def test_every_task_type_glossary_entry_is_in_the_prompts():
 
 def test_step1_user_carries_the_command_verbatim():
     assert "Evacuate ZONE_A now" in step1_user("Evacuate ZONE_A now")
+
+
+def test_future_incident_policy_does_not_authorise_placeholder_tasks():
+    prompt = step1_system(load_scene(SCENE))
+    assert "FUTURE detected/reported incident" in prompt
+    assert "never invent a\nplaceholder incident" in prompt

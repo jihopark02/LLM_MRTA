@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from core.enums import TaskType
+from interaction.directive import MissionDirective
 from interaction.session import (
     REFERENT_WINDOW_TURNS,
     MissionSession,
@@ -108,6 +109,22 @@ def test_known_incident_ids_are_derived_from_the_scene(scene):
 def test_context_for_llm_delegates_to_build_context_summary(scene):
     s = session(scene)
     assert s.context_for_llm() == build_context_summary(s)
+
+
+def test_incident_response_policy_is_typed_and_visible_to_the_next_turn(scene):
+    s = session(
+        scene,
+        directive=MissionDirective(TaskType.GROUND_SUPPRESSION),
+    )
+    assert s.directive.to_dict() == {
+        "incident_response_up_to": "GROUND_SUPPRESSION"
+    }
+    assert "INCIDENT_RESPONSE_POLICY: GROUND_SUPPRESSION" in s.context_for_llm()
+
+
+def test_area_recon_cannot_be_stored_as_an_incident_policy():
+    with pytest.raises(ValueError, match="workflow step"):
+        MissionDirective(TaskType.AREA_RECON)
 
 
 # -- event and pending boundaries (D-031/D-032) ----------------------

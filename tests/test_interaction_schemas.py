@@ -37,15 +37,28 @@ def _envelope(payload: dict) -> IntentEnvelope:
 # -- the five supported kinds parse ---------------------------------
 
 
-def test_new_mission_has_no_slots():
+def test_new_mission_has_only_the_optional_incident_policy_slot():
     e = _envelope({"kind": "NEW_MISSION"})
     assert isinstance(e.intent, NewMissionIntent)
+    assert e.intent.incident_response_up_to is None
+    policy = _envelope(
+        {"kind": "NEW_MISSION", "incident_response_up_to": "GROUND_SUPPRESSION"}
+    ).intent
+    assert policy.incident_response_up_to == "GROUND_SUPPRESSION"
 
 
 def test_report_incident_zone_ref_optional():
     assert _envelope({"kind": "REPORT_INCIDENT"}).intent.zone_ref is None
     got = _envelope({"kind": "REPORT_INCIDENT", "zone_ref": "A 구역"}).intent
     assert isinstance(got, ReportIncidentIntent) and got.zone_ref == "A 구역"
+    response = _envelope(
+        {
+            "kind": "REPORT_INCIDENT",
+            "zone_ref": "Warehouse",
+            "response_up_to": "GROUND_INSPECTION",
+        }
+    ).intent
+    assert response.response_up_to == "GROUND_INSPECTION"
 
 
 def test_update_mission_slots_are_optional():
@@ -154,6 +167,8 @@ def test_wire_schema_has_no_openai_rejected_one_of_and_requires_every_key():
         "zone_ref",
         "target_phrase",
         "up_to_step",
+        "incident_response_up_to",
+        "response_up_to",
         "about",
         "note",
     }
@@ -162,11 +177,21 @@ def test_wire_schema_has_no_openai_rejected_one_of_and_requires_every_key():
 @pytest.mark.parametrize(
     ("wire", "expected_type", "expected"),
     [
-        (wire_intent("NEW_MISSION"), NewMissionIntent, {}),
         (
-            wire_intent("REPORT_INCIDENT", zone_ref="A 구역"),
+            wire_intent(
+                "NEW_MISSION", incident_response_up_to="GROUND_SUPPRESSION"
+            ),
+            NewMissionIntent,
+            {"incident_response_up_to": "GROUND_SUPPRESSION"},
+        ),
+        (
+            wire_intent(
+                "REPORT_INCIDENT",
+                zone_ref="A 구역",
+                response_up_to="SUPPRESSANT_DROP",
+            ),
             ReportIncidentIntent,
-            {"zone_ref": "A 구역"},
+            {"zone_ref": "A 구역", "response_up_to": "SUPPRESSANT_DROP"},
         ),
         (
             wire_intent(
@@ -202,7 +227,9 @@ def test_wire_converts_deterministically_to_the_internal_discriminated_union(
     ("kind", "irrelevant"),
     [
         ("NEW_MISSION", {"zone_ref": "ZONE_A"}),
+        ("NEW_MISSION", {"response_up_to": "GROUND_SUPPRESSION"}),
         ("REPORT_INCIDENT", {"target_phrase": "거기"}),
+        ("REPORT_INCIDENT", {"incident_response_up_to": "GROUND_SUPPRESSION"}),
         ("UPDATE_MISSION", {"about": "mission"}),
         ("QUERY_STATUS", {"up_to_step": "GROUND_SUPPRESSION"}),
         ("UNSUPPORTED", {"zone_ref": "ZONE_A"}),
@@ -228,7 +255,14 @@ def test_wire_requires_explicit_nulls_and_strict_types():
 def test_intent_prompt_explains_the_flat_null_slot_protocol():
     prompt = intent_system("PHASE: PLANNING")
     assert "kind, zone_ref, target_phrase" in prompt
+    assert "incident_response_up_to, response_up_to" in prompt
     assert "use null" in prompt
+
+
+def test_resource_constraints_are_fail_closed_in_the_prompt():
+    prompt = intent_system("PHASE: PLANNING")
+    assert "particular robot" in prompt
+    assert "UNSUPPORTED as a whole" in prompt
 
 
 def test_classifier_requests_wire_schema_then_returns_internal_intent():

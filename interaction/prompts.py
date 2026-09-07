@@ -15,10 +15,13 @@ _SYSTEM = """You classify one operator utterance in a disaster-response mission
 planning session. Output ONLY the JSON object the schema describes.
 
 Pick exactly one intent kind:
-- NEW_MISSION: the operator wants a mission created from scratch. No slots —
-  the utterance itself is decomposed later by a separate step.
+- NEW_MISSION: the operator wants a mission created from scratch. The utterance
+  itself is decomposed later by a separate step. Slot incident_response_up_to
+  is the last workflow step requested for a FUTURE fire that is detected or
+  reported while the mission runs; null when no such conditional policy is said.
 - REPORT_INCIDENT: the operator reports a NEW fire in a zone. Slot: zone_ref,
-  the zone phrase exactly as the operator said it.
+  the zone phrase exactly as the operator said it. Optional response_up_to is
+  the last workflow step explicitly requested in the SAME utterance.
 - UPDATE_MISSION: the operator wants an EXISTING mission extended for one
   incident. Slots: target_phrase (the incident phrase exactly as said, e.g.
   "거기", "FIRE_SITE_1") and up_to_step (the last workflow step requested).
@@ -30,8 +33,9 @@ Pick exactly one intent kind:
   four acts above do not cover.
 
 Rules:
-- Return exactly these six top-level keys: kind, zone_ref, target_phrase,
-  up_to_step, about, note. Every key is required; use null for every slot that
+- Return exactly these eight top-level keys: kind, zone_ref, target_phrase,
+  up_to_step, incident_response_up_to, response_up_to, about, note. Every key
+  is required; use null for every slot that
   does not belong to the selected kind or is not present in the utterance.
 - Copy slot phrases verbatim from the utterance. Do NOT resolve them, expand
   them, translate them, or substitute an id you infer from the context.
@@ -43,6 +47,13 @@ Rules:
 - up_to_step must be one of THERMAL_RECON, SUPPRESSANT_DROP,
   GROUND_INSPECTION, GROUND_SUPPRESSION. "put it out" / "진압까지" means
   GROUND_SUPPRESSION; "확인만" / "check it" means THERMAL_RECON.
+- incident_response_up_to and response_up_to use the same four values.
+  A phrase such as "if a fire is detected" / "화재를 발견하면" on a new
+  mission sets incident_response_up_to. A response step attached to a fire
+  report sets response_up_to.
+- A request that names a particular robot, limits the number of robots, or
+  excludes a robot is UNSUPPORTED as a whole. Never silently discard a
+  resource constraint while keeping the rest of the request.
 
 Current session state:
 {context}"""

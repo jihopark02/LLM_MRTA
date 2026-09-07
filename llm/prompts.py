@@ -68,7 +68,10 @@ Output ONLY a JSON object {"tasks": [{"task_type", "target"}, ...]}.
 - task_type is one of the listed types.
 - target is a zone id (for AREA_RECON) or an incident id (for the others).
 Do not invent coordinates, priority, capabilities, durations, or ids. Priority is
-assigned later from the scene. Do not add edges here.
+assigned later from the scene. Do not add edges here. A conditional clause about
+a FUTURE detected/reported incident is stored separately as a session policy:
+create only tasks whose zone or incident target exists now, and never invent a
+placeholder incident for that future clause.
 {facts}"""
 
 _STEP2_SYSTEM = """You add dependency edges to an existing task list.
