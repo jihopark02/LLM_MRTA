@@ -26,11 +26,15 @@ viz = [
 demo = [
     "streamlit>=1.37",
 ]
+desktop = [
+    "PySide6>=6.7,<7",
+    "openai>=1.40",
+]
 
 [tool.setuptools.packages.find]
 include = [
     "core*", "scenarios*", "validator*", "allocation*", "execution*", "llm*",
-    "evaluation*", "interaction*", "demo*",
+    "evaluation*", "interaction*", "demo*", "desktop*",
 ]
 
 [tool.pytest.ini_options]
