@@ -105,6 +105,17 @@ class OnlineReallocationAudit:
 
 
 @dataclass(frozen=True, slots=True)
+class IncidentActionAudit:
+    """How a newly known incident entered and selected its response (§22.3)."""
+
+    source: str                              # OPERATOR | SENSOR_SIMULATED
+    zone_id: str
+    incident_id: str
+    policy_origin: str                       # EXPLICIT | SESSION_POLICY | NONE
+    response_up_to: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class TurnAudit:
     """One operator turn (§18.9, ``event_type: TURN``)."""
 
@@ -128,6 +139,7 @@ class TurnAudit:
     generation: GenerationAudit | None = None
     plan_assignment_changes: PlanAssignmentChanges | None = None
     online_reallocation: OnlineReallocationAudit | None = None
+    incident_action: IncidentActionAudit | None = None
 
     scene_changed: bool = False
     state_changed: bool = False
@@ -202,6 +214,7 @@ __all__ = [
     "GenerationAudit",
     "RuntimeAssignmentChanges",
     "OnlineReallocationAudit",
+    "IncidentActionAudit",
     "TurnAudit",
     "ExecutionAudit",
     "CheckpointAudit",

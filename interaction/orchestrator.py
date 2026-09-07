@@ -49,6 +49,7 @@ from core.enums import TaskStatus
 from interaction.audit import (
     GenerationAudit,
     GroundingAudit,
+    IncidentActionAudit,
     OnlineReallocationAudit,
     PatchAudit,
     PlanAssignmentChanges,
@@ -65,9 +66,13 @@ from interaction.ground import (
     resolve_incident,
     resolve_zone,
 )
+from interaction.incident_response import (
+    IncidentSource,
+    PolicyOrigin,
+    prepare_incident_transaction,
+)
 from interaction.interpret import classify
 from interaction.mode import mode_of_backend, require_mode
-from interaction.scene_mut import register_incident
 from interaction.session import (
     MissionSession,
     PendingClarification,
@@ -147,6 +152,7 @@ class _Turn:
     resumed_from_turn_id: str | None = None
     selected_entity_id: str | None = None
     online_reallocation: OnlineReallocationAudit | None = None
+    incident_action: IncidentActionAudit | None = None
 
     def resolved_models(self) -> list[str]:
         """Every backend call this turn made — intent classification plus any
@@ -243,6 +249,7 @@ def _finish(
         generation=_generation_audit(turn.generation),
         plan_assignment_changes=PlanAssignmentChanges.between(turn.pre_plan, post_plan),
         online_reallocation=turn.online_reallocation,
+        incident_action=turn.incident_action,
         scene_changed=scene_hash(session.scene) != turn.pre_scene_hash,
         state_changed=_graph_hash_of(session) != turn.pre_graph_hash,
         referent_noted=turn.referent_noted,
@@ -375,17 +382,83 @@ def _do_report_incident(
     if not zone.resolved:
         return _clarify(turn, zone)
 
-    updated_scene, incident_id = register_incident(session.scene, zone.entity_id)
-    session.scene = updated_scene
-    if session.phase is SessionPhase.EXECUTION_PAUSED:
-        # REPORT is scene-only: preserve the runtime object and every clock,
-        # but make the newly registered incident visible to a following UPDATE.
-        session.runtime.scene = updated_scene
-    _note(turn, ReferentKind.INCIDENT, incident_id)
+    explicit_step = turn.slots.get("response_up_to")
+    if explicit_step is not None:
+        response_up_to = MissionDirective.from_slot(explicit_step).incident_response_up_to
+        policy_origin = PolicyOrigin.EXPLICIT
+    elif session.directive.incident_response_up_to is not None:
+        response_up_to = session.directive.incident_response_up_to
+        policy_origin = PolicyOrigin.SESSION_POLICY
+    else:
+        response_up_to = None
+        policy_origin = PolicyOrigin.NONE
+
+    if response_up_to is not None and session.state is None:
+        return _clarify(
+            turn,
+            GroundingOutcome(
+                GroundingStatus.CLARIFICATION_REQUIRED,
+                clarification="화재 대응 task를 추가하려면 먼저 임무를 생성해 주세요.",
+                reason=ClarificationReason.MISSING_MISSION,
+            ),
+        )
+
+    transaction = prepare_incident_transaction(
+        session,
+        zone.entity_id,
+        response_up_to,
+        planner=_plan_for,
+        online_applier=apply_online_patch,
+    )
+    turn.patch_result = transaction.patch_result
+    if not transaction.accepted:
+        codes = ", ".join(c.value for c in transaction.patch_result.error_codes)
+        return _finish(turn, TurnOutcome.REJECTED, f"변경이 거부됐습니다 ({codes}).")
+
+    online_audit = (
+        _online_reallocation_audit(transaction.online)
+        if transaction.online is not None
+        else None
+    )
+    turn.incident_action = IncidentActionAudit(
+        source=IncidentSource.OPERATOR.value,
+        zone_id=transaction.zone_id,
+        incident_id=transaction.incident_id,
+        policy_origin=policy_origin.value,
+        response_up_to=(
+            transaction.response_up_to.value
+            if transaction.response_up_to is not None
+            else None
+        ),
+    )
+    turn.online_reallocation = online_audit
+
+    # Every fallible computation has completed. Publish the prepared candidate
+    # as one session transition, then record its now-valid scene referent.
+    session.scene = transaction.scene
+    if transaction.online is not None:
+        session.runtime = transaction.runtime
+        session.state = transaction.state
+    elif response_up_to is not None:
+        session.state, session.plan = transaction.state, transaction.plan
+    elif session.phase is SessionPhase.EXECUTION_PAUSED:
+        # Scene-only reports preserve runtime identity and clock (§18.4).
+        session.runtime.scene = transaction.scene
+    _note(turn, ReferentKind.INCIDENT, transaction.incident_id)
+
+    response_note = ""
+    if response_up_to is not None:
+        response_note = f" {response_up_to.value}까지 대응 task를 추가했습니다."
+        if transaction.online is not None:
+            response_note += (
+                f" 미시작 task {len(transaction.online.released_tasks)}개를 "
+                "release/rebid했습니다."
+            )
     return _finish(
         turn,
         TurnOutcome.COMMITTED,
-        f"{zone.entity_id}에 화재 지점 {incident_id}을(를) 등록했습니다.",
+        f"{zone.entity_id}에 화재 지점 {transaction.incident_id}을(를) 등록했습니다."
+        f"{response_note}",
     )
 
 
