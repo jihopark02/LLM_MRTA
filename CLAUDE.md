@@ -19,25 +19,27 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-042, 계약 v1.39)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-047, 계약 v1.44)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-07 기준)
 
-**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.4와
-P9.0~P9.4 완료 (브랜치 `feature/operator-interaction`). 계약 v1.39, 최신 결정 D-042.**
+**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.5,
+P9.0~P9.4와 P10 완료 (브랜치 `feature/operator-interaction`). 계약 v1.44, 최신 결정
+D-047.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 657개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 759개 통과, ruff clean.
 
-**P8 = Operator–LLM Planning Session (§18, D-027)**: 실행 개시 전 다중 턴 자연어 계획 세션.
+**P8 = Operator–LLM Planning Session (§18, D-027)**: 최초 범위는 실행 개시 전 다중 턴
+자연어 계획 세션이며, 후속 P9가 이를 task-completion checkpoint의 온라인 명령으로 확장했다.
 5종 대화 행위(NEW_MISSION/REPORT_INCIDENT/UPDATE_MISSION/QUERY_STATUS/UNSUPPORTED). LLM은
 intent 분류 + slot 추출만, 결정론적 grounder가 referent 해석·clarification·canonical
-MissionPatch 생성, `apply_patch`(P2 기존 엔진)가 atomic commit/rollback. "실행 중 patch"·
-"선택적 재할당"·recheck 어휘는 후속. 신규 `interaction/*` + `demo/app.py`(Streamlit),
-`core/`·`allocation/`·`execution/`·`llm/pipeline.py`·`evaluation/` 무변경. 게이트 P8.0~P8.5는
-§15.
+MissionPatch 생성, `apply_patch`(P2 기존 엔진)가 atomic commit/rollback. 실행 중 patch·선택적
+재할당은 P9에서 구현했고 recheck 어휘는 여전히 후속이다. 신규 `interaction/*` +
+`demo/app.py`(Streamlit). P8.0~P8.4의 연구 경계는 기존 core/allocation/execution 의미를
+바꾸지 않으며, P8.5는 시각화용 `RouteGraph` read-only 조회만 추가했다. 게이트는 §15.
 
 P8.1 구조 (D-027, D-028):
 - `interaction/schemas.py`: 내부 진실 원천은 strict·`kind` discriminated
@@ -99,8 +101,17 @@ selective의 성능/최적성 우위가 아니라 **불필요한 release 범위 
 online advance **예외**는 runtime을 보존하므로 재개 가능하지만, `DEADLOCK`/`STEP_LIMIT` **결과**로
 끝난 경우는 terminal이라 재개하지 않는다 — 재시도 조건은 `EXECUTION_FAILED` + runtime 있음 +
 `execution is None`이다(§19.1 표, D-042). 평가 fixture는 strict schema로 읽는다(D-023과 동일).
-`docs/P9_RESULTS.md`와 `data/eval_results/p9_online_reallocation.*` 참고. 다음은 발표 자료 정리이며
-P8.5 graph·2D 경로 UI 폴리싱은 선택 사항이다.
+`docs/P9_RESULTS.md`와 `data/eval_results/p9_online_reallocation.*` 참고.
+
+P8.5/P10 시각화(§18.14, §20, D-043~D-047): `demo/visualization.py`가 결정론적 DAG와
+plan/runtime/execution 정적 2D `RenderSpec`을 만들고, `demo/animation.py`가 연속한 frozen
+`ExecutionCheckpoint` 사이의 immutable `PlaybackSpec`을 만든다. 온라인 실행은 먼저 다음
+completion checkpoint를 commit한 뒤 그 구간을 재생한다. UAV는 직선, UGV는
+`RouteGraph.shortest_path_nodes()` + `lane_weight()` polyline을 simulation time으로 보간하고,
+task target에서 dwell한다. 재생은 순수 presentation view이고 실제 telemetry·동역학·임의
+wall-clock interrupt가 아니다. 재생 완료 checkpoint에서만 후속 명령을 받아 P9 selective
+release/rebid를 수행한다. matplotlib 부재/렌더 실패는 실행을 되돌리지 않고 정적 표로 degrade한다.
+다음은 실제 UI 리허설과 발표 자료 정리다.
 
 P8.3 구조 (D-031~D-034, 계약 v1.32):
 - **통합 `event_log: list[TurnAudit | ExecutionAudit]`** — list 순서가 event 순서의 유일한

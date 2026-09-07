@@ -17,8 +17,9 @@ Unmanned Systems
 9개 입력 평가 하네스 + 감사 JSON + 시각화; P6.5: 통합 runner). **P8.1~P8.3 승인 완료** —
 `interaction/`(intent schema, planning session, 결정론적 grounder, incident 등록,
 canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행 감사, live/cached/mock)
-+ `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가와 P9
-실행 중 명령·선택적 재할당까지 완료**. 테스트 657개 통과.
++ `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가, P9
+실행 중 명령·선택적 재할당, P8.5 정적 DAG/2D 지도와 P10 checkpoint 구간 애니메이션까지
+완료**. 테스트 759개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -33,7 +34,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.39 / 최신 결정 D-042 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.44 / 최신 결정 D-047 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
@@ -51,7 +52,7 @@ bundle-suffix 확장은 테스트된 경로에서 동작하지 않았으며(`suf
 저장소 루트에서 실행한다.
 
 ```bash
-python3 -m pip install --user 'openai>=1.40' 'streamlit>=1.37'
+python3 -m pip install --user -e '.[llm,demo,viz]'
 streamlit run demo/app.py
 ```
 
@@ -59,6 +60,13 @@ streamlit run demo/app.py
 발화·schema가 정확히 같은 응답만 네트워크 없이 재생하며, `mock`은 화면 확인용 고정 스크립트다.
 세 모드는 UI와 감사 JSON에 명시되며 서로 바꿔 표시하지 않는다. P8.3 검증 기록은
 [`docs/P8_3_RESULTS.md`](docs/P8_3_RESULTS.md)에 있다.
+
+온라인 실행은 `온라인 실행 시작`/`다음 task 완료까지 계속`을 누를 때마다 다음
+task-completion checkpoint까지 진행하고 그 구간을 2D로 재생한다(P10). UAV는 직선, UGV는
+route graph polyline을 따라 움직이며 travel과 dwell이 구분된다. 재생이 끝난 checkpoint에서
+후속 자연어 명령을 입력하면 P9 selective release/rebid가 반영되고 다음 구간이 바뀐 assignment로
+재생된다. 이는 discrete-event schedule의 보간이며 실제 telemetry·물리 pose나 임의 시각
+interrupt를 뜻하지 않는다. 사이드바에서 재생 on/off와 1x/2x/5x 표시 배속을 고를 수 있다.
 
 새로운 LLM 모델이나 CBBA 알고리즘을 제안하는 연구가 아니다. 검증된 구성요소를 통합하고
 재현 가능하게 시연·평가한다.
