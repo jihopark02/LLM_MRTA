@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+# setuptools' stable PEP 660 editable-install support starts at 64.  Keeping
+# the lower bound below that lets pip create a build environment whose backend
+# has no build_editable hook, even though this project documents `pip -e`.
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]

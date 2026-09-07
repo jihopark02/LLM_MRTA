@@ -1634,3 +1634,20 @@ checkpoint에 도달한 뒤에만 후속 명령을 받아 selective release/rebi
 **영향** 신규 `desktop/` presentation package, `pyproject.toml` desktop extra, 데스크톱 UI
 테스트와 사용 문서. `core/`·`validator/`·`allocation/`·`execution/`·`interaction/`·
 `evaluation/` 의미와 `VALIDATOR_VERSION` 1.4, `ONLINE_POLICY_VERSION`, P3/P4/P9 결과는 불변.
+
+## D-050: editable install의 PEP 660 빌드 백엔드 하한 보정 (계약 v1.46, 패키징 수정)
+
+**배경** P11 설치 안내의 `python3 -m pip install --user -e '.[desktop]'`를 Ubuntu 22.04의
+배포판 pip 22.0.2 환경에서 실행하면 editable 설치가 거부됐다. 상세 로그에서 build isolation은
+setuptools 84.0.0을 설치했고 그 backend에는 실제 `build_editable` hook이 있었지만, 배포판 pip가
+이를 지원하지 않는 것으로 판정했다. 별개로 기존 `[build-system]`의 `setuptools>=61` 하한도
+PEP 660 editable backend를 보장하지 않았다.
+
+**결정** `[build-system].requires`의 setuptools 하한을 PEP 660 editable 지원 경계인
+`setuptools>=64`로 올린다. Ubuntu 배포판의 구형 pip 경계를 피하도록 설치 절차는 먼저
+`python3 -m pip install --user --upgrade pip`를 수행한다. runtime dependency와 `desktop`
+extra의 의미는 바꾸지 않는다. 사용자 pip 26.2.1에서 build isolation → editable wheel 생성 →
+`llm-mrta` 설치가 실제로 완료되는지 확인한다.
+
+**영향** `pyproject.toml` 빌드 도구 하한과 사용 문서의 최신 결정 표기만 변경한다. 연구 계약
+v1.46, 알고리즘·감사 schema·Validator/online policy 버전과 P3/P4/P9 결과는 불변이다.

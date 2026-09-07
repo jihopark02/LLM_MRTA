@@ -34,7 +34,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.46 / 최신 결정 D-049 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.46 / 최신 결정 D-050 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
@@ -52,9 +52,14 @@ bundle-suffix 확장은 테스트된 경로에서 동작하지 않았으며(`suf
 발표·시연에는 운영자 콘솔과 2D simulator가 별도 창으로 열리는 P11 UI를 권장한다.
 
 ```bash
+python3 -m pip install --user --upgrade pip
 python3 -m pip install --user -e '.[desktop]'
 python3 -m desktop
 ```
+
+Ubuntu 22.04 기본 `pip 22.0.2`는 격리 환경에 최신 setuptools를 설치하고도 PEP 660
+`build_editable` hook을 잘못 판정하는 경우가 있으므로, 첫 줄의 사용자 pip 업그레이드를 먼저
+수행한다(D-050).
 
 기본 실행 모드는 `mock`이며 사이드바가 아니라 운영자 창 상단에서 `mock`/`live`/`cached`를
 선택한다. 두 창은 같은 `MissionSession`을 공유한다. 운영자 창에서 자연어 명령과 clarification
