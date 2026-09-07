@@ -56,25 +56,55 @@ class RouteGraph:
     def position(self, node_id: str) -> tuple[float, float]:
         return self._nodes[node_id]
 
-    def shortest_path_distance(self, src: str, dst: str) -> float | None:
+    def _shortest_path(self, src: str, dst: str) -> tuple[float, tuple[str, ...]] | None:
+        """Dijkstra once, returning both the distance and the nodes traversed.
+
+        The two public queries share this so a drawn route can never disagree
+        with the distance the allocator bid on (§18.14, D-044).
+
+        Neighbours are relaxed in sorted order, so which of several equal-cost
+        routes is reported depends only on node ids — not on the order lanes
+        happened to be added. Distances are unaffected either way: Dijkstra's
+        distance is unique, only the choice among ties is not.
+        """
         if src not in self._nodes or dst not in self._nodes:
             raise KeyError(f"unknown route node: {src if src not in self._nodes else dst}")
         if src == dst:
-            return 0.0
+            return 0.0, (src,)
         dist: dict[str, float] = {src: 0.0}
+        previous: dict[str, str] = {}
         pq: list[tuple[float, str]] = [(0.0, src)]
         while pq:
             d, node = heapq.heappop(pq)
             if node == dst:
-                return d
+                path = [dst]
+                while path[-1] != src:
+                    path.append(previous[path[-1]])
+                return d, tuple(reversed(path))
             if d > dist.get(node, math.inf):
                 continue
-            for nbr, w in self._adj[node].items():
-                nd = d + w
+            for nbr in sorted(self._adj[node]):
+                nd = d + self._adj[node][nbr]
                 if nd < dist.get(nbr, math.inf):
                     dist[nbr] = nd
+                    previous[nbr] = node
                     heapq.heappush(pq, (nd, nbr))
         return None
+
+    def shortest_path_distance(self, src: str, dst: str) -> float | None:
+        result = self._shortest_path(src, dst)
+        return None if result is None else result[0]
+
+    def shortest_path_nodes(self, src: str, dst: str) -> tuple[str, ...] | None:
+        """The nodes a UGV traverses, ``src`` and ``dst`` included.
+
+        Read-only query added for the 2D mission map (§18.14, D-044): without it
+        the view would have to reimplement Dijkstra, which is exactly the
+        research-logic duplication that section forbids. ``None`` when
+        unreachable, matching ``shortest_path_distance``.
+        """
+        result = self._shortest_path(src, dst)
+        return None if result is None else result[1]
 
     def is_reachable(self, src: str, dst: str) -> bool:
         return self.shortest_path_distance(src, dst) is not None
