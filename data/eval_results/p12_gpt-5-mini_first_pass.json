@@ -1,0 +1,1972 @@
+{
+  "annotation_version": "p12-v1",
+  "backend_mode": "live",
+  "cases": [
+    {
+      "actual": {
+        "policy": null,
+        "response_tasks": []
+      },
+      "capability_violations": [],
+      "commands": [
+        "전체 구역을 순찰해줘"
+      ],
+      "exact": false,
+      "expected": {
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "observation_source": "SENSOR_SIMULATED",
+        "policy": null,
+        "response_tasks": []
+      },
+      "family": "policy",
+      "harness_error": "ValueError: a committed mission and plan are required before online execution",
+      "id": "P0_RECON_ONLY",
+      "precedence_violations": [],
+      "released_tasks": [],
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": "1 validation error for IntentWireEnvelope\n  Value error, NEW_MISSION cannot populate slots: note [type=value_error, input_value={'kind': 'NEW_MISSION', '...구역을 순찰해줘'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/value_error",
+            "error_type": "ValidationError",
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": null,
+            "grounding": null,
+            "incident_action": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": null,
+            "mode": "live",
+            "online_reallocation": null,
+            "outcome": "TURN_ERROR",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": null,
+            "post_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p12-p0-recon-only",
+            "state_changed": false,
+            "turn_id": "t1",
+            "utterance": "전체 구역을 순찰해줘"
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+        "session_id": "p12-p0-recon-only",
+        "turn_count": 1,
+        "validator_version": "1.4"
+      },
+      "termination": null
+    },
+    {
+      "actual": {
+        "policy": null,
+        "response_tasks": []
+      },
+      "capability_violations": [],
+      "commands": [
+        "전체 구역을 순찰하고 화재를 발견하면 열화상 확인까지만 대응해줘"
+      ],
+      "exact": false,
+      "expected": {
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "observation_source": "SENSOR_SIMULATED",
+        "policy": "THERMAL_RECON",
+        "response_tasks": [
+          "THERMAL_RECON"
+        ]
+      },
+      "family": "policy",
+      "harness_error": "ValueError: a committed mission and plan are required before online execution",
+      "id": "P1_THERMAL",
+      "precedence_violations": [],
+      "released_tasks": [],
+      "resolved_models": [],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": "1 validation error for IntentWireEnvelope\n  Value error, NEW_MISSION cannot populate slots: zone_ref [type=value_error, input_value={'kind': 'NEW_MISSION', '...ut': None, 'note': None}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/value_error",
+            "error_type": "ValidationError",
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": null,
+            "grounding": null,
+            "incident_action": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": null,
+            "mode": "live",
+            "online_reallocation": null,
+            "outcome": "TURN_ERROR",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": null,
+            "post_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p12-p1-thermal",
+            "state_changed": false,
+            "turn_id": "t1",
+            "utterance": "전체 구역을 순찰하고 화재를 발견하면 열화상 확인까지만 대응해줘"
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+        "session_id": "p12-p1-thermal",
+        "turn_count": 1,
+        "validator_version": "1.4"
+      },
+      "termination": null
+    },
+    {
+      "actual": {
+        "incident_id": "FIRE_SITE_1",
+        "initial_edges": 0,
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "observation_source": "SENSOR_SIMULATED",
+        "policy": "SUPPRESSANT_DROP",
+        "response_tasks": [
+          "SUPPRESSANT_DROP",
+          "THERMAL_RECON"
+        ]
+      },
+      "capability_violations": [],
+      "commands": [
+        "전체 구역을 순찰하고 화재를 발견하면 1차 진압 투하까지 대응해줘"
+      ],
+      "exact": true,
+      "expected": {
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "observation_source": "SENSOR_SIMULATED",
+        "policy": "SUPPRESSANT_DROP",
+        "response_tasks": [
+          "SUPPRESSANT_DROP",
+          "THERMAL_RECON"
+        ]
+      },
+      "family": "policy",
+      "harness_error": null,
+      "id": "P2_DROP",
+      "precedence_violations": [],
+      "released_tasks": [
+        "AREA_RECON__ZONE_D"
+      ],
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "incident_response_up_to": "SUPPRESSANT_DROP"
+            },
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+              "repaired": false
+            },
+            "grounding": null,
+            "incident_action": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "live",
+            "online_reallocation": null,
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S2",
+                "AREA_RECON__ZONE_C": "S1",
+                "AREA_RECON__ZONE_D": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "post_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [
+              "gpt-5-mini-2025-08-07",
+              "gpt-5-mini-2025-08-07",
+              "gpt-5-mini-2025-08-07"
+            ],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p12-p2-drop",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "전체 구역을 순찰하고 화재를 발견하면 1차 진압 투하까지 대응해줘"
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_C"
+            ],
+            "event_seq": 1,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_B": {
+                "agent_id": "S2",
+                "finish_time": 59.00863290718193
+              }
+            },
+            "session_id": "p12-p2-drop",
+            "simulation_time": 44.50693909432999
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_B"
+            ],
+            "event_seq": 2,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_A": {
+                "agent_id": "S1",
+                "finish_time": 102.00693909433
+              }
+            },
+            "session_id": "p12-p2-drop",
+            "simulation_time": 59.00863290718193
+          },
+          {
+            "detecting_agent_id": "S2",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 3,
+            "event_type": "INCIDENT_OBSERVATION",
+            "fixture_id": "simulated-fire-zone-b-v1",
+            "incident_id": "FIRE_SITE_1",
+            "mode": "live",
+            "online_reallocation": {
+              "after_assignments": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_D": "S2",
+                "THERMAL_RECON__FIRE_SITE_1": "S2"
+              },
+              "assignment_changes": {
+                "added": {
+                  "THERMAL_RECON__FIRE_SITE_1": "S2"
+                },
+                "changed": {},
+                "removed": {}
+              },
+              "before_assignments": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_D": "S2"
+              },
+              "consensus_rounds": [
+                4
+              ],
+              "directly_affected_tasks": [
+                "AREA_RECON__ZONE_D"
+              ],
+              "patch_added_tasks": [
+                "THERMAL_RECON__FIRE_SITE_1",
+                "SUPPRESSANT_DROP__FIRE_SITE_1"
+              ],
+              "policy": "selective",
+              "policy_version": "1.0",
+              "preserved_active_assignments": {
+                "AREA_RECON__ZONE_A": "S1"
+              },
+              "selectively_released_tasks": [
+                "AREA_RECON__ZONE_D"
+              ],
+              "simulation_time": 59.00863290718193
+            },
+            "outcome": "COMMITTED",
+            "patch": {
+              "accepted": true,
+              "added_edges": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_1",
+                  "SUPPRESSANT_DROP__FIRE_SITE_1"
+                ]
+              ],
+              "added_tasks": [
+                "THERMAL_RECON__FIRE_SITE_1",
+                "SUPPRESSANT_DROP__FIRE_SITE_1"
+              ],
+              "directly_released_tasks": [],
+              "error_codes": [],
+              "status_changes": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_1",
+                  "PENDING",
+                  "READY"
+                ]
+              ]
+            },
+            "patch_hash": "7cb6e9c029faba198df498c79bd19760e6bb56877ae76262db42b94268ac5f80",
+            "policy_origin": "SESSION_POLICY",
+            "post_graph_hash": "bf387fe805dfcafe60de4ae4e2fd2b1186ba30571110c5c5b52c8955048a6632",
+            "post_scene_hash": "f1841bbbb0b2e06dbb8536a0a0f4d68c7a1d2f9afce5b5a367775f944cd08aff",
+            "pre_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": "72f9f813f98ea4bf9d3a2ed22a2437e5cd0a625f8d4017472a8836d3fcf52f79",
+            "response_up_to": "SUPPRESSANT_DROP",
+            "session_id": "p12-p2-drop",
+            "simulation_time": 59.00863290718193,
+            "source": "SENSOR_SIMULATED",
+            "trigger_task_id": "AREA_RECON__ZONE_B",
+            "zone_id": "ZONE_B"
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "event_seq": 4,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [
+              "SUPPRESSANT_DROP__FIRE_SITE_1"
+            ],
+            "running": {
+              "AREA_RECON__ZONE_A": {
+                "agent_id": "S1",
+                "finish_time": 102.00693909433
+              }
+            },
+            "session_id": "p12-p2-drop",
+            "simulation_time": 89.45932681661493
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_D": "S2",
+              "SUPPRESSANT_DROP__FIRE_SITE_1": "R1"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_A"
+            ],
+            "event_seq": 5,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_D": {
+                "agent_id": "S2",
+                "finish_time": 143.18259628857385
+              },
+              "SUPPRESSANT_DROP__FIRE_SITE_1": {
+                "agent_id": "R1",
+                "finish_time": 136.2786217789427
+              }
+            },
+            "session_id": "p12-p2-drop",
+            "simulation_time": 102.00693909433
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "SUPPRESSANT_DROP__FIRE_SITE_1",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "SUPPRESSANT_DROP__FIRE_SITE_1"
+            ],
+            "event_seq": 6,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_D": {
+                "agent_id": "S2",
+                "finish_time": 143.18259628857385
+              }
+            },
+            "session_id": "p12-p2-drop",
+            "simulation_time": 136.2786217789427
+          },
+          {
+            "capability_violations": [],
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 7,
+            "event_type": "EXECUTION",
+            "execution_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_C": "S1",
+              "AREA_RECON__ZONE_D": "S2",
+              "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
+              "THERMAL_RECON__FIRE_SITE_1": "S2"
+            },
+            "execution_termination": "COMPLETED",
+            "finished_at": "2026-09-07T15:58:18.658728+00:00",
+            "makespan": 143.18259628857385,
+            "mode": "live",
+            "plan_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_C": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "pre_graph_hash": "bf387fe805dfcafe60de4ae4e2fd2b1186ba30571110c5c5b52c8955048a6632",
+            "pre_scene_hash": "f1841bbbb0b2e06dbb8536a0a0f4d68c7a1d2f9afce5b5a367775f944cd08aff",
+            "precedence_violations": [],
+            "session_id": "p12-p2-drop",
+            "started_at": "2026-09-07T15:58:18.655515+00:00"
+          }
+        ],
+        "phase": "EXECUTED",
+        "scene_hash": "f1841bbbb0b2e06dbb8536a0a0f4d68c7a1d2f9afce5b5a367775f944cd08aff",
+        "session_id": "p12-p2-drop",
+        "turn_count": 1,
+        "validator_version": "1.4"
+      },
+      "termination": "COMPLETED"
+    },
+    {
+      "actual": {
+        "incident_id": "FIRE_SITE_1",
+        "initial_edges": 0,
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "observation_source": "SENSOR_SIMULATED",
+        "policy": "GROUND_INSPECTION",
+        "response_tasks": [
+          "GROUND_INSPECTION",
+          "SUPPRESSANT_DROP",
+          "THERMAL_RECON"
+        ]
+      },
+      "capability_violations": [],
+      "commands": [
+        "전체 구역을 순찰하고 화재를 발견하면 지상 점검까지 대응해줘"
+      ],
+      "exact": true,
+      "expected": {
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "observation_source": "SENSOR_SIMULATED",
+        "policy": "GROUND_INSPECTION",
+        "response_tasks": [
+          "GROUND_INSPECTION",
+          "SUPPRESSANT_DROP",
+          "THERMAL_RECON"
+        ]
+      },
+      "family": "policy",
+      "harness_error": null,
+      "id": "P3_INSPECTION",
+      "precedence_violations": [],
+      "released_tasks": [
+        "AREA_RECON__ZONE_D"
+      ],
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "incident_response_up_to": "GROUND_INSPECTION"
+            },
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+              "repaired": false
+            },
+            "grounding": null,
+            "incident_action": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "live",
+            "online_reallocation": null,
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S2",
+                "AREA_RECON__ZONE_C": "S1",
+                "AREA_RECON__ZONE_D": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "post_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [
+              "gpt-5-mini-2025-08-07",
+              "gpt-5-mini-2025-08-07",
+              "gpt-5-mini-2025-08-07"
+            ],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p12-p3-inspection",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "전체 구역을 순찰하고 화재를 발견하면 지상 점검까지 대응해줘"
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_C"
+            ],
+            "event_seq": 1,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_B": {
+                "agent_id": "S2",
+                "finish_time": 59.00863290718193
+              }
+            },
+            "session_id": "p12-p3-inspection",
+            "simulation_time": 44.50693909432999
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_B"
+            ],
+            "event_seq": 2,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_A": {
+                "agent_id": "S1",
+                "finish_time": 102.00693909433
+              }
+            },
+            "session_id": "p12-p3-inspection",
+            "simulation_time": 59.00863290718193
+          },
+          {
+            "detecting_agent_id": "S2",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 3,
+            "event_type": "INCIDENT_OBSERVATION",
+            "fixture_id": "simulated-fire-zone-b-v1",
+            "incident_id": "FIRE_SITE_1",
+            "mode": "live",
+            "online_reallocation": {
+              "after_assignments": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_D": "S2",
+                "THERMAL_RECON__FIRE_SITE_1": "S2"
+              },
+              "assignment_changes": {
+                "added": {
+                  "THERMAL_RECON__FIRE_SITE_1": "S2"
+                },
+                "changed": {},
+                "removed": {}
+              },
+              "before_assignments": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_D": "S2"
+              },
+              "consensus_rounds": [
+                4
+              ],
+              "directly_affected_tasks": [
+                "AREA_RECON__ZONE_D"
+              ],
+              "patch_added_tasks": [
+                "THERMAL_RECON__FIRE_SITE_1",
+                "SUPPRESSANT_DROP__FIRE_SITE_1",
+                "GROUND_INSPECTION__FIRE_SITE_1"
+              ],
+              "policy": "selective",
+              "policy_version": "1.0",
+              "preserved_active_assignments": {
+                "AREA_RECON__ZONE_A": "S1"
+              },
+              "selectively_released_tasks": [
+                "AREA_RECON__ZONE_D"
+              ],
+              "simulation_time": 59.00863290718193
+            },
+            "outcome": "COMMITTED",
+            "patch": {
+              "accepted": true,
+              "added_edges": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_1",
+                  "SUPPRESSANT_DROP__FIRE_SITE_1"
+                ],
+                [
+                  "SUPPRESSANT_DROP__FIRE_SITE_1",
+                  "GROUND_INSPECTION__FIRE_SITE_1"
+                ]
+              ],
+              "added_tasks": [
+                "THERMAL_RECON__FIRE_SITE_1",
+                "SUPPRESSANT_DROP__FIRE_SITE_1",
+                "GROUND_INSPECTION__FIRE_SITE_1"
+              ],
+              "directly_released_tasks": [],
+              "error_codes": [],
+              "status_changes": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_1",
+                  "PENDING",
+                  "READY"
+                ]
+              ]
+            },
+            "patch_hash": "36ae55d8dfc91127af01505e3a6508c019336a6e1f438259778b46dc937c300d",
+            "policy_origin": "SESSION_POLICY",
+            "post_graph_hash": "38d0bfc96f19dad610a8408073c15b191eb7ed21fca97dc93ed85b5cb9a6ca32",
+            "post_scene_hash": "f1841bbbb0b2e06dbb8536a0a0f4d68c7a1d2f9afce5b5a367775f944cd08aff",
+            "pre_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": "72f9f813f98ea4bf9d3a2ed22a2437e5cd0a625f8d4017472a8836d3fcf52f79",
+            "response_up_to": "GROUND_INSPECTION",
+            "session_id": "p12-p3-inspection",
+            "simulation_time": 59.00863290718193,
+            "source": "SENSOR_SIMULATED",
+            "trigger_task_id": "AREA_RECON__ZONE_B",
+            "zone_id": "ZONE_B"
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "event_seq": 4,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [
+              "SUPPRESSANT_DROP__FIRE_SITE_1"
+            ],
+            "running": {
+              "AREA_RECON__ZONE_A": {
+                "agent_id": "S1",
+                "finish_time": 102.00693909433
+              }
+            },
+            "session_id": "p12-p3-inspection",
+            "simulation_time": 89.45932681661493
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_D": "S2",
+              "SUPPRESSANT_DROP__FIRE_SITE_1": "R1"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_A"
+            ],
+            "event_seq": 5,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_D": {
+                "agent_id": "S2",
+                "finish_time": 143.18259628857385
+              },
+              "SUPPRESSANT_DROP__FIRE_SITE_1": {
+                "agent_id": "R1",
+                "finish_time": 136.2786217789427
+              }
+            },
+            "session_id": "p12-p3-inspection",
+            "simulation_time": 102.00693909433
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "SUPPRESSANT_DROP__FIRE_SITE_1",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "SUPPRESSANT_DROP__FIRE_SITE_1"
+            ],
+            "event_seq": 6,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [
+              "GROUND_INSPECTION__FIRE_SITE_1"
+            ],
+            "running": {
+              "AREA_RECON__ZONE_D": {
+                "agent_id": "S2",
+                "finish_time": 143.18259628857385
+              }
+            },
+            "session_id": "p12-p3-inspection",
+            "simulation_time": 136.2786217789427
+          },
+          {
+            "active_assignments": {
+              "GROUND_INSPECTION__FIRE_SITE_1": "G2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "AREA_RECON__ZONE_D",
+              "SUPPRESSANT_DROP__FIRE_SITE_1",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_D"
+            ],
+            "event_seq": 7,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "GROUND_INSPECTION__FIRE_SITE_1": {
+                "agent_id": "G2",
+                "finish_time": 216.8060714533735
+              }
+            },
+            "session_id": "p12-p3-inspection",
+            "simulation_time": 143.18259628857385
+          },
+          {
+            "capability_violations": [],
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 8,
+            "event_type": "EXECUTION",
+            "execution_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_C": "S1",
+              "AREA_RECON__ZONE_D": "S2",
+              "GROUND_INSPECTION__FIRE_SITE_1": "G2",
+              "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
+              "THERMAL_RECON__FIRE_SITE_1": "S2"
+            },
+            "execution_termination": "COMPLETED",
+            "finished_at": "2026-09-07T15:58:36.272462+00:00",
+            "makespan": 216.8060714533735,
+            "mode": "live",
+            "plan_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_C": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "pre_graph_hash": "38d0bfc96f19dad610a8408073c15b191eb7ed21fca97dc93ed85b5cb9a6ca32",
+            "pre_scene_hash": "f1841bbbb0b2e06dbb8536a0a0f4d68c7a1d2f9afce5b5a367775f944cd08aff",
+            "precedence_violations": [],
+            "session_id": "p12-p3-inspection",
+            "started_at": "2026-09-07T15:58:36.268359+00:00"
+          }
+        ],
+        "phase": "EXECUTED",
+        "scene_hash": "f1841bbbb0b2e06dbb8536a0a0f4d68c7a1d2f9afce5b5a367775f944cd08aff",
+        "session_id": "p12-p3-inspection",
+        "turn_count": 1,
+        "validator_version": "1.4"
+      },
+      "termination": "COMPLETED"
+    },
+    {
+      "actual": {
+        "incident_id": "FIRE_SITE_1",
+        "initial_edges": 0,
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "observation_source": "SENSOR_SIMULATED",
+        "policy": "GROUND_SUPPRESSION",
+        "response_tasks": [
+          "GROUND_INSPECTION",
+          "GROUND_SUPPRESSION",
+          "SUPPRESSANT_DROP",
+          "THERMAL_RECON"
+        ]
+      },
+      "capability_violations": [],
+      "commands": [
+        "전체 구역을 순찰하고 화재를 발견하면 지상 진압까지 대응해줘"
+      ],
+      "exact": true,
+      "expected": {
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "observation_source": "SENSOR_SIMULATED",
+        "policy": "GROUND_SUPPRESSION",
+        "response_tasks": [
+          "GROUND_INSPECTION",
+          "GROUND_SUPPRESSION",
+          "SUPPRESSANT_DROP",
+          "THERMAL_RECON"
+        ]
+      },
+      "family": "policy",
+      "harness_error": null,
+      "id": "P4_SUPPRESSION",
+      "precedence_violations": [],
+      "released_tasks": [
+        "AREA_RECON__ZONE_D"
+      ],
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "incident_response_up_to": "GROUND_SUPPRESSION"
+            },
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+              "repaired": false
+            },
+            "grounding": null,
+            "incident_action": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "live",
+            "online_reallocation": null,
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S2",
+                "AREA_RECON__ZONE_C": "S1",
+                "AREA_RECON__ZONE_D": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "post_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [
+              "gpt-5-mini-2025-08-07",
+              "gpt-5-mini-2025-08-07",
+              "gpt-5-mini-2025-08-07"
+            ],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p12-p4-suppression",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "전체 구역을 순찰하고 화재를 발견하면 지상 진압까지 대응해줘"
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_C"
+            ],
+            "event_seq": 1,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_B": {
+                "agent_id": "S2",
+                "finish_time": 59.00863290718193
+              }
+            },
+            "session_id": "p12-p4-suppression",
+            "simulation_time": 44.50693909432999
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_B"
+            ],
+            "event_seq": 2,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_A": {
+                "agent_id": "S1",
+                "finish_time": 102.00693909433
+              }
+            },
+            "session_id": "p12-p4-suppression",
+            "simulation_time": 59.00863290718193
+          },
+          {
+            "detecting_agent_id": "S2",
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 3,
+            "event_type": "INCIDENT_OBSERVATION",
+            "fixture_id": "simulated-fire-zone-b-v1",
+            "incident_id": "FIRE_SITE_1",
+            "mode": "live",
+            "online_reallocation": {
+              "after_assignments": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_D": "S2",
+                "THERMAL_RECON__FIRE_SITE_1": "S2"
+              },
+              "assignment_changes": {
+                "added": {
+                  "THERMAL_RECON__FIRE_SITE_1": "S2"
+                },
+                "changed": {},
+                "removed": {}
+              },
+              "before_assignments": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_D": "S2"
+              },
+              "consensus_rounds": [
+                4
+              ],
+              "directly_affected_tasks": [
+                "AREA_RECON__ZONE_D"
+              ],
+              "patch_added_tasks": [
+                "THERMAL_RECON__FIRE_SITE_1",
+                "SUPPRESSANT_DROP__FIRE_SITE_1",
+                "GROUND_INSPECTION__FIRE_SITE_1",
+                "GROUND_SUPPRESSION__FIRE_SITE_1"
+              ],
+              "policy": "selective",
+              "policy_version": "1.0",
+              "preserved_active_assignments": {
+                "AREA_RECON__ZONE_A": "S1"
+              },
+              "selectively_released_tasks": [
+                "AREA_RECON__ZONE_D"
+              ],
+              "simulation_time": 59.00863290718193
+            },
+            "outcome": "COMMITTED",
+            "patch": {
+              "accepted": true,
+              "added_edges": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_1",
+                  "SUPPRESSANT_DROP__FIRE_SITE_1"
+                ],
+                [
+                  "SUPPRESSANT_DROP__FIRE_SITE_1",
+                  "GROUND_INSPECTION__FIRE_SITE_1"
+                ],
+                [
+                  "GROUND_INSPECTION__FIRE_SITE_1",
+                  "GROUND_SUPPRESSION__FIRE_SITE_1"
+                ]
+              ],
+              "added_tasks": [
+                "THERMAL_RECON__FIRE_SITE_1",
+                "SUPPRESSANT_DROP__FIRE_SITE_1",
+                "GROUND_INSPECTION__FIRE_SITE_1",
+                "GROUND_SUPPRESSION__FIRE_SITE_1"
+              ],
+              "directly_released_tasks": [],
+              "error_codes": [],
+              "status_changes": [
+                [
+                  "THERMAL_RECON__FIRE_SITE_1",
+                  "PENDING",
+                  "READY"
+                ]
+              ]
+            },
+            "patch_hash": "ba71341ad744e261fdeb50900cf9c3d5be606fe8b43fddc383c18bfca70ca0d1",
+            "policy_origin": "SESSION_POLICY",
+            "post_graph_hash": "fb9076b051f9af5f6443b4f6c876791b9178f9db22ac26135359974280268f51",
+            "post_scene_hash": "f1841bbbb0b2e06dbb8536a0a0f4d68c7a1d2f9afce5b5a367775f944cd08aff",
+            "pre_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": "72f9f813f98ea4bf9d3a2ed22a2437e5cd0a625f8d4017472a8836d3fcf52f79",
+            "response_up_to": "GROUND_SUPPRESSION",
+            "session_id": "p12-p4-suppression",
+            "simulation_time": 59.00863290718193,
+            "source": "SENSOR_SIMULATED",
+            "trigger_task_id": "AREA_RECON__ZONE_B",
+            "zone_id": "ZONE_B"
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "event_seq": 4,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [
+              "SUPPRESSANT_DROP__FIRE_SITE_1"
+            ],
+            "running": {
+              "AREA_RECON__ZONE_A": {
+                "agent_id": "S1",
+                "finish_time": 102.00693909433
+              }
+            },
+            "session_id": "p12-p4-suppression",
+            "simulation_time": 89.45932681661493
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_D": "S2",
+              "SUPPRESSANT_DROP__FIRE_SITE_1": "R1"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_A"
+            ],
+            "event_seq": 5,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_D": {
+                "agent_id": "S2",
+                "finish_time": 143.18259628857385
+              },
+              "SUPPRESSANT_DROP__FIRE_SITE_1": {
+                "agent_id": "R1",
+                "finish_time": 136.2786217789427
+              }
+            },
+            "session_id": "p12-p4-suppression",
+            "simulation_time": 102.00693909433
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "SUPPRESSANT_DROP__FIRE_SITE_1",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "SUPPRESSANT_DROP__FIRE_SITE_1"
+            ],
+            "event_seq": 6,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [
+              "GROUND_INSPECTION__FIRE_SITE_1"
+            ],
+            "running": {
+              "AREA_RECON__ZONE_D": {
+                "agent_id": "S2",
+                "finish_time": 143.18259628857385
+              }
+            },
+            "session_id": "p12-p4-suppression",
+            "simulation_time": 136.2786217789427
+          },
+          {
+            "active_assignments": {
+              "GROUND_INSPECTION__FIRE_SITE_1": "G2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "AREA_RECON__ZONE_D",
+              "SUPPRESSANT_DROP__FIRE_SITE_1",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_D"
+            ],
+            "event_seq": 7,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "GROUND_INSPECTION__FIRE_SITE_1": {
+                "agent_id": "G2",
+                "finish_time": 216.8060714533735
+              }
+            },
+            "session_id": "p12-p4-suppression",
+            "simulation_time": 143.18259628857385
+          },
+          {
+            "active_assignments": {},
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C",
+              "AREA_RECON__ZONE_D",
+              "GROUND_INSPECTION__FIRE_SITE_1",
+              "SUPPRESSANT_DROP__FIRE_SITE_1",
+              "THERMAL_RECON__FIRE_SITE_1"
+            ],
+            "completed_now": [
+              "GROUND_INSPECTION__FIRE_SITE_1"
+            ],
+            "event_seq": 8,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [
+              "GROUND_SUPPRESSION__FIRE_SITE_1"
+            ],
+            "running": {},
+            "session_id": "p12-p4-suppression",
+            "simulation_time": 216.8060714533735
+          },
+          {
+            "capability_violations": [],
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 9,
+            "event_type": "EXECUTION",
+            "execution_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_C": "S1",
+              "AREA_RECON__ZONE_D": "S2",
+              "GROUND_INSPECTION__FIRE_SITE_1": "G2",
+              "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
+              "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
+              "THERMAL_RECON__FIRE_SITE_1": "S2"
+            },
+            "execution_termination": "COMPLETED",
+            "finished_at": "2026-09-07T15:58:50.496870+00:00",
+            "makespan": 261.80607145337353,
+            "mode": "live",
+            "plan_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_C": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "pre_graph_hash": "fb9076b051f9af5f6443b4f6c876791b9178f9db22ac26135359974280268f51",
+            "pre_scene_hash": "f1841bbbb0b2e06dbb8536a0a0f4d68c7a1d2f9afce5b5a367775f944cd08aff",
+            "precedence_violations": [],
+            "session_id": "p12-p4-suppression",
+            "started_at": "2026-09-07T15:58:50.492546+00:00"
+          }
+        ],
+        "phase": "EXECUTED",
+        "scene_hash": "f1841bbbb0b2e06dbb8536a0a0f4d68c7a1d2f9afce5b5a367775f944cd08aff",
+        "session_id": "p12-p4-suppression",
+        "turn_count": 1,
+        "validator_version": "1.4"
+      },
+      "termination": "COMPLETED"
+    },
+    {
+      "actual": {
+        "incident_id": null,
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "response_tasks": [],
+        "response_up_to": null,
+        "source": null,
+        "zone": null
+      },
+      "capability_violations": [],
+      "commands": [
+        "전체 구역을 순찰해줘",
+        "Warehouse에서 불이 났어. 지상 진압까지 대응해줘"
+      ],
+      "exact": false,
+      "expected": {
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "response_tasks": [
+          "GROUND_INSPECTION",
+          "GROUND_SUPPRESSION",
+          "SUPPRESSANT_DROP",
+          "THERMAL_RECON"
+        ],
+        "response_up_to": "GROUND_SUPPRESSION",
+        "source": "OPERATOR",
+        "zone": "ZONE_A"
+      },
+      "family": "operator-report",
+      "harness_error": null,
+      "id": "R1_WAREHOUSE",
+      "precedence_violations": [],
+      "released_tasks": [],
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+              "repaired": false
+            },
+            "grounding": null,
+            "incident_action": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "live",
+            "online_reallocation": null,
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S2",
+                "AREA_RECON__ZONE_C": "S1",
+                "AREA_RECON__ZONE_D": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "post_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [
+              "gpt-5-mini-2025-08-07",
+              "gpt-5-mini-2025-08-07",
+              "gpt-5-mini-2025-08-07"
+            ],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p12-r1-warehouse",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "전체 구역을 순찰해줘"
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_C"
+            ],
+            "event_seq": 1,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_B": {
+                "agent_id": "S2",
+                "finish_time": 59.00863290718193
+              }
+            },
+            "session_id": "p12-r1-warehouse",
+            "simulation_time": 44.50693909432999
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "response_up_to": "GROUND_SUPPRESSION",
+              "zone_ref": "Warehouse에서"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [
+                "ZONE_A",
+                "ZONE_B",
+                "ZONE_C",
+                "ZONE_D"
+              ],
+              "clarification": "'Warehouse에서'에 해당하는 구역을 찾을 수 없습니다.",
+              "entity_id": null,
+              "entity_kind": "zone",
+              "reason": "UNKNOWN_ENTITY",
+              "status": "CLARIFICATION_REQUIRED",
+              "via": null
+            },
+            "incident_action": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "REPORT_INCIDENT",
+            "mode": "live",
+            "online_reallocation": null,
+            "outcome": "CLARIFICATION",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "post_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [
+              "gpt-5-mini-2025-08-07"
+            ],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p12-r1-warehouse",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "Warehouse에서 불이 났어. 지상 진압까지 대응해줘"
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_B"
+            ],
+            "event_seq": 3,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_A": {
+                "agent_id": "S1",
+                "finish_time": 102.00693909433
+              }
+            },
+            "session_id": "p12-r1-warehouse",
+            "simulation_time": 59.00863290718193
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_A"
+            ],
+            "event_seq": 4,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_D": {
+                "agent_id": "S2",
+                "finish_time": 112.29631517310024
+              }
+            },
+            "session_id": "p12-r1-warehouse",
+            "simulation_time": 102.00693909433
+          },
+          {
+            "capability_violations": [],
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 5,
+            "event_type": "EXECUTION",
+            "execution_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_C": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "execution_termination": "COMPLETED",
+            "finished_at": "2026-09-07T15:59:08.497232+00:00",
+            "makespan": 112.29631517310024,
+            "mode": "live",
+            "plan_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_C": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "pre_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "precedence_violations": [],
+            "session_id": "p12-r1-warehouse",
+            "started_at": "2026-09-07T15:59:01.969378+00:00"
+          }
+        ],
+        "phase": "EXECUTED",
+        "scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+        "session_id": "p12-r1-warehouse",
+        "turn_count": 2,
+        "validator_version": "1.4"
+      },
+      "termination": "COMPLETED"
+    },
+    {
+      "actual": {
+        "incident_id": null,
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "response_tasks": [],
+        "response_up_to": null,
+        "source": null,
+        "zone": null
+      },
+      "capability_violations": [],
+      "commands": [
+        "전체 구역을 순찰해줘",
+        "Tank Farm에서 불이 났어. 지상 진압까지 대응해줘"
+      ],
+      "exact": false,
+      "expected": {
+        "initial_tasks": [
+          "AREA_RECON:ZONE_A",
+          "AREA_RECON:ZONE_B",
+          "AREA_RECON:ZONE_C",
+          "AREA_RECON:ZONE_D"
+        ],
+        "response_tasks": [
+          "GROUND_INSPECTION",
+          "GROUND_SUPPRESSION",
+          "SUPPRESSANT_DROP",
+          "THERMAL_RECON"
+        ],
+        "response_up_to": "GROUND_SUPPRESSION",
+        "source": "OPERATOR",
+        "zone": "ZONE_D"
+      },
+      "family": "operator-report",
+      "harness_error": null,
+      "id": "R2_TANK_FARM",
+      "precedence_violations": [],
+      "released_tasks": [],
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-mini-2025-08-07"
+      ],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {},
+            "generation": {
+              "approved": true,
+              "error_codes": [],
+              "failure_category": null,
+              "graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+              "repaired": false
+            },
+            "grounding": null,
+            "incident_action": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "NEW_MISSION",
+            "mode": "live",
+            "online_reallocation": null,
+            "outcome": "COMMITTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {
+                "AREA_RECON__ZONE_A": "S1",
+                "AREA_RECON__ZONE_B": "S2",
+                "AREA_RECON__ZONE_C": "S1",
+                "AREA_RECON__ZONE_D": "S2"
+              },
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "post_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [
+              "gpt-5-mini-2025-08-07",
+              "gpt-5-mini-2025-08-07",
+              "gpt-5-mini-2025-08-07"
+            ],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p12-r2-tank-farm",
+            "state_changed": true,
+            "turn_id": "t1",
+            "utterance": "전체 구역을 순찰해줘"
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_C"
+            ],
+            "event_seq": 1,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_B": {
+                "agent_id": "S2",
+                "finish_time": 59.00863290718193
+              }
+            },
+            "session_id": "p12-r2-tank-farm",
+            "simulation_time": 44.50693909432999
+          },
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 2,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "response_up_to": "GROUND_SUPPRESSION",
+              "zone_ref": "Tank Farm에서"
+            },
+            "generation": null,
+            "grounding": {
+              "candidates": [
+                "ZONE_A",
+                "ZONE_B",
+                "ZONE_C",
+                "ZONE_D"
+              ],
+              "clarification": "'Tank Farm에서'에 해당하는 구역을 찾을 수 없습니다.",
+              "entity_id": null,
+              "entity_kind": "zone",
+              "reason": "UNKNOWN_ENTITY",
+              "status": "CLARIFICATION_REQUIRED",
+              "via": null
+            },
+            "incident_action": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "REPORT_INCIDENT",
+            "mode": "live",
+            "online_reallocation": null,
+            "outcome": "CLARIFICATION",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "post_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [
+              "gpt-5-mini-2025-08-07"
+            ],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p12-r2-tank-farm",
+            "state_changed": false,
+            "turn_id": "t2",
+            "utterance": "Tank Farm에서 불이 났어. 지상 진압까지 대응해줘"
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_B"
+            ],
+            "event_seq": 3,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_A": {
+                "agent_id": "S1",
+                "finish_time": 102.00693909433
+              }
+            },
+            "session_id": "p12-r2-tank-farm",
+            "simulation_time": 59.00863290718193
+          },
+          {
+            "active_assignments": {
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "completed": [
+              "AREA_RECON__ZONE_A",
+              "AREA_RECON__ZONE_B",
+              "AREA_RECON__ZONE_C"
+            ],
+            "completed_now": [
+              "AREA_RECON__ZONE_A"
+            ],
+            "event_seq": 4,
+            "event_type": "EXECUTION_CHECKPOINT",
+            "mode": "live",
+            "ready_tasks": [],
+            "running": {
+              "AREA_RECON__ZONE_D": {
+                "agent_id": "S2",
+                "finish_time": 112.29631517310024
+              }
+            },
+            "session_id": "p12-r2-tank-farm",
+            "simulation_time": 102.00693909433
+          },
+          {
+            "capability_violations": [],
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 5,
+            "event_type": "EXECUTION",
+            "execution_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_C": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "execution_termination": "COMPLETED",
+            "finished_at": "2026-09-07T15:59:23.578130+00:00",
+            "makespan": 112.29631517310024,
+            "mode": "live",
+            "plan_assignments": {
+              "AREA_RECON__ZONE_A": "S1",
+              "AREA_RECON__ZONE_B": "S2",
+              "AREA_RECON__ZONE_C": "S1",
+              "AREA_RECON__ZONE_D": "S2"
+            },
+            "pre_graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "precedence_violations": [],
+            "session_id": "p12-r2-tank-farm",
+            "started_at": "2026-09-07T15:59:18.251295+00:00"
+          }
+        ],
+        "phase": "EXECUTED",
+        "scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+        "session_id": "p12-r2-tank-farm",
+        "turn_count": 2,
+        "validator_version": "1.4"
+      },
+      "termination": "COMPLETED"
+    },
+    {
+      "actual": {
+        "outcome": "UNSUPPORTED",
+        "state_created": false
+      },
+      "capability_violations": [],
+      "commands": [
+        "UAV 한 대만 사용해서 전체 구역을 순찰해줘"
+      ],
+      "exact": true,
+      "expected": {
+        "outcome": "UNSUPPORTED",
+        "state_created": false
+      },
+      "family": "unsupported",
+      "harness_error": null,
+      "id": "U1_SINGLE_UAV",
+      "precedence_violations": [],
+      "released_tasks": [],
+      "resolved_models": [
+        "gpt-5-mini-2025-08-07"
+      ],
+      "session_audit": {
+        "events": [
+          {
+            "answer": null,
+            "error_detail": null,
+            "error_type": null,
+            "event_seq": 0,
+            "event_type": "TURN",
+            "extracted_slots": {
+              "note": "UAV 한 대만 사용해서 전체 구역을 순찰해줘"
+            },
+            "generation": null,
+            "grounding": null,
+            "incident_action": null,
+            "input_kind": "NATURAL_LANGUAGE",
+            "intent_kind": "UNSUPPORTED",
+            "mode": "live",
+            "online_reallocation": null,
+            "outcome": "UNSUPPORTED",
+            "patch": null,
+            "patch_hash": null,
+            "plan_assignment_changes": {
+              "added": {},
+              "changed": {},
+              "removed": {}
+            },
+            "post_graph_hash": null,
+            "post_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_graph_hash": null,
+            "pre_scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+            "pre_state_hash": null,
+            "referent_noted": null,
+            "resolved_models": [
+              "gpt-5-mini-2025-08-07"
+            ],
+            "resumed_from_turn_id": null,
+            "scene_changed": false,
+            "selected_entity_id": null,
+            "session_id": "p12-u1-single-uav",
+            "state_changed": false,
+            "turn_id": "t1",
+            "utterance": "UAV 한 대만 사용해서 전체 구역을 순찰해줘"
+          }
+        ],
+        "phase": "PLANNING",
+        "scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+        "session_id": "p12-u1-single-uav",
+        "turn_count": 1,
+        "validator_version": "1.4"
+      },
+      "termination": null
+    }
+  ],
+  "finished_at": "2026-09-07T15:59:28.363059+00:00",
+  "requested_model": "gpt-5-mini",
+  "scene_hash": "28e36b731931598c5e621aba4881bc4f21a9646aa89eb1b76c8a115a48a1dcd2",
+  "started_at": "2026-09-07T15:57:46.727785+00:00",
+  "validator_version": "1.4"
+}
