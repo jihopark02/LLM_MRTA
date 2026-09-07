@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.48 (D-052). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.49 (D-053). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.49 (D-053): D-052의 bounded intent repair 사용 여부를 제3자가 cache 파일 없이 감사할
+  수 있도록 각 `TurnAudit`에 `intent_repair_attempted`와 `intent_repair_recovered`를 기록한다.
+  둘은 LLM 결과나 판정이 아니라 해당 턴의 transport provenance이며, 두 번째 실패에서도
+  attempted=true/recovered=false가 남는다. 기존 첫 Live·held-out Live artifact는 수정하지 않고,
+  새 필드를 포함하는 cached exact replay를 별도 artifact로 둔다.
 - v1.48 (D-052): P12 첫 Live counterfactual 4/8을 원시 결과로 보존한다. intent wire가
   kind와 무관한 slot을 채워 strict schema에서 거부되면 live/cached 경로에 한해 같은 발화와
   context로 **정확히 한 번** error-guided schema repair를 허용한다. 두 번째 schema 오류나 API
@@ -1208,6 +1213,7 @@ status_changes},
 `generation`{approved, failure_category, graph_hash, error_codes, repaired}|null(NEW_MISSION),
 `plan_assignment_changes`{`added`, `removed`, `changed`},
 `scene_changed`, `state_changed`, `referent_noted`, `answer`, `resolved_models`,
+`intent_repair_attempted`, `intent_repair_recovered`,
 `error_type`·`error_detail`(`TURN_ERROR`일 때 원인 — 영구 기록에 남긴다),
 `input_kind`(`NATURAL_LANGUAGE` | `CANDIDATE_SELECTION` | `CLARIFICATION_CANCEL`),
 `resumed_from_turn_id`(후보 선택 턴이 재개한 clarification 턴의 `turn_id`, 그 외 null),
@@ -1227,6 +1233,9 @@ entity 목록이 들어갈 수 있다. 오직 `reason == AMBIGUOUS_ENTITY`인 �
 
 `resolved_models`는 **그 턴에 발생한 모든 backend 호출**을 담는다 — intent 분류 1회뿐 아니라
 `NEW_MISSION`이 유발하는 Step1/Step2/repair 호출까지 포함한다(§14 재현성).
+`intent_repair_attempted/recovered`는 D-052의 intent-wire correction만 가리키며,
+`generation.repaired`(task graph repair)와 다른 단계다. attempted=false이면 recovered도 반드시
+false다. 첫 응답 실패 뒤 두 번째 응답도 실패하면 attempted=true/recovered=false로 기록한다.
 
 실행(`event_type: EXECUTION`): `pre_graph_hash`, `pre_scene_hash`, `plan_assignments`,
 `execution_termination`, `execution_assignments`, `makespan`, `capability_violations`,
@@ -1773,7 +1782,7 @@ checkpoint 후 재활성, 연속 모드 terminal 도달, 온라인 UPDATE 뒤 �
 
 ---
 
-## 22. LLM-driven incident contingency (P12, D-051)
+## 22. LLM-driven incident contingency (P12, D-051/D-052)
 
 ### 22.1 범위와 LLM 경계
 

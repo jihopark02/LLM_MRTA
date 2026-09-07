@@ -1698,3 +1698,25 @@ mock은 exact script wiring을 검증하므로 repair하지 않는다. `normaliz
 **영향** interaction intent prompt/repair, zone-reference normalization, cache namespace,
 counterfactual evaluation 문서와 테스트. `VALIDATOR_VERSION` 1.4와
 `ONLINE_POLICY_VERSION`, P3/P4/P9 골든은 불변이다.
+
+## D-053: bounded intent repair의 턴별 provenance (계약 v1.49)
+
+**배경** D-052 이후 precommitted held-out paraphrase는 Live 8/8 exact였지만, 원시 session
+audit만으로는 intent schema correction이 어느 턴에서 실행됐는지 직접 알 수 없었다.
+`resolved_models` 호출 수는 task-graph Step1/Step2/repair도 합치며, ignored local cache는
+제3자 감사의 진실 원천이 될 수 없다. "repair가 필요 없었다"는 주장을 cache 조사에 의존시키면
+P6에서 raw/final 후보를 분리했던 감사 원칙과 어긋난다.
+
+**결정** `TurnAudit`에 boolean `intent_repair_attempted`와 `intent_repair_recovered`를 추가한다.
+interpreter는 턴 소유의 mutable trace만 갱신하고, 첫 wire `ValidationError` 직전에 attempted를,
+두 번째 strict wire가 통과한 뒤 recovered를 true로 둔다. 따라서 두 번째 실패도
+attempted=true/recovered=false로 영구 기록된다. 이는 `GenerationAudit.repaired`와 다른 단계다.
+attempted=false/recovered=true는 허용하지 않는다.
+
+이미 저장한 첫 Live 4/8과 held-out Live 8/8 JSON은 역사적 원시 artifact이므로 수정하지 않는다.
+동일 cache의 exact replay를 별도 파일로 실행해 새 필드를 확인한다. 연구 판정·LLM 역할·prompt,
+Validator/CBBA/online release와 cache key는 바뀌지 않는다.
+
+**영향** interaction interpreter scratch trace, `TurnAudit`, orchestrator 직렬화, 감사 회귀 테스트,
+별도 cached replay artifact. 계약 v1.49, `VALIDATOR_VERSION` 1.4와
+`ONLINE_POLICY_VERSION`, P3/P4/P9 결과는 불변이다.
