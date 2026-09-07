@@ -15,6 +15,7 @@ from evaluation.incident_contingency import (
 
 ROOT = Path(__file__).parents[1]
 ANNOTATION = ROOT / "data" / "p12_counterfactual.yaml"
+HELDOUT = ROOT / "data" / "p12_counterfactual_heldout.yaml"
 
 
 def test_precommitted_counterfactual_has_all_policy_depths_and_two_zones():
@@ -76,6 +77,36 @@ def test_mock_self_test_is_eight_of_eight_and_retains_raw_session_audits():
     assert '"resolved_models"' in to_json(run)
 
 
+def test_heldout_paraphrases_were_precommitted_and_do_not_repeat_first_pass():
+    first = load_annotation(ANNOTATION)
+    heldout = load_annotation(HELDOUT)
+
+    def commands(annotation):
+        values = {case.command for case in annotation.policy_cases}
+        values.update(case.command for case in annotation.unsupported_cases)
+        values.update(case.initial_command for case in annotation.report_cases)
+        values.update(case.report_command for case in annotation.report_cases)
+        return values
+
+    assert commands(first).isdisjoint(commands(heldout))
+    assert len(heldout.policy_cases) == 5
+    assert len(heldout.report_cases) == 2
+    assert len(heldout.unsupported_cases) == 1
+
+
+def test_heldout_annotation_mock_self_test_is_eight_of_eight():
+    annotation = load_annotation(HELDOUT)
+    run = run_counterfactual(
+        annotation,
+        mock_backend_factory(annotation),
+        requested_model=None,
+    )
+
+    assert run.exact_count == len(run.cases) == 8
+    assert all(not case.capability_violations for case in run.cases)
+    assert all(not case.precedence_violations for case in run.cases)
+
+
 @pytest.mark.parametrize(
     "mutate",
     [
@@ -93,4 +124,3 @@ def test_counterfactual_annotation_is_strict(tmp_path, mutate):
 
     with pytest.raises((ValidationError, ValueError)):
         load_annotation(path)
-

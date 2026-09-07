@@ -1,0 +1,48 @@
+annotation_version: p12-v1
+scene: scenarios/patrol_park.yaml
+latent_fixture: scenarios/patrol_zone_b_fire.yaml
+
+expected_initial_tasks:
+  - AREA_RECON:ZONE_A
+  - AREA_RECON:ZONE_B
+  - AREA_RECON:ZONE_C
+  - AREA_RECON:ZONE_D
+
+policy_cases:
+  - id: H_P0_RECON_ONLY
+    command: 네 개 구역 전체를 항공 정찰만 해줘
+    expected_policy: null
+    expected_response_tasks: []
+  - id: H_P1_THERMAL
+    command: 네 개 구역을 모두 항공 정찰하고 새 화재가 감지되면 열화상 재확인까지만 진행해줘
+    expected_policy: THERMAL_RECON
+    expected_response_tasks: [THERMAL_RECON]
+  - id: H_P2_DROP
+    command: 네 개 구역을 모두 항공 정찰하고 새 화재가 감지되면 UAV 진압제 투하 단계까지 진행해줘
+    expected_policy: SUPPRESSANT_DROP
+    expected_response_tasks: [THERMAL_RECON, SUPPRESSANT_DROP]
+  - id: H_P3_INSPECTION
+    command: 네 개 구역을 모두 항공 정찰하고 새 화재가 감지되면 지상 로봇의 현장 점검 단계까지 진행해줘
+    expected_policy: GROUND_INSPECTION
+    expected_response_tasks: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION]
+  - id: H_P4_SUPPRESSION
+    command: 네 개 구역을 모두 항공 정찰하고 새 화재가 감지되면 지상 로봇 진압 단계까지 완료해줘
+    expected_policy: GROUND_SUPPRESSION
+    expected_response_tasks: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+
+report_cases:
+  - id: H_R1_WAREHOUSE
+    initial_command: 네 개 구역 전체를 항공 정찰만 해줘
+    report_command: Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지 대응해줘
+    expected_zone: ZONE_A
+    expected_response_up_to: GROUND_SUPPRESSION
+  - id: H_R2_TANK_FARM
+    initial_command: 네 개 구역 전체를 항공 정찰만 해줘
+    report_command: Tank Farm에서 새 화재가 보고됐어. 지상 로봇 진압 단계까지 대응해줘
+    expected_zone: ZONE_D
+    expected_response_up_to: GROUND_SUPPRESSION
+
+unsupported_cases:
+  - id: H_U1_NAMED_AGENT
+    command: S1만 투입해서 네 개 구역을 모두 정찰해줘
+    expected_outcome: UNSUPPORTED
