@@ -13,7 +13,13 @@ from pathlib import Path
 from uuid import uuid4
 
 from demo.animation import PlaybackSpec, build_playback_spec
-from demo.mock_script import make_mock_backend
+from demo.mock_script import (
+    OPERATOR_SCRIPT,
+    REFERENCE_SCRIPT,
+    SENSOR_SCRIPT,
+    commands_for_script,
+    make_mock_backend,
+)
 from demo.visualization import (
     MapRenderSpec,
     execution_map_spec,
@@ -21,8 +27,9 @@ from demo.visualization import (
     runtime_map_spec,
 )
 from execution.executor import SimExecutor, Termination
-from interaction.audit import CheckpointAudit, ExecutionAudit
+from interaction.audit import CheckpointAudit, ExecutionAudit, IncidentObservationAudit
 from interaction.audit_io import write_session_audit
+from interaction.observe import apply_fire_observation
 from interaction.online_execute import advance_online_session
 from interaction.orchestrator import (
     TurnResult,
@@ -33,13 +40,49 @@ from interaction.orchestrator import (
 from interaction.session import MissionSession, SessionPhase
 from llm.backend import DEFAULT_MODEL, OpenAIBackend
 from llm.cache import CachedBackend, RecordingBackend
+from scenarios.latent import SimulatedFireSource, load_latent_incident_fixture
 from scenarios.scene import load_scene
 
 ROOT = Path(__file__).resolve().parents[1]
 SCENE_PATH = ROOT / "scenarios" / "industrial_park.yaml"
+PATROL_SCENE_PATH = ROOT / "scenarios" / "patrol_park.yaml"
+SENSOR_FIXTURE_PATH = ROOT / "scenarios" / "patrol_zone_b_fire.yaml"
 DEFAULT_RUNTIME_ROOT = ROOT / "data"
 SUPPORTED_MODES = ("live", "cached", "mock")
 DEFAULT_FRAME_COUNT = 36
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioProfile:
+    scenario_id: str
+    label: str
+    scene_path: Path
+    mock_script: str
+    latent_fixture_path: Path | None = None
+
+
+SCENARIO_PROFILES = {
+    "sensor-detection": ScenarioProfile(
+        "sensor-detection",
+        "1 · UAV 순찰 → simulated fire detection",
+        PATROL_SCENE_PATH,
+        SENSOR_SCRIPT,
+        SENSOR_FIXTURE_PATH,
+    ),
+    "operator-report": ScenarioProfile(
+        "operator-report",
+        "2 · UAV 순찰 중 자연어 화재 신고",
+        PATROL_SCENE_PATH,
+        OPERATOR_SCRIPT,
+    ),
+    "reference": ScenarioProfile(
+        "reference",
+        "기존 reference mission",
+        SCENE_PATH,
+        REFERENCE_SCRIPT,
+    ),
+}
+SUPPORTED_SCENARIOS = tuple(SCENARIO_PROFILES)
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +96,7 @@ class AdvancePresentation:
     audit: CheckpointAudit | ExecutionAudit
     playback: PlaybackSpec | None
     playback_error: str | None = None
+    observation: IncidentObservationAudit | None = None
 
 
 class DesktopController:
@@ -61,11 +105,18 @@ class DesktopController:
     def __init__(
         self,
         *,
-        scene_path: str | Path = SCENE_PATH,
+        scene_path: str | Path | None = None,
+        scenario_id: str = "reference",
         runtime_root: str | Path | None = None,
         frame_count: int = DEFAULT_FRAME_COUNT,
     ) -> None:
-        self.scene_path = Path(scene_path)
+        if scenario_id not in SCENARIO_PROFILES:
+            raise ValueError(f"unsupported scenario: {scenario_id!r}")
+        self.scenario_id = scenario_id
+        self.profile = SCENARIO_PROFILES[scenario_id]
+        self.scene_path = (
+            Path(scene_path) if scene_path is not None else self.profile.scene_path
+        )
         configured_root = runtime_root or os.environ.get(
             "LLM_MRTA_RUNTIME_ROOT", DEFAULT_RUNTIME_ROOT
         )
@@ -76,6 +127,7 @@ class DesktopController:
         self.mode = "mock"
         self.backends: dict[str, object] = {}
         self.chat: list[ChatMessage] = []
+        self.observation_source: SimulatedFireSource | None = None
         self.session = self._fresh_session()
 
     @property
@@ -87,12 +139,26 @@ class DesktopController:
         return self.runtime_root / "llm_cache"
 
     def _fresh_session(self) -> MissionSession:
+        scene = load_scene(self.scene_path)
+        if self.profile.latent_fixture_path is not None:
+            fixture = load_latent_incident_fixture(
+                self.profile.latent_fixture_path, scene
+            )
+            self.observation_source = SimulatedFireSource(fixture)
+        else:
+            self.observation_source = None
         return MissionSession(
             f"desktop-{uuid4().hex[:12]}",
-            load_scene(self.scene_path),
+            scene,
         )
 
-    def new_session(self) -> MissionSession:
+    def new_session(self, scenario_id: str | None = None) -> MissionSession:
+        if scenario_id is not None:
+            if scenario_id not in SCENARIO_PROFILES:
+                raise ValueError(f"unsupported scenario: {scenario_id!r}")
+            self.scenario_id = scenario_id
+            self.profile = SCENARIO_PROFILES[scenario_id]
+            self.scene_path = self.profile.scene_path
         self.session = self._fresh_session()
         self.backends = {}
         self.chat = []
@@ -114,7 +180,7 @@ class DesktopController:
                     DEFAULT_MODEL, self.cache_directory
                 )
             else:
-                self.backends[self.mode] = make_mock_backend()
+                self.backends[self.mode] = make_mock_backend(self.profile.mock_script)
         return self.backends[self.mode]
 
     def _record(self, operator: str, assistant: str) -> None:
@@ -152,6 +218,7 @@ class DesktopController:
         session = self.session
         if session.state is None or session.plan is None:
             raise ValueError("a committed mission and plan are required before execution")
+        playback_scene = session.scene
         before = (
             session.runtime.checkpoint()
             if session.runtime is not None
@@ -160,18 +227,36 @@ class DesktopController:
         audit = advance_online_session(session, mode=self.mode)
         playback = None
         playback_error = None
+        observation_audit = None
+        observation_response = None
         if session.runtime is not None:
             after = session.runtime.checkpoint()
             if after.now > before.now:
                 try:
                     playback = build_playback_spec(
-                        session.scene,
+                        playback_scene,
                         before,
                         after,
                         frame_count=self.frame_count,
                     )
                 except Exception as exc:  # noqa: BLE001 - committed state is preserved
                     playback_error = f"{type(exc).__name__}: {exc}"
+        if isinstance(audit, CheckpointAudit) and self.observation_source is not None:
+            observation = self.observation_source.inspect(
+                audit,
+                session.runtime.assignments,
+            )
+            if observation is not None:
+                observation_audit = apply_fire_observation(
+                    session,
+                    observation,
+                    mode=self.mode,
+                )
+                observation_response = (
+                    f"[SIMULATED SENSOR · {observation.fixture_id}] "
+                    f"{observation.zone_id} FIRE_DETECTED → "
+                    f"{observation_audit.outcome}"
+                )
         if isinstance(audit, CheckpointAudit):
             completed = ", ".join(audit.completed_now) or "없음"
             response = (
@@ -185,8 +270,23 @@ class DesktopController:
             if audit.error_type:
                 response += f" · {audit.error_type}: {audit.error_detail}"
         self._record("[다음 checkpoint]", response)
+        if observation_response is not None:
+            self._record("[simulated sensor observation]", observation_response)
         self._persist()
-        return AdvancePresentation(audit, playback, playback_error)
+        return AdvancePresentation(audit, playback, playback_error, observation_audit)
+
+    @property
+    def scenario_label(self) -> str:
+        return self.profile.label
+
+    @property
+    def fixture_id(self) -> str | None:
+        source = self.observation_source
+        return source.fixture.fixture_id if source is not None else None
+
+    @property
+    def mock_commands(self) -> tuple[str, ...]:
+        return commands_for_script(self.profile.mock_script)
 
     def current_map_spec(self) -> MapRenderSpec | None:
         """Best truthful static view for the session's current phase."""
@@ -212,5 +312,7 @@ __all__ = [
     "AdvancePresentation",
     "ChatMessage",
     "DesktopController",
+    "SCENARIO_PROFILES",
     "SUPPORTED_MODES",
+    "SUPPORTED_SCENARIOS",
 ]

@@ -7,9 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from demo.mock_script import MOCK_COMMANDS
+from demo.mock_script import (
+    MOCK_COMMANDS,
+    OPERATOR_MOCK_COMMANDS,
+    SENSOR_MOCK_COMMANDS,
+)
 from desktop.controller import DesktopController
-from interaction.audit import CheckpointAudit
+from interaction.audit import CheckpointAudit, IncidentObservationAudit
 
 
 def _controller(tmp_path):
@@ -142,3 +146,77 @@ def test_execution_requires_a_committed_plan(tmp_path):
     controller = _controller(tmp_path)
     with pytest.raises(ValueError, match="mission and plan"):
         controller.advance_checkpoint()
+
+
+def test_sensor_scenario_reveals_fixture_once_and_adds_response_in_one_event(tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path,
+        frame_count=4,
+        scenario_id="sensor-detection",
+    )
+    result = controller.submit(SENSOR_MOCK_COMMANDS[0])
+    assert result.outcome.value == "COMMITTED"
+    assert len(controller.session.state.graph) == 4
+    assert controller.fixture_id == "simulated-fire-zone-b-v1"
+    assert controller.session.directive.incident_response_up_to.value == "GROUND_SUPPRESSION"
+
+    observations = []
+    for _ in range(4):
+        presentation = controller.advance_checkpoint()
+        if presentation.observation is not None:
+            observations.append(presentation.observation)
+            break
+
+    assert len(observations) == 1
+    observation = observations[0]
+    assert isinstance(observation, IncidentObservationAudit)
+    assert observation.outcome == "COMMITTED"
+    assert observation.zone_id == "ZONE_B"
+    assert observation.online_reallocation is not None
+    assert len(controller.session.state.graph) == 8
+    assert {task.target for task in controller.session.state.graph.tasks} >= {
+        "FIRE_SITE_1"
+    }
+    assert [event.event_type for event in controller.session.event_log].count(
+        "INCIDENT_OBSERVATION"
+    ) == 1
+
+    controller.advance_checkpoint()
+    assert [event.event_type for event in controller.session.event_log].count(
+        "INCIDENT_OBSERVATION"
+    ) == 1
+
+
+def test_operator_scenario_changes_online_assignment_from_one_natural_turn(tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path,
+        frame_count=4,
+        scenario_id="operator-report",
+    )
+    controller.submit(OPERATOR_MOCK_COMMANDS[0])
+    controller.advance_checkpoint()
+    runtime_before = controller.session.runtime
+
+    result = controller.submit(OPERATOR_MOCK_COMMANDS[1])
+
+    assert result.outcome.value == "COMMITTED"
+    assert result.audit.incident_action.source == "OPERATOR"
+    assert result.audit.incident_action.zone_id == "ZONE_A"
+    assert result.audit.incident_action.response_up_to == "GROUND_SUPPRESSION"
+    assert result.audit.online_reallocation is not None
+    assert controller.session.runtime is not runtime_before
+    assert len(controller.session.state.graph) == 8
+
+
+def test_switching_scenario_replaces_scene_fixture_backend_and_session(tmp_path):
+    controller = _controller(tmp_path)
+    old_session = controller.session
+    controller._backend()
+
+    controller.new_session("sensor-detection")
+
+    assert controller.session is not old_session
+    assert controller.session.scene.scene_id == "patrol_park"
+    assert controller.fixture_id == "simulated-fire-zone-b-v1"
+    assert controller.backends == {}
+    assert controller.mock_commands == SENSOR_MOCK_COMMANDS

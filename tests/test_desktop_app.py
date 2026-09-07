@@ -13,7 +13,7 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from demo.mock_script import MOCK_COMMANDS
+from demo.mock_script import MOCK_COMMANDS, SENSOR_MOCK_COMMANDS
 from desktop.app import build_windows
 from desktop.controller import DesktopController
 from execution.executor import SimExecutor
@@ -177,3 +177,35 @@ def test_continuous_mode_stops_on_an_execution_error_without_retry(
     assert not operator._continuous
     assert controller.session.event_log[-1].error_type == "RuntimeError"
     assert operator.checkpoint_button.isEnabled()  # explicit retry remains available
+
+
+def test_sensor_scenario_is_explicit_and_refreshes_after_detection(qt_app, tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path,
+        frame_count=4,
+        scenario_id="sensor-detection",
+    )
+    operator, simulator = build_windows(controller, playback_seconds=0.01)
+    operator.show()
+    simulator.show()
+    qt_app.processEvents()
+    try:
+        assert operator.scenario_combo.currentData() == "sensor-detection"
+        assert "simulated-fire-zone-b-v1" in operator.scenario_help.text()
+        _submit(operator, SENSOR_MOCK_COMMANDS[0])
+        assert "GROUND_SUPPRESSION" in operator.scenario_help.text()
+        assert operator.task_card.value.text() == "4"
+
+        operator.play_checkpoint()
+        _drain_until(qt_app, lambda: not operator._busy)
+        operator.play_checkpoint()
+        _drain_until(qt_app, lambda: not operator._busy)
+
+        assert operator.task_card.value.text() == "8"
+        assert "SENSOR_SIMULATED" in operator.latest.text()
+        assert "FIRE_SITE_1" in {
+            point.entity_id for point in simulator.canvas.spec.incidents
+        }
+    finally:
+        operator.close()
+        qt_app.processEvents()

@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop.controller import SUPPORTED_MODES, DesktopController
+from desktop.controller import SCENARIO_PROFILES, SUPPORTED_MODES, DesktopController
 from desktop.simulator import MissionSimulatorWindow
 from interaction.audit import CheckpointAudit, ExecutionAudit
 from interaction.session import SessionPhase
@@ -99,6 +99,15 @@ class OperatorWindow(QMainWindow):
         self.mode_combo.setCurrentText(self.controller.mode)
         self.mode_combo.currentTextChanged.connect(self._mode_changed)
         header.addWidget(self.mode_combo)
+        self.scenario_combo = QComboBox()
+        self.scenario_combo.setObjectName("scenarioCombo")
+        for scenario_id, profile in SCENARIO_PROFILES.items():
+            self.scenario_combo.addItem(profile.label, scenario_id)
+        self.scenario_combo.setCurrentIndex(
+            self.scenario_combo.findData(self.controller.scenario_id)
+        )
+        self.scenario_combo.currentIndexChanged.connect(self._scenario_changed)
+        header.addWidget(self.scenario_combo)
         layout.addLayout(header)
 
         metrics = QHBoxLayout()
@@ -113,6 +122,10 @@ class OperatorWindow(QMainWindow):
         self.mode_banner = QLabel()
         self.mode_banner.setObjectName("modeBanner")
         layout.addWidget(self.mode_banner)
+        self.scenario_help = QLabel()
+        self.scenario_help.setObjectName("scenarioHelp")
+        self.scenario_help.setWordWrap(True)
+        layout.addWidget(self.scenario_help)
 
         section = QLabel("MISSION DIALOGUE")
         section.setObjectName("sectionTitle")
@@ -178,6 +191,15 @@ class OperatorWindow(QMainWindow):
         self.controller.set_mode(mode)
         self.refresh()
 
+    def _scenario_changed(self, index: int) -> None:
+        scenario_id = self.scenario_combo.itemData(index)
+        if scenario_id == self.controller.scenario_id:
+            return
+        self.controller.new_session(scenario_id)
+        self.simulator.show_spec(None)
+        self.status.setText("새 scenario · 명령 대기")
+        self.refresh()
+
     def _chat_html(self) -> str:
         blocks = []
         for message in self.controller.chat:
@@ -215,6 +237,12 @@ class OperatorWindow(QMainWindow):
             return (
                 f"EXECUTION {event.execution_termination}  ·  makespan {event.makespan:.1f}s  ·  "
                 f"violations {len(event.capability_violations) + len(event.precedence_violations)}"
+            )
+        if event.event_type == "INCIDENT_OBSERVATION":
+            return (
+                f"{event.source}  ·  {event.zone_id}  ·  {event.outcome}  ·  "
+                f"incident {event.incident_id or 'none'}  ·  "
+                f"response {event.response_up_to or 'scene-only'}"
             )
         parts = [event.outcome]
         if event.intent_kind:
@@ -284,6 +312,18 @@ class OperatorWindow(QMainWindow):
                 "live": "LIVE · 실제 OpenAI API 응답을 캐시에 기록",
             }[self.controller.mode]
         )
+        policy = session.directive.incident_response_up_to
+        fixture = self.controller.fixture_id or "none"
+        commands = "  →  ".join(self.controller.mock_commands)
+        self.scenario_help.setText(
+            f"SCENARIO: {self.controller.scenario_label}  ·  fixture: {fixture}  ·  "
+            f"active policy: {policy.value if policy is not None else 'none'}\n"
+            + (
+                f"MOCK 정확 입력: {commands}"
+                if self.controller.mode == "mock"
+                else "LIVE: 지원 범위 안에서 자연어 표현을 바꿔 입력할 수 있습니다."
+            )
+        )
         self.chat.setHtml(self._chat_html())
         scrollbar = self.chat.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
@@ -298,6 +338,7 @@ class OperatorWindow(QMainWindow):
         self.continuous_button.setEnabled(can_advance)
         self.new_button.setEnabled(not self._busy)
         self.mode_combo.setEnabled(not self._busy)
+        self.scenario_combo.setEnabled(not self._busy)
 
     def _refresh_simulator(self) -> None:
         self.simulator.show_spec(self.controller.current_map_spec())
@@ -397,6 +438,11 @@ class OperatorWindow(QMainWindow):
             if phase is SessionPhase.EXECUTION_PAUSED
             else f"{phase.value} · 재생 종료"
         )
+        # The committed checkpoint may also have revealed a P12 observation
+        # and replaced the runtime after this segment's frozen playback was
+        # built. Refresh now so the new incident/tasks appear only after the
+        # detecting recon reaches its completion frame.
+        self._refresh_simulator()
         self.refresh()
 
     def show_simulator(self) -> None:

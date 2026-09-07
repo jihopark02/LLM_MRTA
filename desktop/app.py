@@ -21,6 +21,8 @@ QFrame#metricCard { background:#0f1c2e; border:1px solid #20324a; border-radius:
 QLabel#metricTitle { color:#7286a0; font-size:8px; font-weight:700; }
 QLabel#metricValue { color:#f8fafc; font-size:15px; font-weight:700; }
 QLabel#modeBanner { background:#102b3a; color:#6ee7f2; padding:8px 11px; border-radius:6px; }
+QLabel#scenarioHelp { color:#9fb0c5; background:#0c1727; padding:8px 11px;
+                      border:1px solid #20324a; border-radius:6px; }
 QTextBrowser { background:#0c1727; border:1px solid #20324a; border-radius:9px; padding:7px; }
 QLineEdit { background:#0f1c2e; border:1px solid #2d4563; border-radius:7px; padding:11px; }
 QLineEdit:focus { border:1px solid #55d6df; }
