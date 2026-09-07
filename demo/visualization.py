@@ -22,7 +22,7 @@ from allocation.allocate import AllocationResult
 from allocation.travel import start_ref, task_ref
 from core.enums import PlatformKind, TaskStatus, TaskType
 from core.task_graph import TaskGraph
-from execution.executor import ExecutionResult, SimExecutor
+from execution.executor import ExecutionResult, SimExecutor, Termination
 from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.scene import Scene
 
@@ -423,7 +423,16 @@ def execution_map_spec(
 
     Only tasks with a recorded departure are drawn: a task that was released
     and rebid away never left, so it is not part of anyone's route.
+
+    A non-``COMPLETED`` result is refused. Its RUNNING tasks departed but never
+    arrived, so drawing them would place agents at targets they never reached
+    under a title that says the run finished. §19 has no map mode for an
+    abandoned run, so rejecting is honest where guessing is not.
     """
+    if result.termination is not Termination.COMPLETED:
+        raise ValueError(
+            f"execution map needs a COMPLETED result, got {result.termination.value}"
+        )
     colors = _agent_colors(scene)
     order = _ordered_for_agent(result.assignments, result.task_departure)
     zones, incidents, lanes = _scene_background(scene)
@@ -625,20 +634,39 @@ def render_mission_map(spec: MapRenderSpec):
                 color="#4c566a", zorder=2)
 
     colors = {agent.agent_id: agent.color for agent in spec.agents}
+    # Tasks can share an endpoint — a UGV suppressing where it just inspected
+    # travels no distance. Their order numbers are stacked in spec order so
+    # they stay readable and the offset stays deterministic.
+    stacked: dict[tuple[float, float], int] = {}
     for leg in spec.legs:
-        if len(leg.points) < 2:
-            continue                     # a zero-length hop draws nothing
-        line = ax.plot(
-            [x for x, _ in leg.points], [y for _, y in leg.points],
-            color=colors.get(leg.agent_id, "#4c566a"),
-            linestyle=leg.linestyle, linewidth=1.8, zorder=4, solid_capstyle="round",
-        )[0]
-        line.set_gid(leg.gid)
+        if not leg.points:
+            continue
+        color = colors.get(leg.agent_id, "#4c566a")
         end_x, end_y = leg.points[-1]
+        level = stacked.get((end_x, end_y), 0)
+        stacked[(end_x, end_y)] = level + 1
+
+        if len(leg.points) == 1:
+            # A zero-distance hop is still work performed — a UGV suppressing
+            # where it just inspected. Draw it as a ring rather than dropping
+            # the task off the map. Rings nest so several at one point stay
+            # countable, and they sit above the agent marker that shares the
+            # spot, which would otherwise hide them.
+            artist = ax.plot(
+                [end_x], [end_y], marker="o", markersize=17 + 4 * level,
+                linestyle="none", markerfacecolor="none", markeredgecolor=color,
+                markeredgewidth=1.6, zorder=7,
+            )[0]
+        else:
+            artist = ax.plot(
+                [x for x, _ in leg.points], [y for _, y in leg.points],
+                color=color, linestyle=leg.linestyle, linewidth=1.8, zorder=4,
+                solid_capstyle="round",
+            )[0]
+        artist.set_gid(leg.gid)
         ax.annotate(
             str(leg.order + 1), (end_x, end_y), textcoords="offset points",
-            xytext=(6, 6), fontsize=7, zorder=5,
-            color=colors.get(leg.agent_id, "#4c566a"),
+            xytext=(7, 6 + 11 * level), fontsize=7, zorder=5, color=color,
         )
 
     for agent in spec.agents:
@@ -680,14 +708,31 @@ def render_mission_map(spec: MapRenderSpec):
     drawn_phases = {leg.phase for leg in spec.legs}
     present = [phase for phase in LEG_LINESTYLES if phase in drawn_phases]
     if present:
-        ax.legend(
+        leg_legend = ax.legend(
             handles=[
                 Line2D([], [], color="#4c566a", linestyle=LEG_LINESTYLES[phase], label=phase)
                 for phase in present
             ],
-            title="Leg", loc="lower left", bbox_to_anchor=(1.01, 0.0),
+            title="Leg", loc="center left", bbox_to_anchor=(1.01, 0.5),
             fontsize=7.5, title_fontsize=8, frameon=False,
         )
+        ax.add_artist(leg_legend)
+
+    # Without this the grey plus, the red cross and the small dot are unlabelled
+    # and a viewer has to guess what the map is showing.
+    ax.legend(
+        handles=[
+            Line2D([], [], marker="P", linestyle="none", markersize=8,
+                   color="#c9ced6", markeredgecolor="#98a0ab", label="Zone"),
+            Line2D([], [], marker="X", linestyle="none", markersize=8,
+                   color="#c0392b", markeredgecolor="#7b1e14", label="Incident"),
+            Line2D([], [], marker=".", linestyle="none", markersize=8,
+                   color="#4c566a", label="Task"),
+            Line2D([], [], color="#d5d9de", linewidth=1.6, label="Route lane"),
+        ],
+        title="Map", loc="lower left", bbox_to_anchor=(1.01, 0.0),
+        fontsize=7.5, title_fontsize=8, frameon=False,
+    )
     fig.tight_layout()
     return fig
 

@@ -692,16 +692,70 @@ def test_each_mode_gets_its_own_title(mode):
         figure.clear()
 
 
-def test_every_drawable_leg_becomes_an_identified_line(fixture_scene, graph, finished):
+def test_every_leg_becomes_an_identified_artist(fixture_scene, graph, finished):
     from demo.visualization import execution_map_spec, render_mission_map
 
     spec = execution_map_spec(fixture_scene, graph, finished)
     figure = render_mission_map(spec)
     try:
-        drawable = {leg.gid for leg in spec.legs if len(leg.points) >= 2}
-        assert _map_gids(figure) == drawable
+        # Every leg, not only the ones long enough to be a line: a zero-distance
+        # hop is still work performed and must not vanish from the map.
+        assert _map_gids(figure) == {leg.gid for leg in spec.legs}
     finally:
         figure.clear()
+
+
+def test_a_zero_distance_task_is_still_drawn_and_numbered(
+    fixture_scene, graph, finished
+):
+    """A UGV suppressing where it just inspected travels no distance.
+
+    Both GROUND_SUPPRESSION tasks in the reference run are like this. Skipping
+    them dropped two of twelve tasks off the map, so the picture could not show
+    that the workflow ever completed (§18.14).
+    """
+    from demo.visualization import execution_map_spec, render_mission_map
+
+    spec = execution_map_spec(fixture_scene, graph, finished)
+    zero_length = [leg for leg in spec.legs if len(leg.points) == 1]
+    assert {leg.task_id for leg in zero_length} == {
+        "GROUND_SUPPRESSION__FIRE_SITE_1",
+        "GROUND_SUPPRESSION__FIRE_SITE_2",
+    }
+
+    figure = render_mission_map(spec)
+    try:
+        assert {leg.gid for leg in zero_length} <= _map_gids(figure)
+        numbers = {t.get_text() for t in figure.axes[0].texts}
+        for leg in zero_length:
+            assert str(leg.order + 1) in numbers
+    finally:
+        figure.clear()
+
+
+def test_order_numbers_at_a_shared_point_are_stacked_deterministically():
+    from demo.visualization import MapLegSpec, render_mission_map
+
+    shared = ((5.0, 5.0),)
+    legs = (
+        MapLegSpec("A2", "T1", 0, shared, "completed"),
+        MapLegSpec("A2", "T2", 1, shared, "completed"),
+    )
+    offsets = []
+    for _ in range(2):
+        figure = render_mission_map(_hand_built_map(legs=legs))
+        try:
+            offsets.append(
+                [
+                    (t.get_text(), t.xyann)
+                    for t in figure.axes[0].texts
+                    if t.get_text() in {"1", "2"}
+                ]
+            )
+        finally:
+            figure.clear()
+    assert offsets[0] == offsets[1]                       # deterministic
+    assert len({offset for _, offset in offsets[0]}) == 2  # and not overlapping
 
 
 def test_leg_lines_use_the_agent_colour_and_phase_style(fixture_scene, paused):
@@ -737,9 +791,13 @@ def test_the_leg_legend_lists_only_the_phases_present(fixture_scene, paused):
             if child is not ax.get_legend() and type(child).__name__ == "Legend"
         ]
         by_title = {legend.get_title().get_text(): legend for legend in legends}
-        assert set(by_title) == {"Agents", "Leg"}
+        assert set(by_title) == {"Agents", "Leg", "Map"}
         listed = {t.get_text() for t in by_title["Leg"].get_texts()}
         assert listed == {leg.phase for leg in spec.legs}
+        # the background markers are explained rather than left to be guessed
+        assert {t.get_text() for t in by_title["Map"].get_texts()} == {
+            "Zone", "Incident", "Task", "Route lane",
+        }
     finally:
         figure.clear()
 
@@ -775,16 +833,22 @@ def test_the_map_uses_an_equal_aspect_with_padding():
 def test_degenerate_legs_do_not_raise():
     from demo.visualization import MapLegSpec, render_mission_map
 
-    # A UGV already standing on its target node yields a one-point "leg"; a
-    # spec with no legs at all happens before anything is assigned.
+    # A UGV already standing on its target node yields a one-point "leg" — it
+    # still gets an artist and a gid. A spec with no legs at all happens before
+    # anything is assigned and simply draws none.
     single = (MapLegSpec("A2", "T1", 0, ((10.0, 0.0),), "remaining"),)
-    for legs in (single, ()):
-        figure = render_mission_map(_hand_built_map(legs=legs))
-        try:
-            assert _map_gids(figure) == set()               # nothing drawable
-            assert figure.axes
-        finally:
-            figure.clear()
+    figure = render_mission_map(_hand_built_map(legs=single))
+    try:
+        assert _map_gids(figure) == {single[0].gid}
+    finally:
+        figure.clear()
+
+    figure = render_mission_map(_hand_built_map(legs=()))
+    try:
+        assert _map_gids(figure) == set()
+        assert figure.axes
+    finally:
+        figure.clear()
 
 
 def test_rendering_the_map_does_not_mutate_the_spec(fixture_scene, graph, finished):
@@ -810,3 +874,24 @@ def test_the_map_saves_headless(tmp_path, suffix):
         assert out.stat().st_size > 0
     finally:
         figure.clear()
+
+
+def test_an_unfinished_run_is_refused_by_the_execution_map(fixture_scene, graph):
+    """DEADLOCK/STEP_LIMIT departures never arrived (§18.14).
+
+    Drawing them would put agents on targets they never reached, under a title
+    saying the run completed. There is no map mode for an abandoned run, so
+    refusing is honest where guessing is not.
+    """
+    import dataclasses
+
+    from demo.visualization import execution_map_spec
+    from execution.executor import SimExecutor, Termination
+
+    result = SimExecutor(
+        fresh_session_state(graph, fixture_scene), fixture_scene
+    ).run()
+    for termination in (Termination.DEADLOCK, Termination.STEP_LIMIT):
+        unfinished = dataclasses.replace(result, termination=termination)
+        with pytest.raises(ValueError, match="COMPLETED"):
+            execution_map_spec(fixture_scene, graph, unfinished)
