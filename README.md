@@ -18,8 +18,8 @@ Unmanned Systems
 `interaction/`(intent schema, planning session, 결정론적 grounder, incident 등록,
 canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행 감사, live/cached/mock)
 + `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가, P9
-실행 중 명령·선택적 재할당, P8.5 정적 DAG/2D 지도와 P10 checkpoint 구간 애니메이션까지
-완료**. 테스트 762개 통과.
+실행 중 명령·선택적 재할당, P8.5 정적 DAG/2D 지도, P10 checkpoint 구간 애니메이션,
+P11 네이티브 운영자 콘솔·별도 2D simulator 창까지 완료**. 테스트 784개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -34,7 +34,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.45 / 최신 결정 D-048 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.46 / 최신 결정 D-049 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
@@ -47,7 +47,27 @@ COMPLETED·위반 0이며 makespan은 동일했다. 따라서 release 범위 축
 bundle-suffix 확장은 테스트된 경로에서 동작하지 않았으며(`suffix_extra_release_count = 0`)
 실증된 결과로 서술하지 않는다 — 다른 update 형태에서 도달 가능한지는 미검증이다(D-041/D-042). 상세는 [`docs/P9_RESULTS.md`](docs/P9_RESULTS.md).
 
-## 운영자 UI
+## 네이티브 운영자 UI (권장)
+
+발표·시연에는 운영자 콘솔과 2D simulator가 별도 창으로 열리는 P11 UI를 권장한다.
+
+```bash
+python3 -m pip install --user -e '.[desktop]'
+python3 -m desktop
+```
+
+기본 실행 모드는 `mock`이며 사이드바가 아니라 운영자 창 상단에서 `mock`/`live`/`cached`를
+선택한다. 두 창은 같은 `MissionSession`을 공유한다. 운영자 창에서 자연어 명령과 clarification
+후보 선택을 처리하고, simulator 창은 같은 세션의 `MapRenderSpec`과 frozen `PlaybackSpec`만
+그린다. `다음 checkpoint`는 task-completion 경계에서 멈춰 실행 중 후속 명령과 selective
+release/rebid를 시험할 수 있고, `끝까지 연속 재생`은 같은 checkpoint primitive를 terminal까지
+반복한다. 구간 재생 중에는 입력이 잠기며 checkpoint에 도달하면 다시 열린다.
+
+`live`는 저장소 루트 `.env`의 `OPENAI_API_KEY`를 사용한다. 실제 API 호출임을 모드 배너에
+표시하며, 성공 응답은 기존 exact cache 경로에 기록된다. `cached`는 동일한 모델·문맥·발화·
+schema 응답만 네트워크 없이 재생한다.
+
+## Streamlit UI (fallback)
 
 저장소 루트에서 실행한다.
 
@@ -56,9 +76,10 @@ python3 -m pip install --user -e '.[llm,demo,viz]'
 streamlit run demo/app.py
 ```
 
-`live`는 실제 OpenAI API를 호출하고 성공 응답을 로컬 cache에 기록한다. `cached`는 모델·문맥·
-발화·schema가 정확히 같은 응답만 네트워크 없이 재생하며, `mock`은 화면 확인용 고정 스크립트다.
-세 모드는 UI와 감사 JSON에 명시되며 서로 바꿔 표시하지 않는다. P8.3 검증 기록은
+브라우저 기반 Streamlit UI도 그대로 유지한다. `live`는 실제 OpenAI API를 호출하고 성공 응답을
+로컬 cache에 기록한다. `cached`는 모델·문맥·발화·schema가 정확히 같은 응답만 네트워크 없이
+재생하며, `mock`은 화면 확인용 고정 스크립트다. 세 모드는 UI와 감사 JSON에 명시되며 서로 바꿔
+표시하지 않는다. P8.3 검증 기록은
 [`docs/P8_3_RESULTS.md`](docs/P8_3_RESULTS.md)에 있다.
 
 온라인 실행은 두 방식이다(D-048). `온라인 실행 시작`/`다음 checkpoint까지 재생`은 전역에서

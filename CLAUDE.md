@@ -19,18 +19,18 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-048, 계약 v1.45)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-049, 계약 v1.46)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-07 기준)
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.5,
-P9.0~P9.4와 P10 완료 (브랜치 `feature/operator-interaction`). 계약 v1.45, 최신 결정
-D-048.**
+P9.0~P9.4, P10과 P11 완료 (브랜치 `feature/operator-interaction`). 계약 v1.46, 최신 결정
+D-049.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 762개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 784개 통과, ruff clean.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 최초 범위는 실행 개시 전 다중 턴
 자연어 계획 세션이며, 후속 P9가 이를 task-completion checkpoint의 온라인 명령으로 확장했다.
@@ -115,7 +115,18 @@ UI의 `다음 checkpoint까지 재생`은 가장 이른 completion마다 멈춰 
 agent의 TRAVEL/DWELL 상태를 표시하고 중간 명령을 허용한다. `끝까지 연속 재생`은 같은 action을
 terminal까지 반복하되 구간 사이 control을 렌더하지 않으며 오류에서 자동 retry 없이 멈춘다
 (D-048).
-다음은 실제 UI 리허설과 발표 자료 정리다.
+
+P11 네이티브 UI(§21, D-049): `python3 -m desktop`이 하나의 `QApplication`에서 독립된 최상위
+창 두 개를 연다. `desktop/window.py`는 자연어 명령·clarification·checkpoint/continuous control을
+담당하는 Operator Console이고, `desktop/simulator.py`는 같은 세션의 `MapRenderSpec`과
+`PlaybackSpec`만 소비하는 2D Mission Simulator다. `desktop/controller.py`는 Qt와 연구 로직
+사이의 얇은 presentation controller이며 기존 `handle_turn`·candidate selection/cancel·
+`advance_online_session`·audit writer만 호출한다. 실행 중 입력 잠금, checkpoint 도달 후 입력
+재개, continuous 오류의 무자동재시도, terminal 경계, live/cached/mock provenance, PySide6
+미설치 안내를 offscreen 테스트로 고정했다. Streamlit은 fallback으로 유지한다. P11은 새로운
+할당·검증·실행 의미나 연구 주장을 추가하지 않는다.
+
+다음은 네이티브 UI 실제 리허설과 발표 자료 정리다.
 
 P8.3 구조 (D-031~D-034, 계약 v1.32):
 - **통합 `event_log: list[TurnAudit | ExecutionAudit]`** — list 순서가 event 순서의 유일한
