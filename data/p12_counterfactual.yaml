@@ -1,0 +1,48 @@
+annotation_version: p12-v1
+scene: scenarios/patrol_park.yaml
+latent_fixture: scenarios/patrol_zone_b_fire.yaml
+
+expected_initial_tasks:
+  - AREA_RECON:ZONE_A
+  - AREA_RECON:ZONE_B
+  - AREA_RECON:ZONE_C
+  - AREA_RECON:ZONE_D
+
+policy_cases:
+  - id: P0_RECON_ONLY
+    command: 전체 구역을 순찰해줘
+    expected_policy: null
+    expected_response_tasks: []
+  - id: P1_THERMAL
+    command: 전체 구역을 순찰하고 화재를 발견하면 열화상 확인까지만 대응해줘
+    expected_policy: THERMAL_RECON
+    expected_response_tasks: [THERMAL_RECON]
+  - id: P2_DROP
+    command: 전체 구역을 순찰하고 화재를 발견하면 1차 진압 투하까지 대응해줘
+    expected_policy: SUPPRESSANT_DROP
+    expected_response_tasks: [THERMAL_RECON, SUPPRESSANT_DROP]
+  - id: P3_INSPECTION
+    command: 전체 구역을 순찰하고 화재를 발견하면 지상 점검까지 대응해줘
+    expected_policy: GROUND_INSPECTION
+    expected_response_tasks: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION]
+  - id: P4_SUPPRESSION
+    command: 전체 구역을 순찰하고 화재를 발견하면 지상 진압까지 대응해줘
+    expected_policy: GROUND_SUPPRESSION
+    expected_response_tasks: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+
+report_cases:
+  - id: R1_WAREHOUSE
+    initial_command: 전체 구역을 순찰해줘
+    report_command: Warehouse에서 불이 났어. 지상 진압까지 대응해줘
+    expected_zone: ZONE_A
+    expected_response_up_to: GROUND_SUPPRESSION
+  - id: R2_TANK_FARM
+    initial_command: 전체 구역을 순찰해줘
+    report_command: Tank Farm에서 불이 났어. 지상 진압까지 대응해줘
+    expected_zone: ZONE_D
+    expected_response_up_to: GROUND_SUPPRESSION
+
+unsupported_cases:
+  - id: U1_SINGLE_UAV
+    command: UAV 한 대만 사용해서 전체 구역을 순찰해줘
+    expected_outcome: UNSUPPORTED
