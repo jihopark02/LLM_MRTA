@@ -1,5 +1,6 @@
 """P9.3 gate: paused natural-language turns and typed online audit (§19.4)."""
 
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -305,11 +306,31 @@ def test_pending_clarification_blocks_online_continue(planned_session):
 # -- online retry after a failed advance (§19.1, D-041) -------------------
 
 
-def _explode(monkeypatch):
+@contextmanager
+def _exploding(monkeypatch):
+    """Scope the executor patch to a block.
+
+    ``monkeypatch.undo()`` would revert *every* patch on that instance, not
+    just this one — including a fixture's ``setenv`` — so the failure injection
+    is always confined to a context instead.
+    """
+
     def boom(self, *args, **kwargs):
         raise RuntimeError("sim exploded")
 
-    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", boom)
+    with monkeypatch.context() as patch:
+        patch.setattr(SimExecutor, "advance_to_next_completion", boom)
+        yield
+
+
+@contextmanager
+def _terminating(monkeypatch, termination):
+    def ended(self, *args, **kwargs):
+        return CompletionAdvance(self.checkpoint(), (), self._result(termination))
+
+    with monkeypatch.context() as patch:
+        patch.setattr(SimExecutor, "advance_to_next_completion", ended)
+        yield
 
 
 def test_a_failed_advance_keeps_the_runtime_and_stays_resumable(
@@ -318,8 +339,8 @@ def test_a_failed_advance_keeps_the_runtime_and_stays_resumable(
     advance_online_session(planned_session, mode="mock")
     good = _runtime_signature(planned_session.runtime)
 
-    _explode(monkeypatch)
-    audit = advance_online_session(planned_session, mode="mock")
+    with _exploding(monkeypatch):
+        audit = advance_online_session(planned_session, mode="mock")
 
     # §19.1 table: EXECUTION_FAILED + no execution + a runtime == resumable.
     assert planned_session.phase is SessionPhase.EXECUTION_FAILED
@@ -336,10 +357,9 @@ def test_online_execution_resumes_from_the_preserved_checkpoint(
 ):
     advance_online_session(planned_session, mode="mock")
     paused_at = planned_session.runtime.now
-    _explode(monkeypatch)
-    advance_online_session(planned_session, mode="mock")
+    with _exploding(monkeypatch):
+        advance_online_session(planned_session, mode="mock")
 
-    monkeypatch.undo()
     audit = advance_online_session(planned_session, mode="mock")
 
     assert isinstance(audit, CheckpointAudit)
@@ -352,9 +372,8 @@ def test_a_resumed_run_still_finishes_on_the_golden_makespan(
     planned_session, monkeypatch
 ):
     advance_online_session(planned_session, mode="mock")
-    _explode(monkeypatch)
-    advance_online_session(planned_session, mode="mock")
-    monkeypatch.undo()
+    with _exploding(monkeypatch):
+        advance_online_session(planned_session, mode="mock")
 
     advance_online_session(planned_session, mode="mock")  # the retry itself
     for _ in range(60):
@@ -398,14 +417,8 @@ def test_a_terminal_deadlock_keeps_its_runtime_but_is_not_resumable(
     """§19.1 table / D-042: an ExecutionResult means the run ended, not crashed."""
     advance_online_session(planned_session, mode="mock")
 
-    def deadlocked(self, *args, **kwargs):
-        return CompletionAdvance(
-            self.checkpoint(), (), self._result(Termination.DEADLOCK)
-        )
-
-    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", deadlocked)
-    audit = advance_online_session(planned_session, mode="mock")
-    monkeypatch.undo()
+    with _terminating(monkeypatch, Termination.DEADLOCK):
+        audit = advance_online_session(planned_session, mode="mock")
 
     assert isinstance(audit, ExecutionAudit)
     assert audit.execution_termination == "DEADLOCK"
@@ -429,14 +442,8 @@ def test_a_terminal_deadlock_keeps_its_runtime_but_is_not_resumable(
 def test_a_terminal_step_limit_is_also_not_resumable(planned_session, monkeypatch):
     advance_online_session(planned_session, mode="mock")
 
-    def capped(self, *args, **kwargs):
-        return CompletionAdvance(
-            self.checkpoint(), (), self._result(Termination.STEP_LIMIT)
-        )
-
-    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", capped)
-    advance_online_session(planned_session, mode="mock")
-    monkeypatch.undo()
+    with _terminating(monkeypatch, Termination.STEP_LIMIT):
+        advance_online_session(planned_session, mode="mock")
 
     with pytest.raises(ValueError, match="STEP_LIMIT"):
         advance_online_session(planned_session, mode="mock")

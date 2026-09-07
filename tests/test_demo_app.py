@@ -148,14 +148,17 @@ def test_an_exception_failure_offers_the_checkpoint_retry_button(tmp_path, monke
     def boom(self, *args, **kwargs):
         raise RuntimeError("sim exploded")
 
-    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", boom)
-    at = _online_button(at).click().run()
-    assert not at.exception
-    assert ("Phase", "EXECUTION_FAILED") in [
-        (metric.label, metric.value) for metric in at.metric
-    ]
+    # Scoped, not undo(): undo() would also revert _paused_app's
+    # LLM_MRTA_RUNTIME_ROOT, and the next rerun would write its audit JSON into
+    # the real repository instead of tmp_path.
+    with monkeypatch.context() as failure_patch:
+        failure_patch.setattr(SimExecutor, "advance_to_next_completion", boom)
+        at = _online_button(at).click().run()
+        assert not at.exception
+        assert ("Phase", "EXECUTION_FAILED") in [
+            (metric.label, metric.value) for metric in at.metric
+        ]
 
-    monkeypatch.undo()
     at = at.run()
     retry = _online_button(at)
     assert retry.label == "마지막 checkpoint에서 온라인 실행 재시도"
@@ -180,14 +183,14 @@ def test_a_terminal_deadlock_does_not_offer_a_retry(tmp_path, monkeypatch):
             self.checkpoint(), (), self._result(Termination.DEADLOCK)
         )
 
-    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", deadlocked)
-    at = _online_button(at).click().run()
-    assert not at.exception
-    assert ("Phase", "EXECUTION_FAILED") in [
-        (metric.label, metric.value) for metric in at.metric
-    ]
+    with monkeypatch.context() as failure_patch:
+        failure_patch.setattr(SimExecutor, "advance_to_next_completion", deadlocked)
+        at = _online_button(at).click().run()
+        assert not at.exception
+        assert ("Phase", "EXECUTION_FAILED") in [
+            (metric.label, metric.value) for metric in at.metric
+        ]
 
-    monkeypatch.undo()
     at = at.run()
     # DEADLOCK is a result, not a crash: the run is over, so no resume is offered.
     assert _online_button(at).disabled

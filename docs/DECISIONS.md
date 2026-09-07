@@ -1344,10 +1344,6 @@ COMPLETED, capability/precedence violation 0, makespan 453.883s였고 기존 own
 
 ## D-041: suffix 주장 축소 + online 재시도 lifecycle + fixture strict schema (계약 v1.38)
 
-> **[D-042에서 정정됨]** 아래 1번의 "섞인 bundle이 존재할 수 없다"는 과도한 단정이었고,
-> 재시도 조건도 `execution is None`이 빠져 terminal `DEADLOCK`/`STEP_LIMIT`까지 재개시켰다.
-> 현행 규칙은 D-042를 따른다.
-
 **배경** P9.0~P9.4 완료 후 독립 재검토. Blocker는 없었고 checkpoint 등가성·턴 atomicity·
 감사 순서는 재현으로 확인됐다. 다만 계약이 실증 범위를 넘어서는 주장을 하고 있었고,
 lifecycle에 막다른 상태가 있었다.
@@ -1394,6 +1390,9 @@ lifecycle에 막다른 상태가 있었다.
 P9 결과 수치(release 0/2/1, makespan 453.883s, 위반 0)도 그대로다.
 
 ## D-042: D-041 정정 — suffix 단정 완화 + terminal online 상태 (계약 v1.39)
+
+**D-041을 supersede한다.** D-041 본문은 당시 기록 그대로 둔다 — 그때 무엇을 잘못 판단했는지도
+이력의 일부다. 아래 두 항목에 대해서는 이 결정이 현행 규칙이다.
 
 **배경** D-041 재검토. 지표 설계(파생값을 감사에 중복 저장하지 않음, `selective`에만 정의)와
 strict loader는 승인됐고 P9 수치도 그대로다. 그러나 D-041 자체에 두 가지 오류가 있었다.
