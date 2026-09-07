@@ -28,7 +28,12 @@ from core.enums import TaskStatus, TaskType
 from core.mission_state import MissionState
 from core.task_graph import TaskGraph
 from execution.executor import ExecutionResult, SimExecutor
-from interaction.audit import CheckpointAudit, ExecutionAudit, TurnAudit
+from interaction.audit import (
+    CheckpointAudit,
+    ExecutionAudit,
+    IncidentObservationAudit,
+    TurnAudit,
+)
 from interaction.directive import MissionDirective
 from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.scene import Scene
@@ -175,7 +180,9 @@ class MissionSession:
     recent_referents: list[Referent] = field(default_factory=list)
     turn_count: int = 0
     pending_clarification: PendingClarification | None = None
-    _event_log: list[TurnAudit | ExecutionAudit | CheckpointAudit] = field(
+    _event_log: list[
+        TurnAudit | ExecutionAudit | CheckpointAudit | IncidentObservationAudit
+    ] = field(
         default_factory=list, init=False, repr=False
     )
 
@@ -199,15 +206,23 @@ class MissionSession:
 
     # -- chronological audit stream (§18.9, D-031/D-032) -------------
     @property
-    def event_log(self) -> tuple[TurnAudit | ExecutionAudit | CheckpointAudit, ...]:
+    def event_log(
+        self,
+    ) -> tuple[TurnAudit | ExecutionAudit | CheckpointAudit | IncidentObservationAudit, ...]:
         return tuple(self._event_log)
 
     @property
     def turn_log(self) -> tuple[TurnAudit, ...]:
         return tuple(event for event in self._event_log if isinstance(event, TurnAudit))
 
-    def append_event(self, event: TurnAudit | ExecutionAudit | CheckpointAudit) -> None:
-        if not isinstance(event, (TurnAudit, ExecutionAudit, CheckpointAudit)):
+    def append_event(
+        self,
+        event: TurnAudit | ExecutionAudit | CheckpointAudit | IncidentObservationAudit,
+    ) -> None:
+        if not isinstance(
+            event,
+            (TurnAudit, ExecutionAudit, CheckpointAudit, IncidentObservationAudit),
+        ):
             raise TypeError(f"unsupported session event: {type(event).__name__}")
         if event.session_id != self.session_id:
             raise ValueError(

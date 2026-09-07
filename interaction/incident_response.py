@@ -58,6 +58,24 @@ class IncidentTransaction:
         return self.patch_result is None or self.patch_result.accepted
 
 
+def publish_incident_transaction(
+    session: MissionSession, transaction: IncidentTransaction
+) -> None:
+    """Publish one fully prepared transaction without another computation."""
+    if not transaction.accepted:
+        raise ValueError("cannot publish a rejected incident transaction")
+    session.scene = transaction.scene
+    if transaction.online is not None:
+        session.runtime = transaction.runtime
+        session.state = transaction.state
+    elif transaction.response_up_to is not None:
+        session.state, session.plan = transaction.state, transaction.plan
+    elif session.phase is SessionPhase.EXECUTION_PAUSED:
+        # A scene-only report keeps the checkpoint identity/clock. The scene is
+        # immutable data used by subsequent patches and views.
+        session.runtime.scene = transaction.scene
+
+
 Planner = Callable[[MissionState, Scene], AllocationResult]
 OnlineApplier = Callable[..., OnlinePatchApplication]
 
@@ -153,4 +171,5 @@ __all__ = [
     "PolicyOrigin",
     "IncidentTransaction",
     "prepare_incident_transaction",
+    "publish_incident_transaction",
 ]

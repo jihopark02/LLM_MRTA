@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -30,6 +30,15 @@ class LatentIncidentFixture:
     zone_id: str
     trigger_task_id: str
 
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("fixture_id", self.fixture_id),
+            ("zone_id", self.zone_id),
+            ("trigger_task_id", self.trigger_task_id),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{label} must be a non-empty str")
+
 
 @dataclass(frozen=True, slots=True)
 class FireDetectedObservation:
@@ -38,7 +47,22 @@ class FireDetectedObservation:
     trigger_task_id: str
     detecting_agent_id: str
     simulation_time: float
-    event_type: str = "FIRE_DETECTED"
+    event_type: str = field(default="FIRE_DETECTED", init=False)
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("fixture_id", self.fixture_id),
+            ("zone_id", self.zone_id),
+            ("trigger_task_id", self.trigger_task_id),
+            ("detecting_agent_id", self.detecting_agent_id),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{label} must be a non-empty str")
+        now = self.simulation_time
+        if not isinstance(now, (int, float)) or isinstance(now, bool):
+            raise ValueError("simulation_time must be a finite non-negative number")
+        if not math.isfinite(now) or now < 0.0:
+            raise ValueError("simulation_time must be a finite non-negative number")
 
 
 def _required_text(raw: Mapping, key: str) -> str:

@@ -116,6 +116,38 @@ class IncidentActionAudit:
 
 
 @dataclass(frozen=True, slots=True)
+class IncidentObservationAudit:
+    """A simulated sensor observation and its atomic adaptation (§22.2/§22.3)."""
+
+    session_id: str
+    fixture_id: str
+    zone_id: str
+    trigger_task_id: str
+    detecting_agent_id: str
+    simulation_time: float
+    mode: str
+    outcome: str
+    incident_id: str | None = None
+    policy_origin: str = "NONE"
+    response_up_to: str | None = None
+    pre_scene_hash: str = ""
+    post_scene_hash: str = ""
+    pre_graph_hash: str | None = None
+    post_graph_hash: str | None = None
+    pre_state_hash: str | None = None
+    patch_hash: str | None = None
+    patch: PatchAudit | None = None
+    online_reallocation: OnlineReallocationAudit | None = None
+    error_type: str | None = None
+    error_detail: str | None = None
+    source: str = "SENSOR_SIMULATED"
+    event_type: str = "INCIDENT_OBSERVATION"
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
 class TurnAudit:
     """One operator turn (§18.9, ``event_type: TURN``)."""
 
@@ -215,6 +247,7 @@ __all__ = [
     "RuntimeAssignmentChanges",
     "OnlineReallocationAudit",
     "IncidentActionAudit",
+    "IncidentObservationAudit",
     "TurnAudit",
     "ExecutionAudit",
     "CheckpointAudit",

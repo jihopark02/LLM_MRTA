@@ -39,23 +39,17 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from allocation.allocate import AllocationResult, allocate
-from allocation.online import (
-    ONLINE_POLICY_VERSION,
-    OnlinePatchApplication,
-    ReleasePolicy,
-    apply_online_patch,
-)
+from allocation.online import ReleasePolicy, apply_online_patch
 from core.enums import TaskStatus
 from interaction.audit import (
     GenerationAudit,
     GroundingAudit,
     IncidentActionAudit,
     OnlineReallocationAudit,
-    PatchAudit,
     PlanAssignmentChanges,
-    RuntimeAssignmentChanges,
     TurnAudit,
 )
+from interaction.audit_builders import online_reallocation_audit, patch_audit
 from interaction.directive import MissionDirective
 from interaction.ground import (
     ClarificationReason,
@@ -70,6 +64,7 @@ from interaction.incident_response import (
     IncidentSource,
     PolicyOrigin,
     prepare_incident_transaction,
+    publish_incident_transaction,
 )
 from interaction.interpret import classify
 from interaction.mode import mode_of_backend, require_mode
@@ -197,19 +192,6 @@ def _grounding_audit(outcome: GroundingOutcome | None) -> GroundingAudit | None:
     )
 
 
-def _patch_audit(result: PatchResult | None) -> PatchAudit | None:
-    if result is None:
-        return None
-    return PatchAudit(
-        accepted=result.accepted,
-        error_codes=[c.value for c in result.error_codes],
-        added_tasks=list(result.added_tasks),
-        added_edges=[list(e) for e in result.added_edges],
-        directly_released_tasks=list(result.directly_released_tasks),
-        status_changes=[list(sc) for sc in result.status_changes],
-    )
-
-
 def _generation_audit(gen: GenerationResult | None) -> GenerationAudit | None:
     if gen is None:
         return None
@@ -245,7 +227,7 @@ def _finish(
         post_graph_hash=_graph_hash_of(session),
         pre_state_hash=turn.patch_result.pre_state_hash if turn.patch_result else None,
         patch_hash=turn.patch_result.patch_hash if turn.patch_result else None,
-        patch=_patch_audit(turn.patch_result),
+        patch=patch_audit(turn.patch_result),
         generation=_generation_audit(turn.generation),
         plan_assignment_changes=PlanAssignmentChanges.between(turn.pre_plan, post_plan),
         online_reallocation=turn.online_reallocation,
@@ -416,7 +398,7 @@ def _do_report_incident(
         return _finish(turn, TurnOutcome.REJECTED, f"변경이 거부됐습니다 ({codes}).")
 
     online_audit = (
-        _online_reallocation_audit(transaction.online)
+        online_reallocation_audit(transaction.online)
         if transaction.online is not None
         else None
     )
@@ -435,15 +417,7 @@ def _do_report_incident(
 
     # Every fallible computation has completed. Publish the prepared candidate
     # as one session transition, then record its now-valid scene referent.
-    session.scene = transaction.scene
-    if transaction.online is not None:
-        session.runtime = transaction.runtime
-        session.state = transaction.state
-    elif response_up_to is not None:
-        session.state, session.plan = transaction.state, transaction.plan
-    elif session.phase is SessionPhase.EXECUTION_PAUSED:
-        # Scene-only reports preserve runtime identity and clock (§18.4).
-        session.runtime.scene = transaction.scene
+    publish_incident_transaction(session, transaction)
     _note(turn, ReferentKind.INCIDENT, transaction.incident_id)
 
     response_note = ""
@@ -518,7 +492,7 @@ def _do_update_mission(
         # Build every fallible derived value before touching session state.
         # note_referent performs the only remaining session validation; publish
         # the candidate runtime/state together only after it succeeds (§19.4).
-        online_audit = _online_reallocation_audit(online)
+        online_audit = online_reallocation_audit(online)
         _note(turn, ReferentKind.INCIDENT, incident.entity_id)
         turn.online_reallocation = online_audit
         session.runtime = online.executor
@@ -539,29 +513,6 @@ def _do_update_mission(
     session.state, session.plan = committed, candidate_plan
     _note(turn, ReferentKind.INCIDENT, incident.entity_id)
     return _finish(turn, TurnOutcome.COMMITTED, plan.note)
-
-
-def _online_reallocation_audit(
-    result: OnlinePatchApplication,
-) -> OnlineReallocationAudit:
-    changes = result.assignment_changes
-    return OnlineReallocationAudit(
-        policy=result.policy.value,
-        policy_version=ONLINE_POLICY_VERSION,
-        simulation_time=result.executor.now,
-        patch_added_tasks=list(result.patch_result.added_tasks),
-        directly_affected_tasks=list(result.directly_affected_tasks),
-        selectively_released_tasks=list(result.released_tasks),
-        preserved_active_assignments=dict(result.preserved_active_assignments),
-        before_assignments=dict(result.before_assignments),
-        after_assignments=dict(result.after_assignments),
-        assignment_changes=RuntimeAssignmentChanges(
-            added=dict(changes.added),
-            removed=dict(changes.removed),
-            changed={task: list(owners) for task, owners in changes.changed.items()},
-        ),
-        consensus_rounds=list(result.consensus_rounds),
-    )
 
 
 def _describe_status(session: MissionSession, incident_id: str | None, about: str) -> str:
