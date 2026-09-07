@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.44 (D-047). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.45 (D-048). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.45 (D-048): P10 UI에 서로 다른 목적의 실행 모드 둘을 명시한다. **checkpoint 재생**은
+  전역에서 가장 이른 task completion마다 멈춰 후속 명령을 받으므로 다른 agent는 TRAVEL/DWELL
+  중일 수 있다. UI가 정지 원인 task와 계속 RUNNING인 agent 상태를 표시한다. **끝까지 연속
+  재생**은 같은 checkpoint primitive를 구간별로 반복해 terminal까지 보여주되 중간 입력은 받지
+  않고 오류·비정상 종료에서 즉시 멈춘다. 실행·감사 의미와 버전·수치는 불변.
 - v1.44 (D-047): D-046의 "마지막 frame은 after checkpoint의 정적 runtime 의미와 일치"를
   정정한다. 같은 completion 시각에도 다른 agent는 계속 RUNNING일 수 있고, P8.5 정적 지도는
   그 agent를 마지막 **확정** 위치에 두지만 P10은 기록된 travel/dwell schedule로 보간한다.
@@ -937,7 +942,7 @@ invariant를 통과해야 한다.
 | P9.2 | bidder-connected bundle-suffix release + incremental CBBA | COMPLETED/RUNNING 불변 / 영향 없는 ASSIGNED 보존 / release suffix 일관성 / 재경매 뒤 assignment invariant·capability·precedence 위반 0 |
 | P9.3 | paused-session REPORT/UPDATE/QUERY + typed audit | 턴 전체 atomicity / accepted update에서만 runtime 교체 / clarification·거부·오류 시 runtime identity·hash 불변 / 온라인 assignment 변화와 release 집합 감사 / advance 예외 뒤 runtime 보존 + checkpoint 재개 가능(D-041) |
 | P9.4 | Streamlit checkpoint·계속·온라인 명령 UI + 비교 실험 | 명령 전/후 assignment·release·현재 시각 표시 / 대표 scenario 완주 / no-reset·full-reset·selective 원시 지표 비교 + `suffix_extra_release_count` 보고 / fixture strict schema / 실패 후 재개 버튼(D-041) |
-| P10 | 온라인 checkpoint 구간 2D playback (D-046) | 전후 frozen `ExecutionCheckpoint`만 입력 / 같은 snapshot·frame 수 → 같은 `PlaybackSpec` / UAV 직선·UGV shortest-path polyline을 simulation time으로 보간 / travel과 dwell 구분, 보간 pose를 물리 pose로 주장하지 않음 / 재생 중 입력 비활성·재생 뒤 checkpoint에서만 명령 / accepted online UPDATE 뒤 다음 구간이 새 assignment를 사용 / frame 생성·렌더가 allocate·advance·session mutation을 하지 않음 / matplotlib 실패 시 committed execution 보존 + 정적 map·표 fallback / AppTest + headless(Agg) / P3/P4/P9 수치·감사 event 불변 |
+| P10 | 온라인 checkpoint 구간 2D playback (D-046~D-048) | 전후 frozen `ExecutionCheckpoint`만 입력 / 같은 snapshot·frame 수 → 같은 `PlaybackSpec` / UAV 직선·UGV shortest-path polyline을 simulation time으로 보간 / travel과 dwell 구분, 보간 pose를 물리 pose로 주장하지 않음 / checkpoint 모드는 가장 이른 completion마다 정지 원인과 계속 RUNNING인 agent 상태 표시, 재생 뒤 명령 허용 / 연속 모드는 같은 advance를 terminal까지 반복하되 구간 사이 입력 금지·실패 즉시 중단 / accepted online UPDATE 뒤 다음 구간이 새 assignment를 사용 / frame 생성·렌더가 allocate·advance·session mutation을 하지 않음 / matplotlib 실패 시 committed execution 보존 + 정적 map·표 fallback / AppTest + headless(Agg) / P3/P4/P9 수치·감사 event 불변 |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
 
@@ -1634,15 +1639,28 @@ checkpoint의 simulation time, graph/state, assignment, timing과 scene hash가 
 
 ### 20.4 UI·실패 경계
 
-온라인 실행 버튼을 누르면 action 전 snapshot을 잡고 기존 `advance_online_session()`을 한 번만
-호출한 뒤, 성공적으로 시간이 전진한 경우에만 그 구간을 재생한다. Streamlit의 동기 playback
-중에는 chat input·실행 버튼을 처리하지 않으며, 재생이 끝난 뒤 이미 commit된 checkpoint에서
-후속 자연어 입력을 받는다. 따라서 운용자는 **재생 → checkpoint 입력 → selective release/rebid →
-다음 구간 재생** 순서로 계획·할당 변화를 확인한다. RUNNING task abort·migration은 여전히
-지원하지 않는다.
+**Checkpoint 재생** 버튼은 action 전 snapshot을 잡고 기존 `advance_online_session()`을 한
+번만 호출한 뒤, 성공적으로 시간이 전진한 경우에만 그 구간을 재생한다. 전역에서 가장 이른 task
+completion event가 pause 원인이므로, 그 시각에 다른 agent는 목적지로 TRAVEL 중이거나 target에서
+DWELL 중일 수 있다. 이는 임무 종료가 아니다. UI는 버튼을 `다음 checkpoint까지 재생`으로
+표현하고, 완료되어 pause를 만든 task와 계속 RUNNING인 각 agent의 `TRAVEL 중 일시정지` /
+`DWELL 중 일시정지`를 표시한다. 재생이 끝난 뒤 이미 commit된 checkpoint에서 후속 자연어
+입력을 받는다. 따라서 운용자는 **재생 → checkpoint 입력 → selective release/rebid → 다음 구간
+재생** 순서로 계획·할당 변화를 확인한다.
+
+**끝까지 연속 재생**은 별도 명시적 버튼이다. 새 executor나 one-shot 우회가 아니라 같은
+`advance_online_session()`을 checkpoint별로 반복하고 각 구간의 `PlaybackSpec`을 순서대로
+재생해 `EXECUTED` 또는 `EXECUTION_FAILED`까지 간다. 구간 사이에 chat input·실행 버튼을
+렌더하지 않으므로 중간 명령은 받을 수 없다. 예외나 `DEADLOCK`/`STEP_LIMIT`이면 자동 retry하지
+않고 즉시 연속 모드를 끝낸다. 모든 `CheckpointAudit`과 마지막 `ExecutionAudit`은 기존 순서대로
+남는다. RUNNING task abort·migration은 두 모드 모두 여전히 지원하지 않는다.
+
+Streamlit의 동기 playback 중에는 chat input·실행 버튼을 처리하지 않는다. checkpoint 모드와
+연속 모드는 같은 session에서 임의로 전환할 수 있으나, 이미 terminal인 실행은 다시 시작하지
+않는다.
 
 UI는 playback on/off, 1x/2x/5x 배속을 제공한다. off는 연구 실행을 건너뛰는 것이 아니라 화면
 재생만 생략한다. matplotlib import/렌더 실패나 frame 생성 실패는 이미 commit된 runtime·state·
 감사 event를 되돌리지 않고 앱을 죽이지 않는다. 오류를 알리고 §18.14 정적 Runtime 지도와 표로
 degrade한다. 테스트는 sleep을 비활성화한 상태에서 AppTest로 버튼→frame→checkpoint 입력 가능
-순서를 검사한다.
+순서, 연속 모드의 terminal 도달·중간 control 미렌더·감사 순서를 검사한다.

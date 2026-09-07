@@ -1586,3 +1586,27 @@ dwell 중이다. P8.5 정적 Runtime 지도는 보간 범위 밖이므로 S2를 
 marker와 다른 것은 의도된 차이다. D-046의 나머지 범위와 실패 정책은 불변이다.
 
 **영향** 계약·테스트 의미 정정. 실행/할당/감사 코드와 버전·수치 불변.
+
+## D-048: checkpoint 재생과 끝까지 연속 재생 분리 (계약 v1.45)
+
+**배경** P10 첫 UI는 `다음 task 완료까지 계속` 한 버튼만 제공했다. 사용자가 첫 구간을 재생해
+보니 일부 agent가 목적지에 도착하기 전에 화면이 멈춘 것으로 보였다. 실제로는 전역에서 가장
+이른 다른 task가 완료되어 정상 checkpoint에 도달한 것이지만, UI가 정지 원인과 계속 RUNNING인
+agent를 설명하지 않아 전체 임무가 중단된 것처럼 읽혔다.
+
+**결정** 목적이 다른 두 동작을 분리한다.
+
+1. **다음 checkpoint까지 재생**: 기존 P9/P10 의미를 그대로 유지한다. 가장 이른 completion
+   event에서 멈추고 정지 원인 task를 표시한다. 그 시각의 다른 RUNNING agent는 schedule상
+   `TRAVEL` 또는 `DWELL`인지 계산해 `중 일시정지`로 표시한다. 여기서 후속 자연어 명령과
+   selective release/rebid가 가능하다.
+2. **끝까지 연속 재생**: 같은 `advance_online_session()`과 구간 playback을 terminal까지
+   반복한다. 구간 사이 입력 control은 렌더하지 않는다. 예외·`DEADLOCK`·`STEP_LIMIT`에서
+   멈추며 자동 retry하지 않는다. 기존 checkpoint/execution 감사 event는 하나도 생략하지 않는다.
+
+두 번째 모드는 편의를 위한 presentation control이지 다른 executor나 새 연구 결과가 아니다.
+중간 명령을 시험하려면 첫 번째 모드를 사용해야 한다. one-shot 버튼도 기존처럼 보존한다.
+
+**영향** `demo/app.py`, `tests/test_demo_app.py`, README/CLAUDE UI 설명. allocation/execution/
+interaction 알고리즘·감사 schema·`VALIDATOR_VERSION`·`ONLINE_POLICY_VERSION`과 모든 결과 수치
+불변.
