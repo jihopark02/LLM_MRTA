@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.45 (D-048). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.46 (D-049). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.46 (D-049): 발표용 **native desktop operator console**을 P11로 추가한다. 한
+  `QApplication`에서 운용자 대화·제어 창과 별도 2D simulator 창을 함께 열고, 기존
+  `MissionSession`·orchestrator·P9 online action·P10 `PlaybackSpec`만 소비한다. desktop
+  view는 CBBA·Validator·executor clock을 복제하지 않으며, checkpoint에서만 후속 입력을
+  허용한다. Streamlit은 감사·회귀용 fallback으로 보존한다. 새 연구 주장·실험·버전 변경 없음.
 - v1.45 (D-048): P10 UI에 서로 다른 목적의 실행 모드 둘을 명시한다. **checkpoint 재생**은
   전역에서 가장 이른 task completion마다 멈춰 후속 명령을 받으므로 다른 agent는 TRAVEL/DWELL
   중일 수 있다. UI가 정지 원인 task와 계속 RUNNING인 agent 상태를 표시한다. **끝까지 연속
@@ -943,6 +948,7 @@ invariant를 통과해야 한다.
 | P9.3 | paused-session REPORT/UPDATE/QUERY + typed audit | 턴 전체 atomicity / accepted update에서만 runtime 교체 / clarification·거부·오류 시 runtime identity·hash 불변 / 온라인 assignment 변화와 release 집합 감사 / advance 예외 뒤 runtime 보존 + checkpoint 재개 가능(D-041) |
 | P9.4 | Streamlit checkpoint·계속·온라인 명령 UI + 비교 실험 | 명령 전/후 assignment·release·현재 시각 표시 / 대표 scenario 완주 / no-reset·full-reset·selective 원시 지표 비교 + `suffix_extra_release_count` 보고 / fixture strict schema / 실패 후 재개 버튼(D-041) |
 | P10 | 온라인 checkpoint 구간 2D playback (D-046~D-048) | 전후 frozen `ExecutionCheckpoint`만 입력 / 같은 snapshot·frame 수 → 같은 `PlaybackSpec` / UAV 직선·UGV shortest-path polyline을 simulation time으로 보간 / travel과 dwell 구분, 보간 pose를 물리 pose로 주장하지 않음 / checkpoint 모드는 가장 이른 completion마다 정지 원인과 계속 RUNNING인 agent 상태 표시, 재생 뒤 명령 허용 / 연속 모드는 같은 advance를 terminal까지 반복하되 구간 사이 입력 금지·실패 즉시 중단 / accepted online UPDATE 뒤 다음 구간이 새 assignment를 사용 / frame 생성·렌더가 allocate·advance·session mutation을 하지 않음 / matplotlib 실패 시 committed execution 보존 + 정적 map·표 fallback / AppTest + headless(Agg) / P3/P4/P9 수치·감사 event 불변 |
+| P11 | native desktop operator console + 별도 2D simulator 창 (D-049) | `python3 -m desktop` 한 명령으로 두 top-level Qt 창 / 동일 `MissionSession` 공유 / live·cached·mock 출처 명시 / 자연어·후보 선택·checkpoint·연속 재생 연결 / simulator는 `MapRenderSpec`·`PlaybackSpec`만 그리며 연구 로직 미복제 / playback 중 입력 비활성, checkpoint에서 재활성 / simulator 창 종료·view 오류가 committed 실행을 rollback하지 않음 / Streamlit 보존 / `QT_QPA_PLATFORM=offscreen` 자동 테스트 / P3/P4/P9 수치·감사 JSON 불변 |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
 
@@ -1664,3 +1670,61 @@ UI는 playback on/off, 1x/2x/5x 배속을 제공한다. off는 연구 실행을 
 감사 event를 되돌리지 않고 앱을 죽이지 않는다. 오류를 알리고 §18.14 정적 Runtime 지도와 표로
 degrade한다. 테스트는 sleep을 비활성화한 상태에서 AppTest로 버튼→frame→checkpoint 입력 가능
 순서, 연속 모드의 terminal 도달·중간 control 미렌더·감사 순서를 검사한다.
+
+---
+
+## 21. Native desktop operator console (P11, D-049)
+
+### 21.1 목적과 범위
+
+P11은 P8~P10의 결과를 브라우저의 긴 분석 페이지가 아니라 발표용 native desktop 화면으로
+보여주는 **presentation client**다. 새 연구 알고리즘·실험·지표가 아니며 Streamlit UI를
+대체하거나 삭제하지 않는다. 실행 명령은 `python3 -m desktop`이고, 한 Qt application 안에
+서로 독립적으로 이동·크기 조절 가능한 두 top-level window를 연다.
+
+- **Operator Console**: 모드(live/cached/mock), 대화, clarification 후보, phase·simulation
+  time, 핵심 Validator/patch/assignment 변화, checkpoint/연속 재생 제어.
+- **Mission Simulator**: scene·route lane·incident·task·agent와 simulation clock을 큰
+  전용 viewport에 표시하고 P10 frame을 순서대로 재생한다.
+
+두 창은 같은 `MissionSession` 객체를 공유한다. 별도 simulator process·socket·두 번째 session을
+만들지 않는다. 창 사이 전달값은 이미 계산된 session event와 immutable render/playback spec뿐이다.
+
+### 21.2 진실 원천과 상태 전이
+
+desktop controller는 기존 공개 경계만 호출한다: 자연어는 `handle_turn`, 후보는
+`select_clarification_candidate`/`cancel_clarification`, 실행은 `advance_online_session`,
+감사는 `write_session_audit`. live/cached/mock backend도 Streamlit과 동일한 구현을 사용한다.
+desktop이 `allocate`, CBBA epoch, `SimExecutor._*`를 직접 호출하거나 task/agent 상태를 고치지
+않는다. 단 첫 online action 전 P10의 frozen `before` snapshot을 얻기 위한
+`SimExecutor(session.state, scene).checkpoint()`는 기존 UI와 동일하게 허용한다.
+
+지도는 P8.5 `MapRenderSpec`, 움직임은 P10 `PlaybackSpec`/`AnimationFrameSpec`만 그린다.
+Qt painter의 좌표 변환·색·label은 view 의미이며 simulator time이나 물리 pose의 새 진실 원천이
+아니다. P10의 kinematic interpolation 한계와 checkpoint 경계는 그대로다.
+
+### 21.3 입력·재생 lifecycle
+
+- planning/checkpoint 상태에서 자연어 입력과 후보 선택을 허용한다.
+- 한 segment를 재생하는 동안 입력·실행 control을 비활성화한다. 마지막 frame 뒤 checkpoint
+  상태를 표시하고 다시 활성화한다.
+- **다음 checkpoint**는 online action을 정확히 한 번 호출한다.
+- **끝까지 연속 재생**은 segment 종료 callback에서 같은 online action을 terminal까지 반복한다.
+  구간 사이 입력을 허용하지 않고, 예외·DEADLOCK·STEP_LIMIT에서 자동 retry하지 않는다.
+- checkpoint에서 accepted online UPDATE가 assignment를 바꾸면 다음 `PlaybackSpec`이 새 runtime
+  assignment를 사용한다. RUNNING task abort·migration과 임의 wall-clock interrupt는 여전히
+  범위 밖이다.
+
+### 21.4 실패·의존성·검증
+
+Qt binding은 공식 Qt for Python 바인딩인 `PySide6`로 고정하고 선택 dependency `desktop`
+extra로 선언한다. desktop module import는 Qt가 없는
+환경에서도 연구 core와 기존 테스트 import를 깨뜨리지 않아야 하며, 실행 시 설치 안내와 함께
+명시적으로 실패한다. simulator 창을 닫아도 session 실행을 취소하거나 rollback하지 않고 다시
+열 수 있다. render 실패는 메시지를 표시하고 대화·감사 경로를 보존한다.
+
+자동 검증은 `QT_QPA_PLATFORM=offscreen`에서 한다: 두 창 생성, 동일 session identity, mock
+mission 생성, structured clarification, checkpoint frame 진행, playback 중 control 비활성,
+checkpoint 후 재활성, 연속 모드 terminal 도달, 온라인 UPDATE 뒤 다음 frame assignment 반영,
+오류 시 자동 retry 없음, audit event 순서와 파일 경로 보존. P3/P4/P9 골든과
+`VALIDATOR_VERSION`/`ONLINE_POLICY_VERSION`은 불변이어야 한다.

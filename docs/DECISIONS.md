@@ -1610,3 +1610,27 @@ agent를 설명하지 않아 전체 임무가 중단된 것처럼 읽혔다.
 **영향** `demo/app.py`, `tests/test_demo_app.py`, README/CLAUDE UI 설명. allocation/execution/
 interaction 알고리즘·감사 schema·`VALIDATOR_VERSION`·`ONLINE_POLICY_VERSION`과 모든 결과 수치
 불변.
+
+## D-049: native operator console과 별도 simulator 창 (계약 v1.46)
+
+**배경** Streamlit UI는 P8~P10의 연구 경로와 감사 정보를 검증하기에는 충분하지만, 대화·JSON·
+표·DAG·2D 지도가 한 긴 웹 문서에 쌓인다. 발표에서 가장 중요한 agent 이동과 online update의
+경로 변화를 작은 embedded plot과 긴 스크롤로 보여주면 운용 시스템보다 디버그 대시보드처럼
+읽힌다. 사용자는 브라우저가 아닌 운용 UI 하나를 실행하고 2D simulator가 별도 창으로 뜨는
+형태를 요청했다.
+
+**결정** P11 presentation client를 추가한다. `python3 -m desktop`은 한 Qt application에서
+`Operator Console`과 `Mission Simulator` 두 top-level window를 열며, 두 창은 동일한
+`MissionSession`을 공유한다. controller는 기존 P8 orchestrator, P9 online action, P10 frozen
+playback spec과 감사 writer만 호출한다. simulator는 spec을 Qt graphics로 그릴 뿐 allocation,
+Validator, executor clock이나 경로 탐색을 복제하지 않는다.
+
+checkpoint 재생과 연속 재생의 의미는 D-048과 같다. frame 재생 중 command control은 잠기고,
+checkpoint에 도달한 뒤에만 후속 명령을 받아 selective release/rebid한다. Streamlit은 자동
+회귀·세부 감사·fallback용으로 그대로 남긴다. Qt binding은 `PySide6` 선택 dependency이며 headless/offscreen
+테스트를 둔다. executable packaging, 실제 telemetry, 임의 시각 interrupt, 3D/Gazebo는 이번
+범위가 아니다.
+
+**영향** 신규 `desktop/` presentation package, `pyproject.toml` desktop extra, 데스크톱 UI
+테스트와 사용 문서. `core/`·`validator/`·`allocation/`·`execution/`·`interaction/`·
+`evaluation/` 의미와 `VALIDATOR_VERSION` 1.4, `ONLINE_POLICY_VERSION`, P3/P4/P9 결과는 불변.
