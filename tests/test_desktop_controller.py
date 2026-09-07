@@ -29,6 +29,35 @@ def test_importing_the_desktop_package_does_not_import_qt():
     assert result.stdout.strip() == "False"
 
 
+def test_module_entrypoint_explains_the_missing_optional_qt_dependency():
+    probe = r'''
+import importlib.abc
+import runpy
+import sys
+
+class BlockQt(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "PySide6" or fullname.startswith("PySide6."):
+            raise ModuleNotFoundError("blocked for test", name="PySide6")
+        return None
+
+sys.meta_path.insert(0, BlockQt())
+try:
+    runpy.run_module("desktop", run_name="__main__")
+except SystemExit as exc:
+    print(exc)
+'''
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=Path(__file__).parents[1],
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "pip install -e '.[desktop]'" in result.stdout
+
+
 def test_mock_mission_uses_the_existing_orchestrator_and_writes_audit(tmp_path):
     controller = _controller(tmp_path)
     session = controller.session
