@@ -1437,9 +1437,11 @@ incident REPORT+UPDATE를 적용해 `no-reset`, `full-reset`, `selective` 세 �
 각 정책에서 다음 원시값을 저장한다: completed/RUNNING 보존 수, released 수와 id, 보존된
 ASSIGNED 수와 id, 기존 task owner change 수, 신규 task assignment, 추가 consensus rounds,
 최종 makespan·UAV/UGV 거리·capability/precedence violation·termination, 그리고 직접 영향 task
-수와 **`suffix_extra_release_count`**(= released − directly_affected). 마지막 값은 §19.3의
-suffix 확장이 이 실행에서 실제로 동작했는지를 그대로 드러내며, 현재 대표 fixture에서는 0이다.
-0이라는 사실을 숨기거나 suffix가 동작한 것처럼 서술하지 않는다.
+목록과 **`suffix_extra_release_count`**(= released − directly_affected). 마지막 값은 §19.3
+3단계가 이 실행에서 실제로 동작했는지를 드러내며 **`selective`에만 정의된다** — `full-reset`은
+suffix와 무관하게 모든 미시작 ASSIGNED를 release하므로 같은 차이를 계산해도 suffix의 효과가
+아니고, `no-reset`은 아무것도 release하지 않는다. 두 정책은 `null`로 보고한다. 현재 대표
+fixture의 `selective` 값은 0이며, 0이라는 사실을 숨기거나 suffix가 동작한 것처럼 서술하지 않는다.
 
 평가 fixture도 연구 결과의 입력이므로 **strict schema**로 읽는다(D-023과 동일 원칙):
 `str`이 와야 할 자리의 `int`를 `str()`로, `float`가 와야 할 자리의 문자열을 `float()`로
