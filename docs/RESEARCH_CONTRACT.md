@@ -1,8 +1,15 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.42 (D-045). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.43 (D-046). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.43 (D-046): P10 checkpoint 구간 2D playback을 추가한다. P8.5에서 제외했던 애니메이션을
+  일반 실시간 simulator가 아니라 **기존 P9 task-completion checkpoint 사이의 결정론적
+  시각화**로 한정해 연다. 실행 상태는 먼저 원자적으로 다음 checkpoint에 commit되며, UI는 그
+  전후의 frozen snapshot에서 UAV 직선·UGV route polyline을 simulation time 기준으로 보간해
+  재생한다. 재생 중 입력은 받지 않고 재생 완료 뒤 checkpoint에서만 후속 명령·선택적 재할당을
+  허용한다. 물리 pose·동역학·임의 wall-clock interrupt는 주장하지 않는다. 연구 판정과 실행
+  의미는 불변이므로 `VALIDATOR_VERSION` 1.4, `ONLINE_POLICY_VERSION`과 P3/P4/P9 수치는 불변.
 - v1.42 (D-045): D-044의 `gid` 문구 정정(문서 전용). "발표 그림을 사후에 대조"는 기술적으로
   사실이 아니다 — PNG는 artist `gid`를 보존하지 않으므로 저장된 파일을 파싱해 node·edge를
   감사할 수 없다. 실제로 가능하고 P8.5b가 구현한 경계는 **저장 직전 `Figure`의 artist 집합을
@@ -925,6 +932,7 @@ invariant를 통과해야 한다.
 | P9.2 | bidder-connected bundle-suffix release + incremental CBBA | COMPLETED/RUNNING 불변 / 영향 없는 ASSIGNED 보존 / release suffix 일관성 / 재경매 뒤 assignment invariant·capability·precedence 위반 0 |
 | P9.3 | paused-session REPORT/UPDATE/QUERY + typed audit | 턴 전체 atomicity / accepted update에서만 runtime 교체 / clarification·거부·오류 시 runtime identity·hash 불변 / 온라인 assignment 변화와 release 집합 감사 / advance 예외 뒤 runtime 보존 + checkpoint 재개 가능(D-041) |
 | P9.4 | Streamlit checkpoint·계속·온라인 명령 UI + 비교 실험 | 명령 전/후 assignment·release·현재 시각 표시 / 대표 scenario 완주 / no-reset·full-reset·selective 원시 지표 비교 + `suffix_extra_release_count` 보고 / fixture strict schema / 실패 후 재개 버튼(D-041) |
+| P10 | 온라인 checkpoint 구간 2D playback (D-046) | 전후 frozen `ExecutionCheckpoint`만 입력 / 같은 snapshot·frame 수 → 같은 `PlaybackSpec` / UAV 직선·UGV shortest-path polyline을 simulation time으로 보간 / travel과 dwell 구분, 보간 pose를 물리 pose로 주장하지 않음 / 재생 중 입력 비활성·재생 뒤 checkpoint에서만 명령 / accepted online UPDATE 뒤 다음 구간이 새 assignment를 사용 / frame 생성·렌더가 allocate·advance·session mutation을 하지 않음 / matplotlib 실패 시 committed execution 보존 + 정적 map·표 fallback / AppTest + headless(Agg) / P3/P4/P9 수치·감사 event 불변 |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
 
@@ -1342,10 +1350,13 @@ graph·scene·state·plan·referent 불변, pending만 제거한다. 후보 선�
 지금까지의 UI(§18.12)는 전부 표와 숫자다. P8.5는 **이미 얻은 결과를 전달하기 위한 그림**을
 추가한다 — 새 연구 주장이 아니고, 어떤 지표도 이 절에서 생기지 않는다.
 
-**범위**: TaskGraph DAG + 정적 2D 임무 지도. **애니메이션은 범위 밖이다** — timestamp로
+**P8.5 범위**: TaskGraph DAG + 정적 2D 임무 지도. **P8.5 자체에서는 애니메이션이 범위
+밖이다** — timestamp로
 재구성은 가능하나 agent별 보간, dwell/travel 분리, online update 전후 assignment 연결,
 Streamlit rerun 상태 관리, 발표 환경 성능이 모두 따라붙는다. 정적 그림에 순서와 상태를
 표시하는 것으로 충분하다.
+후속 P10에서 이 제외를 §20의 좁은 checkpoint playback에 한해 해제한다(D-046). P8.5의 정적
+지도·결정론·degrade 게이트는 그대로 유지된다.
 
 **순수 view 경계.** 렌더러는 `demo/visualization.py`에 두고 matplotlib `Figure`만 반환한다.
 `core/`·`allocation/`·`execution/`·`interaction/`의 **할당·실행 의미는 바꾸지 않으며**, 연구
@@ -1569,3 +1580,62 @@ fixture의 `selective` 값은 0이며, 0이라는 사실을 숨기거나 suffix�
 `COMPLETED`, capability/precedence violation 0. selective는 full-reset보다 적어도 한 개 이상의
 미시작 assignment를 더 보존해야 하며, no-reset과 달리 적어도 한 개의 기존 미시작 task를
 release/rebid해야 한다. 이 조건은 알고리즘 일반 성질이 아니라 대표 fixture의 식별 조건이다.
+
+---
+
+## 20. Checkpoint-segment 2D playback (P10, D-046)
+
+### 20.1 범위와 진실 원천
+
+P10은 P9 온라인 실행의 **연속한 두 `ExecutionCheckpoint` 사이**를 눈으로 재생하는 presentation
+layer다. 임의 wall-clock 시각에 simulator thread를 정지시키는 기능이 아니고, 기존
+`advance_online_session()`의 task-completion event 경계를 바꾸지 않는다. 버튼 한 번의 의미는
+계속 `다음 completion event까지 원자적으로 진행`이다.
+
+실행 상태와 감사 event가 먼저 정상적으로 commit된 뒤, UI가 action 직전 checkpoint와 commit된
+직후 checkpoint를 frozen 입력으로 `PlaybackSpec`에 변환해 재생한다. playback은 결과를
+**설명하는 view**이며 실행을 구동하는 두 번째 clock이 아니다. wall-clock 재생 시간·배속·frame
+rate는 연구 지표나 감사 event가 아니고 `turn_count`도 소비하지 않는다. one-shot 실행은 기존
+정적 completed-execution 지도를 유지한다.
+
+### 20.2 위치 보간 의미
+
+- UAV travel: task의 기록된 `task_departure`부터 `task_start`까지 출발 위치와 target 사이를
+  simulation-time 선형 보간한다.
+- UGV travel: 같은 구간에 `RouteGraph.shortest_path_nodes()`가 준 polyline을 lane weight 누적
+  거리로 보간한다. view가 별도 경로 탐색을 재구현하지 않도록 lane weight의 read-only 조회 API를
+  허용한다. 경로·누적 weight는 allocator/executor가 사용한 shortest-path 거리와 일치해야 한다.
+- dwell: `task_start`부터 해당 agent의 `finish_at`까지 target에 정지해 표시한다.
+- 해당 구간에 travel/dwell이 없는 agent는 마지막 확정 위치에 정지한다. 동시에 계속 RUNNING인
+  agent도 자신의 기록된 departure/start/finish time에 따라 같은 규칙으로 표시한다.
+
+이는 기존 discrete-event schedule의 **kinematic interpolation**이다. 실제 robot telemetry,
+continuous collision avoidance, acceleration·turning dynamics, 물리 pose 정확성을 주장하지 않는다.
+frame label에 simulation time과 agent별 `TRAVEL`/`DWELL`/`IDLE` 상태를 표시해 이 경계를 숨기지
+않는다.
+
+### 20.3 결정론·상태 불변
+
+`PlaybackSpec`과 `AnimationFrameSpec`은 matplotlib을 import하지 않는 immutable 구조다. 같은
+scene, before/after checkpoint, frame 수에는 같은 frame time·agent position·activity·task id가
+나와야 한다. 결정론 게이트는 Figure/GIF 바이트가 아니라 이 spec을 비교한다(§18.14와 동일 원칙).
+
+spec 생성과 frame 렌더는 `allocate()`, CBBA epoch, `advance_to_next_completion()`,
+`advance_online_session()`을 호출하지 않고 session·scene·checkpoint를 바꾸지 않는다. 전후
+checkpoint의 simulation time, graph/state, assignment, timing과 scene hash가 frame 생성 전후
+동일해야 한다. 마지막 frame은 commit된 after checkpoint의 정적 runtime 의미와 일치한다.
+
+### 20.4 UI·실패 경계
+
+온라인 실행 버튼을 누르면 action 전 snapshot을 잡고 기존 `advance_online_session()`을 한 번만
+호출한 뒤, 성공적으로 시간이 전진한 경우에만 그 구간을 재생한다. Streamlit의 동기 playback
+중에는 chat input·실행 버튼을 처리하지 않으며, 재생이 끝난 뒤 이미 commit된 checkpoint에서
+후속 자연어 입력을 받는다. 따라서 운용자는 **재생 → checkpoint 입력 → selective release/rebid →
+다음 구간 재생** 순서로 계획·할당 변화를 확인한다. RUNNING task abort·migration은 여전히
+지원하지 않는다.
+
+UI는 playback on/off, 1x/2x/5x 배속을 제공한다. off는 연구 실행을 건너뛰는 것이 아니라 화면
+재생만 생략한다. matplotlib import/렌더 실패나 frame 생성 실패는 이미 commit된 runtime·state·
+감사 event를 되돌리지 않고 앱을 죽이지 않는다. 오류를 알리고 §18.14 정적 Runtime 지도와 표로
+degrade한다. 테스트는 sleep을 비활성화한 상태에서 AppTest로 버튼→frame→checkpoint 입력 가능
+순서를 검사한다.

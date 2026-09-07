@@ -1540,3 +1540,34 @@ P9 실험 수치·결론 불변, `VALIDATOR_VERSION` 1.4 불변.
 
 **영향** 문서만. renderer 코드 변경 없음, 새 주장·지표 없음, `VALIDATOR_VERSION` 1.4 불변,
 P3/P4 골든(359.8385 / 257.8505)과 P9 수치 불변.
+
+## D-046: checkpoint 구간 2D playback (계약 v1.43)
+
+**배경** P8.5 정적 지도는 계획·paused runtime·완료 실행을 정직하게 구분하지만, 발표 화면에서
+UAV/UGV가 실제로 이동하는 과정과 checkpoint에서 들어온 새 명령이 다음 구간 assignment를
+바꾸는 장면은 보여주지 못한다. 사용자는 숫자와 polyline뿐 아니라 움직임을 직접 확인할 수 있는
+운용자 콘솔을 요구했다.
+
+**결정** P8.5에서 제외했던 애니메이션을 P10으로 별도 추가한다. 범위는 기존 P9가 보장하는
+연속 task-completion checkpoint 사이의 playback뿐이다. action 전후 frozen
+`ExecutionCheckpoint`에서 simulation-time frame spec을 만들고, UAV는 직선, UGV는 기존
+shortest-path polyline의 lane weight 누적 거리로 보간한다. travel과 dwell을 구분한다.
+
+simulator는 playback보다 먼저 다음 checkpoint를 원자적으로 commit한다. playback은 그 결과를
+보여주는 순수 view이며 실행 clock·할당 알고리즘·감사 event가 아니다. UI는 동기 playback 중
+입력을 받지 않고, 끝난 checkpoint에서만 새 명령을 받아 기존 bidder-connected selective
+release/rebid를 수행한다. 따라서 "임무 수행 중 입력"은 임의 물리 시각 interrupt가 아니라
+**결정론적 completion checkpoint에서의 입력**이라는 기존 P9 경계를 보존한다.
+
+**제외** 실제 telemetry, continuous physics, acceleration/turning dynamics, RUNNING task abort·
+migration, 임의 wall-clock interrupt, background thread simulator, animation wall-clock 성능을
+연구 지표로 쓰는 것. playback off/배속은 표시 선택일 뿐 실행 결과를 바꾸지 않는다.
+
+**실패 정책** spec/renderer/matplotlib 실패는 이미 commit된 execution을 rollback하지 않는다.
+오류를 표시하고 정적 Runtime 지도·표로 degrade한다. 같은 snapshot·frame 수의 결정론은 이미지
+바이트가 아니라 immutable `PlaybackSpec`으로 검사한다.
+
+**영향** 신규 `demo/animation.py`, `demo/visualization.py` playback renderer,
+`demo/app.py` UI 연결, `core/route_graph.py` read-only lane weight 조회, 관련 단위/AppTest.
+`allocation/`·`execution/`·`interaction/`·`evaluation/` 의미 불변. `VALIDATOR_VERSION` 1.4와
+`ONLINE_POLICY_VERSION`, P3/P4/P9 수치 불변.
