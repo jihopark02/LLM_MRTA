@@ -32,6 +32,7 @@ def test_streamlit_mock_path_renders_planning_clarification_and_execution(
         "최근 자연어 처리 결과",
         "TaskGraph",
         "Plan-time CBBA",
+        "2D 임무 지도",
         "2D 실행 결과",
     }
     assert next(button for button in at.button if button.label == "임무 실행").disabled
@@ -238,7 +239,8 @@ def _planned_app(tmp_path, monkeypatch):
 def test_the_graph_panel_draws_the_dag_and_keeps_the_table(tmp_path, monkeypatch):
     at = _planned_app(tmp_path, monkeypatch)
     assert not at.exception
-    assert len(at.image) == 1                        # st.pyplot surfaces as an Image
+    # st.pyplot surfaces as an Image: the DAG plus the Plan-time map
+    assert len(at.image) == 2
     assert any("TaskGraph 표" in item.label for item in at.expander)
     # the auditable table is still reachable underneath the figure
     assert any(
@@ -275,7 +277,8 @@ def test_the_dag_tracks_an_update_made_while_execution_is_paused(
     at = _submit(at, MOCK_COMMANDS[2])          # report a new incident
     at = _submit(at, MOCK_COMMANDS[3])          # extend it — new tasks appear
     assert not at.exception
-    assert len(at.image) == 1
+    # DAG + both map tabs (Streamlit renders every tab's body each run)
+    assert len(at.image) == 3
 
     # the new incident's chain is in the graph the panel just drew
     session = at.session_state["mission_session"]
@@ -284,3 +287,120 @@ def test_the_dag_tracks_an_update_made_while_execution_is_paused(
     spec = dag_render_spec(session.state.graph)
     assert "FIRE_SITE_3" in spec.row_labels
     assert spec.task_ids == {task.task_id for task in session.state.graph.tasks}
+
+
+# -- 2D map tabs (§18.14, P8.5g) -----------------------------------------
+
+
+def _map_tab_labels(at):
+    return [
+        tab.label
+        for tab in at.get("tab")
+        if tab.label in {"Plan-time", "Runtime", "Execution"}
+    ]
+
+
+def test_planning_shows_only_the_plan_time_map(tmp_path, monkeypatch):
+    at = _planned_app(tmp_path, monkeypatch)
+    assert not at.exception
+    assert _map_tab_labels(at) == ["Plan-time"]
+
+
+def test_a_paused_run_adds_a_runtime_map(tmp_path, monkeypatch):
+    at = _planned_app(tmp_path, monkeypatch)
+    at = next(b for b in at.button if b.label == "온라인 실행 시작").click().run()
+
+    assert not at.exception
+    assert ("Phase", "EXECUTION_PAUSED") in [
+        (metric.label, metric.value) for metric in at.metric
+    ]
+    assert _map_tab_labels(at) == ["Plan-time", "Runtime"]
+    assert "Execution" not in _map_tab_labels(at)
+
+
+def test_a_completed_run_adds_an_execution_map(tmp_path, monkeypatch):
+    at = _planned_app(tmp_path, monkeypatch)
+    at = next(b for b in at.button if b.label == "임무 실행").click().run()
+
+    assert not at.exception
+    assert ("Phase", "EXECUTED") in [
+        (metric.label, metric.value) for metric in at.metric
+    ]
+    assert _map_tab_labels(at) == ["Plan-time", "Execution"]
+
+
+def test_a_failed_run_shows_the_plan_only_and_names_the_cause(tmp_path, monkeypatch):
+    from execution.executor import SimExecutor
+
+    at = _planned_app(tmp_path, monkeypatch)
+    with monkeypatch.context() as failure_patch:
+        failure_patch.setattr(
+            SimExecutor, "run", lambda self, *a, **k: (_ for _ in ()).throw(
+                RuntimeError("sim exploded")
+            )
+        )
+        at = next(b for b in at.button if b.label == "임무 실행").click().run()
+
+    assert not at.exception
+    assert ("Phase", "EXECUTION_FAILED") in [
+        (metric.label, metric.value) for metric in at.metric
+    ]
+    # No completed-execution map for a run that did not complete (§18.14).
+    assert _map_tab_labels(at) == ["Plan-time"]
+    assert any("RuntimeError" in item.value for item in at.warning)
+
+
+def test_a_rerun_redraws_without_recomputing_the_plan_or_the_run(
+    tmp_path, monkeypatch
+):
+    """Rendering must read what is stored, never recompute it."""
+    import allocation.allocate as allocate_module
+    from execution.executor import SimExecutor
+
+    at = _planned_app(tmp_path, monkeypatch)
+    at = next(b for b in at.button if b.label == "임무 실행").click().run()
+    assert _map_tab_labels(at) == ["Plan-time", "Execution"]
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("the map panel must not recompute")
+
+    with monkeypatch.context() as no_recompute:
+        no_recompute.setattr(allocate_module, "allocate", forbidden)
+        no_recompute.setattr(SimExecutor, "run", forbidden)
+        no_recompute.setattr(SimExecutor, "advance_to_next_completion", forbidden)
+        at = at.run()
+
+    assert not at.exception
+    assert _map_tab_labels(at) == ["Plan-time", "Execution"]
+    assert len(at.image) == 3
+
+
+def test_repeated_reruns_do_not_accumulate_figures(tmp_path, monkeypatch):
+    at = _planned_app(tmp_path, monkeypatch)
+    for _ in range(3):
+        at = at.run()
+        assert not at.exception
+
+    # Figures are created without pyplot, so none is registered globally and
+    # nothing piles up across reruns.
+    import matplotlib.pyplot as plt
+
+    assert plt.get_fignums() == []
+    assert len(at.image) == 2
+
+
+def test_without_matplotlib_the_map_panel_falls_back_but_controls_remain(
+    tmp_path, monkeypatch, without_matplotlib
+):
+    from demo.app import VIZ_MISSING_NOTE
+
+    at = _planned_app(tmp_path, monkeypatch)
+
+    assert not at.exception
+    assert list(at.image) == []
+    assert _map_tab_labels(at) == []
+    # the fallback note appears for both the DAG and the map panel
+    assert sum(VIZ_MISSING_NOTE in item.value for item in at.caption) == 2
+    # and the console is still operable
+    assert not next(b for b in at.button if b.label == "임무 실행").disabled
+    assert not next(b for b in at.button if b.label == "온라인 실행 시작").disabled

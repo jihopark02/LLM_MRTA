@@ -28,7 +28,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from demo.mock_script import MOCK_COMMANDS, make_mock_backend
-from interaction.audit import CheckpointAudit
+from execution.executor import Termination
+from interaction.audit import CheckpointAudit, ExecutionAudit
 from interaction.audit_io import write_session_audit
 from interaction.execute import execute_session
 from interaction.online_execute import advance_online_session
@@ -254,6 +255,111 @@ def _plan_panel(session: MissionSession) -> None:
     st.json(asdict(changes) if changes else {"added": {}, "removed": {}, "changed": {}})
 
 
+def _show_figure(figure) -> None:
+    """Render a figure and release it.
+
+    Figures are built without pyplot, so none is registered globally; clearing
+    after Streamlit has marshalled the element keeps repeated reruns from
+    holding on to artists.
+    """
+    st.pyplot(figure)
+    figure.clear()
+
+
+def _map_figure(spec):
+    """Draw one map, or ``None`` when the drawing stack is unavailable.
+
+    The guard belongs here, not around spec building: specs are deliberately
+    matplotlib-free (P8.5a/e), so guarding *those* imports proves nothing and
+    lets the ImportError escape from the draw instead (D-044).
+    """
+    try:
+        from demo.visualization import render_mission_map
+
+        return render_mission_map(spec)
+    except ImportError:
+        return None
+
+
+def _mission_map_specs(session: MissionSession):
+    """``(tab label, spec)`` for the maps this phase may show.
+
+    Plan-time is always available once a mission is planned. The second map
+    depends on the phase and is never overlaid on the first: a paused run shows
+    its runtime, a completed run shows what it drove, and a failed run shows
+    neither — ``execution_map_spec`` refuses a non-COMPLETED result because its
+    departed tasks never arrived.
+    """
+    try:
+        from demo.visualization import (
+            execution_map_spec,
+            plan_map_spec,
+            runtime_map_spec,
+        )
+    except ImportError:      # only if the spec module itself grows a hard dep
+        return None
+
+    specs = [
+        ("Plan-time", plan_map_spec(session.scene, session.state.graph, session.plan))
+    ]
+    if session.phase is SessionPhase.EXECUTION_PAUSED and session.runtime is not None:
+        specs.append(("Runtime", runtime_map_spec(session.scene, session.runtime)))
+    elif (
+        session.phase is SessionPhase.EXECUTED
+        and session.execution is not None
+        and session.execution.termination is Termination.COMPLETED
+    ):
+        specs.append(
+            (
+                "Execution",
+                execution_map_spec(
+                    session.scene, session.state.graph, session.execution
+                ),
+            )
+        )
+    return specs
+
+
+def _failure_note(session: MissionSession) -> str | None:
+    if session.phase is not SessionPhase.EXECUTION_FAILED:
+        return None
+    if session.execution is not None:
+        return (
+            f"실행이 `{session.execution.termination.value}`로 끝났습니다. "
+            "완료 실행 지도는 표시하지 않습니다 — 출발했지만 도착하지 않은 task가 있습니다."
+        )
+    audit = next(
+        (e for e in reversed(session.event_log) if isinstance(e, ExecutionAudit)), None
+    )
+    detail = f"{audit.error_type}: {audit.error_detail}" if audit else "원인 미기록"
+    return f"실행이 예외로 중단됐습니다 ({detail}). 완료 실행 지도는 표시하지 않습니다."
+
+
+def _map_panel(session: MissionSession) -> None:
+    st.subheader("2D 임무 지도")
+    if session.state is None or session.plan is None:
+        st.info("임무를 생성하면 지도가 표시됩니다.")
+        return
+
+    note = _failure_note(session)
+    if note is not None:
+        st.warning(note)
+
+    specs = _mission_map_specs(session)
+    if specs is None:
+        st.caption(VIZ_MISSING_NOTE)
+        return
+    drawn = [(label, spec, _map_figure(spec)) for label, spec in specs]
+    if any(figure is None for _, _, figure in drawn):
+        st.caption(VIZ_MISSING_NOTE)
+        return
+    tabs = st.tabs([label for label, _, _ in drawn])
+    for tab, (label, spec, figure) in zip(tabs, drawn, strict=True):
+        with tab:
+            _show_figure(figure)
+            st.caption(f"{label} · agent {len(spec.agents)}기 · leg {len(spec.legs)}개")
+
+
 def _execution_panel(session: MissionSession) -> None:
     st.subheader("2D 실행 결과")
     if session.phase is SessionPhase.EXECUTION_PAUSED and session.runtime is not None:
@@ -458,6 +564,7 @@ def main() -> None:
     with right:
         _graph_panel(session)
         _plan_panel(session)
+    _map_panel(session)
     _execution_panel(session)
 
 
