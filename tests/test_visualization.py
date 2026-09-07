@@ -260,3 +260,140 @@ def test_row_order_does_not_depend_on_the_hash_seed():
         )
         seen.add(done.stdout.strip())
     assert len(seen) == 1, f"row order varies with PYTHONHASHSEED: {seen}"
+
+
+# -- P8.5b: drawing (§18.14) ---------------------------------------------
+
+
+@pytest.fixture
+def rendered(graph):
+    from demo.visualization import render_task_graph
+
+    spec = dag_render_spec(graph)
+    figure = render_task_graph(spec)
+    yield spec, figure
+    figure.clear()
+
+
+def _gids(figure) -> set[str]:
+    return {
+        artist.get_gid()
+        for artist in figure.axes[0].get_children()
+        if artist.get_gid()
+    }
+
+
+def test_the_spec_is_the_only_data_input():
+    """A hand-built spec with no graph behind it must render, which is what
+    proves the figure never reaches back to a TaskGraph or Scene."""
+    from demo.visualization import DagEdgeSpec, DagNodeSpec, DagRenderSpec, render_task_graph
+
+    invented = DagRenderSpec(
+        nodes=(
+            DagNodeSpec("A", "ALPHA", "ROW", 0.0, 0.0, "#123456", "o", TaskStatus.READY),
+            DagNodeSpec("B", "BETA", "ROW", 1.0, 0.0, "#654321", "s", TaskStatus.RUNNING),
+        ),
+        edges=(DagEdgeSpec("A", "B"),),
+        row_labels=("ROW",),
+        columns=((0.0, "ALPHA"), (1.0, "BETA")),
+    )
+    figure = render_task_graph(invented)
+    try:
+        assert _gids(figure) == {"A", "B", "A->B"}
+    finally:
+        figure.clear()
+
+
+def test_every_node_and_edge_becomes_an_identified_artist(rendered):
+    spec, figure = rendered
+    expected = {node.gid for node in spec.nodes} | {edge.gid for edge in spec.edges}
+    assert _gids(figure) == expected
+    assert len(expected) == len(spec.nodes) + len(spec.edges)
+
+
+def test_node_artists_sit_at_the_spec_coordinates(rendered):
+    spec, figure = rendered
+    drawn = {
+        artist.get_gid(): artist
+        for artist in figure.axes[0].get_lines()
+        if artist.get_gid()
+    }
+    for node in spec.nodes:
+        xs, ys = drawn[node.task_id].get_data()
+        assert (float(xs[0]), float(ys[0])) == (node.x, node.y)
+        assert drawn[node.task_id].get_marker() == node.marker
+
+
+def test_axis_labels_come_from_the_spec(rendered):
+    spec, figure = rendered
+    ax = figure.axes[0]
+    assert [t.get_text() for t in ax.get_yticklabels()] == list(spec.row_labels)
+    assert [t.get_text() for t in ax.get_xticklabels()] == [c[1] for c in spec.columns]
+    assert list(ax.get_xticks()) == [c[0] for c in spec.columns]
+
+
+def test_status_and_platform_legends_are_separate(rendered):
+    _, figure = rendered
+    ax = figure.axes[0]
+    legends = [ax.get_legend()] + [
+        child for child in ax.get_children()
+        if child is not ax.get_legend() and type(child).__name__ == "Legend"
+    ]
+    titles = {legend.get_title().get_text() for legend in legends}
+    assert titles == {"TaskStatus", "Platform"}
+
+    by_title = {legend.get_title().get_text(): legend for legend in legends}
+    status_labels = [t.get_text() for t in by_title["TaskStatus"].get_texts()]
+    assert set(status_labels) == {status.value for status in TaskStatus}
+    platform_labels = [t.get_text() for t in by_title["Platform"].get_texts()]
+    assert platform_labels == ["UAV", "UGV", "UAV/UGV"]
+
+
+def test_an_empty_graph_renders_without_raising():
+    from core.task_graph import TaskGraph
+    from demo.visualization import render_task_graph
+
+    figure = render_task_graph(dag_render_spec(TaskGraph()))
+    try:
+        assert _gids(figure) == set()
+        assert figure.axes
+    finally:
+        figure.clear()
+
+
+def test_figure_height_grows_with_rows_but_is_bounded():
+    from demo.visualization import MAX_HEIGHT_IN, MIN_HEIGHT_IN, figure_height
+
+    assert figure_height(0) == MIN_HEIGHT_IN
+    assert figure_height(6) > figure_height(2)
+    assert figure_height(500) == MAX_HEIGHT_IN
+
+
+def test_a_large_scene_stays_within_the_height_cap(scene):
+    from core.mission_state import MissionState
+    from demo.visualization import MAX_HEIGHT_IN, render_task_graph
+    from scenarios.compiler import compile_reference_graph
+
+    for _ in range(40):
+        scene, _ = register_incident(scene, "ZONE_A")
+    built = compile_reference_graph(
+        scene, [(TaskType.THERMAL_RECON, iid) for iid in scene.incidents], []
+    )
+    figure = render_task_graph(dag_render_spec(MissionState(built, {}).graph))
+    try:
+        assert figure.get_size_inches()[1] == pytest.approx(MAX_HEIGHT_IN)
+    finally:
+        figure.clear()
+
+
+def test_rendering_does_not_mutate_the_spec(rendered):
+    spec, _ = rendered
+    assert spec == dag_render_spec(load_reference_fixture().graph)
+
+
+def test_rendering_is_headless_and_saves(rendered, tmp_path):
+    _, figure = rendered
+    out = tmp_path / "dag.png"
+    figure.savefig(out)                       # no display, no pyplot backend
+    assert out.stat().st_size > 0
+    assert type(figure.canvas).__name__ == "FigureCanvasAgg"
