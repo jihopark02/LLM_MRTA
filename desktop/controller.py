@@ -51,6 +51,15 @@ DEFAULT_RUNTIME_ROOT = ROOT / "data"
 SUPPORTED_MODES = ("live", "cached", "mock")
 DEFAULT_FRAME_COUNT = 36
 
+SENSOR_LIVE_EXAMPLES = (
+    "네 개 구역을 모두 항공 정찰하고 새 화재가 감지되면 "
+    "지상 로봇 진압 단계까지 완료해줘",
+)
+OPERATOR_LIVE_EXAMPLES = (
+    "네 개 구역 전체를 항공 정찰만 해줘",
+    "Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지 대응해줘",
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ScenarioProfile:
@@ -59,6 +68,7 @@ class ScenarioProfile:
     scene_path: Path
     mock_script: str
     latent_fixture_path: Path | None = None
+    live_examples: tuple[str, ...] = ()
 
 
 SCENARIO_PROFILES = {
@@ -68,18 +78,23 @@ SCENARIO_PROFILES = {
         PATROL_SCENE_PATH,
         SENSOR_SCRIPT,
         SENSOR_FIXTURE_PATH,
+        SENSOR_LIVE_EXAMPLES,
     ),
     "operator-report": ScenarioProfile(
         "operator-report",
         "2 · UAV 순찰 중 자연어 화재 신고",
         PATROL_SCENE_PATH,
         OPERATOR_SCRIPT,
+        live_examples=OPERATOR_LIVE_EXAMPLES,
     ),
     "reference": ScenarioProfile(
         "reference",
         "기존 reference mission",
         SCENE_PATH,
         REFERENCE_SCRIPT,
+        live_examples=(
+            "전체 구역을 항공 정찰하고 알려진 두 화재를 지상 진압까지 대응해줘",
+        ),
     ),
 }
 SUPPORTED_SCENARIOS = tuple(SCENARIO_PROFILES)
@@ -288,6 +303,10 @@ class DesktopController:
     def mock_commands(self) -> tuple[str, ...]:
         return commands_for_script(self.profile.mock_script)
 
+    @property
+    def live_examples(self) -> tuple[str, ...]:
+        return self.profile.live_examples
+
     def current_map_spec(self) -> MapRenderSpec | None:
         """Best truthful static view for the session's current phase."""
         session = self.session
@@ -312,7 +331,9 @@ __all__ = [
     "AdvancePresentation",
     "ChatMessage",
     "DesktopController",
+    "OPERATOR_LIVE_EXAMPLES",
     "SCENARIO_PROFILES",
+    "SENSOR_LIVE_EXAMPLES",
     "SUPPORTED_MODES",
     "SUPPORTED_SCENARIOS",
 ]

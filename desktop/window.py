@@ -314,15 +314,26 @@ class OperatorWindow(QMainWindow):
         )
         policy = session.directive.incident_response_up_to
         fixture = self.controller.fixture_id or "none"
-        commands = "  →  ".join(self.controller.mock_commands)
+        mock_commands = "  →  ".join(self.controller.mock_commands)
+        live_examples = "  →  ".join(self.controller.live_examples)
+        if self.controller.mode == "mock":
+            command_help = f"MOCK 정확 입력: {mock_commands}"
+        elif self.controller.mode == "cached":
+            command_help = (
+                f"CACHED exact replay: {live_examples}"
+                if live_examples
+                else "CACHED: 이 session과 정확히 일치하는 저장 응답이 필요합니다."
+            )
+        else:
+            command_help = (
+                f"LIVE 예시(지원 범위 안에서 표현 변경 가능): {live_examples}"
+                if live_examples
+                else "LIVE: 지원 범위 안에서 자연어 표현을 바꿔 입력할 수 있습니다."
+            )
         self.scenario_help.setText(
             f"SCENARIO: {self.controller.scenario_label}  ·  fixture: {fixture}  ·  "
             f"active policy: {policy.value if policy is not None else 'none'}\n"
-            + (
-                f"MOCK 정확 입력: {commands}"
-                if self.controller.mode == "mock"
-                else "LIVE: 지원 범위 안에서 자연어 표현을 바꿔 입력할 수 있습니다."
-            )
+            + command_help
         )
         self.chat.setHtml(self._chat_html())
         scrollbar = self.chat.verticalScrollBar()

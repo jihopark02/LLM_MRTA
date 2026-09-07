@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication
 
 from demo.mock_script import MOCK_COMMANDS, SENSOR_MOCK_COMMANDS
 from desktop.app import build_windows
-from desktop.controller import DesktopController
+from desktop.controller import OPERATOR_LIVE_EXAMPLES, DesktopController
 from execution.executor import SimExecutor
 
 
@@ -68,6 +68,19 @@ def test_a_mock_mission_updates_the_compact_console_and_simulator(windows):
     assert "COMMITTED" in operator.latest.text()
     assert simulator.canvas.spec.mode == "plan"
     assert "MOCK" in operator.mode_banner.text()
+
+
+def test_cached_help_is_never_labelled_live_and_shows_the_exact_replay(windows):
+    controller, operator, _ = windows
+    controller.new_session("operator-report")
+    controller.set_mode("cached")
+    operator.refresh()
+
+    assert "CACHED" in operator.mode_banner.text()
+    assert "CACHED exact replay" in operator.scenario_help.text()
+    assert "LIVE" not in operator.scenario_help.text()
+    assert OPERATOR_LIVE_EXAMPLES[0] in operator.scenario_help.text()
+    assert OPERATOR_LIVE_EXAMPLES[1] in operator.scenario_help.text()
 
 
 def test_checkpoint_playback_locks_input_then_reopens_it(windows, qt_app):
