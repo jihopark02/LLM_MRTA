@@ -107,6 +107,28 @@ def test_heldout_annotation_mock_self_test_is_eight_of_eight():
     assert all(not case.precedence_violations for case in run.cases)
 
 
+def test_report_case_scores_the_requested_workflow_prefix_not_always_full_chain(
+    tmp_path,
+):
+    raw = yaml.safe_load(HELDOUT.read_text(encoding="utf-8"))
+    raw["report_cases"] = [raw["report_cases"][0]]
+    raw["report_cases"][0]["expected_response_up_to"] = "THERMAL_RECON"
+    path = tmp_path / "short-report.yaml"
+    path.write_text(yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
+    annotation = load_annotation(path)
+
+    run = run_counterfactual(
+        annotation,
+        mock_backend_factory(annotation),
+        requested_model=None,
+    )
+    report = next(case for case in run.cases if case.family == "operator-report")
+
+    assert report.exact
+    assert report.expected["response_tasks"] == ["THERMAL_RECON"]
+    assert report.actual["response_tasks"] == ["THERMAL_RECON"]
+
+
 @pytest.mark.parametrize(
     "mutate",
     [

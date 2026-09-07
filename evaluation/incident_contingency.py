@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict
 from core.enums import TaskType
 from interaction.audit import IncidentObservationAudit
 from interaction.audit_io import session_audit_payload
+from interaction.ground import chain_prefix
 from interaction.observe import apply_fire_observation
 from interaction.online_execute import advance_online_session
 from interaction.orchestrator import TurnOutcome, handle_turn
@@ -322,7 +323,7 @@ def _run_report_case(
 ) -> CounterfactualCaseResult:
     scene = load_scene(ROOT / annotation.scene)
     session = MissionSession(f"p12-{case.id.lower().replace('_', '-')}", scene)
-    expected_steps = [step.value for step in TaskType if step is not TaskType.AREA_RECON]
+    expected_steps = [step.value for step in chain_prefix(case.expected_response_up_to)]
     expected = {
         "initial_tasks": sorted(annotation.expected_initial_tasks),
         "zone": case.expected_zone,
