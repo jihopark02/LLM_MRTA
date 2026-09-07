@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
@@ -27,6 +28,28 @@ def _pen_style(phase: str) -> Qt.PenStyle:
         "in_progress": Qt.PenStyle.DashLine,
         "remaining": Qt.PenStyle.DotLine,
     }.get(phase, Qt.PenStyle.SolidLine)
+
+
+def _agent_offsets(agents) -> dict[str, tuple[float, float]]:
+    """Deterministic screen offsets for agents at exactly the same pose.
+
+    The map coordinate stays in ``MapRenderSpec``.  A short leader line points
+    from each displaced marker back to that true coordinate, avoiding the
+    unreadable six-label pile-up at the shared depot.
+    """
+    groups: dict[tuple[float, float], list[str]] = {}
+    for agent in agents:
+        groups.setdefault(agent.position, []).append(agent.agent_id)
+    result = {}
+    for agent_ids in groups.values():
+        ordered = sorted(agent_ids)
+        if len(ordered) == 1:
+            result[ordered[0]] = (0.0, 0.0)
+            continue
+        for index, agent_id in enumerate(ordered):
+            angle = -math.pi / 2 + 2 * math.pi * index / len(ordered)
+            result[agent_id] = (14.0 * math.cos(angle), 14.0 * math.sin(angle))
+    return result
 
 
 class MissionCanvas(QWidget):
@@ -155,9 +178,17 @@ class MissionCanvas(QWidget):
         activity = {
             item.agent_id: (item.activity, item.task_id) for item in self.frame.agents
         } if self.frame is not None else {}
+        offsets = _agent_offsets(self.spec.agents)
         for agent in self.spec.agents:
-            point = project(agent.position)
+            anchor = project(agent.position)
+            dx, dy = offsets[agent.agent_id]
+            point = anchor + QPointF(dx, dy)
             color = QColor(agent.color)
+            if dx or dy:
+                painter.setPen(QPen(QColor("#52647b"), 1.0))
+                painter.drawLine(anchor, point)
+                painter.setBrush(QBrush(QColor("#e8eef7")))
+                painter.drawEllipse(anchor, 2, 2)
             painter.setPen(QPen(QColor("#f8fafc"), 1.4))
             painter.setBrush(QBrush(color))
             if agent.platform_kind is PlatformKind.UAV:

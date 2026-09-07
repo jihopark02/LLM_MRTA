@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication
 
 from demo.animation import build_playback_spec
 from demo.visualization import plan_map_spec
-from desktop.simulator import MissionSimulatorWindow
+from desktop.simulator import MissionSimulatorWindow, _agent_offsets
 from execution.executor import SimExecutor
 from interaction.session import fresh_session_state
 from scenarios.fixture import load_reference_fixture
@@ -99,3 +99,16 @@ def test_closing_the_simulator_hides_it_without_destroying_its_spec(qt_app):
     qt_app.processEvents()
     assert window.isVisible()
     window.shutdown()
+
+
+def test_colocated_agents_get_deterministic_view_offsets_without_changing_the_spec():
+    spec = _plan_spec()
+    original = tuple(agent.position for agent in spec.agents)
+
+    first = _agent_offsets(tuple(reversed(spec.agents)))
+    second = _agent_offsets(spec.agents)
+
+    assert first == second
+    assert set(first) == {agent.agent_id for agent in spec.agents}
+    assert any(offset != (0.0, 0.0) for offset in first.values())
+    assert tuple(agent.position for agent in spec.agents) == original
