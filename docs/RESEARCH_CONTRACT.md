@@ -1,8 +1,14 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.46 (D-049). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.47 (D-051). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.47 (D-051): P12 **LLM-driven incident contingency**를 추가한다. LLM은 최초 자연어에서
+  초기 task graph와 별도로 `FIRE_DETECTED`/운영자 신고에 적용할 response step을 추출하고,
+  실행 중 한 턴의 화재 신고에서는 zone과 명시적 response step을 추출한다. 정찰 완료가 만든
+  결정론적 simulated observation과 운영자 보고는 같은 atomic incident transaction → Validator
+  → P9 selective release/rebid 경로로 수렴한다. 실제 perception·임의 조건식·LLM 직접 할당은
+  여전히 제외하며, counterfactual Live 평가로 입력에 따라 graph/policy/target이 달라짐을 보인다.
 - v1.46 (D-049): 발표용 **native desktop operator console**을 P11로 추가한다. 한
   `QApplication`에서 운용자 대화·제어 창과 별도 2D simulator 창을 함께 열고, 기존
   `MissionSession`·orchestrator·P9 online action·P10 `PlaybackSpec`만 소비한다. desktop
@@ -272,6 +278,18 @@ reconciliation만으로는** release가 일어나지 않는다는 뜻으로 유�
 기존 미시작 task와 같은 bidder를 두고 경쟁한다는 별도 allocation 정책이므로 recheck task
 type 없이도 release/rebid가 가능하다.
 
+**RQ5 (선택 확장)**: 자연어 최초 명령에서 LLM이 초기 정찰 graph와 화재 발생 시의 대응 범위를
+분리해 추출하고, 실행 중 UAV 정찰 완료가 낸 simulated `FIRE_DETECTED` observation 또는
+운영자의 자연어 화재 신고를 동일한 검증·증분 할당 경로로 처리할 수 있는가? 같은 scene에서
+명령의 대응 단계가 달라지면 생성되는 정책과 incident workflow prefix가 달라지고, 같은 명령에서
+보고된 zone이 달라지면 신규 incident target과 경로가 달라져야 한다.
+
+RQ5의 LLM 역할은 초기 objective·고정 4단계 workflow의 response prefix·운영자 발화의 zone을
+구조화하는 데 한정한다. 화재 존재 여부, 좌표, priority, capability, Validator 판정, agent 선택,
+release 집합과 실행 성공을 LLM이 결정하지 않는다. `FIRE_DETECTED`는 실제 영상 인식이 아니라
+사전 고정된 latent-world fixture가 특정 `AREA_RECON` 완료 뒤 공개하는 결정론적 observation이다.
+따라서 결과를 "자동 화재 인식" 또는 물리적 실시간 perception으로 부르지 않는다.
+
 ---
 
 ## 2. MP4MR과의 관계
@@ -313,7 +331,10 @@ Farm).
 화재 여부를 판정하지 않는다. False alarm과 perception 기반 조건부 graph는 범위 밖이다. 이
 `status`는 주석이 아니라 scene 데이터의 필수 필드로 명시하고 loader가 검증한다(`IncidentStatus`).
 
-화재 위치·상태는 semantic scene 또는 운용자·외부 시스템 보고로만 시스템에 진입한다. 실제
+화재 위치·상태는 semantic scene 또는 운용자·외부 시스템 보고로만 시스템에 진입한다. P12의
+patrol fixture에서는 초기 planner/LLM context에 보이지 않는 `latent_incidents`를 별도 파일에
+두고, 대응하는 `AREA_RECON` task가 완료된 checkpoint에서만 simulated `FIRE_DETECTED`
+observation으로 공개한다. 이 fixture는 재현 가능한 world input이지 화재 탐지 모델이 아니다. 실제
 영상 분석, 화재 탐지, 화재 안정성 판정은 구현하지 않는다. Task 완료는 위치 도달과 dwell
 time으로만 판정한다.
 
@@ -949,6 +970,12 @@ invariant를 통과해야 한다.
 | P9.4 | Streamlit checkpoint·계속·온라인 명령 UI + 비교 실험 | 명령 전/후 assignment·release·현재 시각 표시 / 대표 scenario 완주 / no-reset·full-reset·selective 원시 지표 비교 + `suffix_extra_release_count` 보고 / fixture strict schema / 실패 후 재개 버튼(D-041) |
 | P10 | 온라인 checkpoint 구간 2D playback (D-046~D-048) | 전후 frozen `ExecutionCheckpoint`만 입력 / 같은 snapshot·frame 수 → 같은 `PlaybackSpec` / UAV 직선·UGV shortest-path polyline을 simulation time으로 보간 / travel과 dwell 구분, 보간 pose를 물리 pose로 주장하지 않음 / checkpoint 모드는 가장 이른 completion마다 정지 원인과 계속 RUNNING인 agent 상태 표시, 재생 뒤 명령 허용 / 연속 모드는 같은 advance를 terminal까지 반복하되 구간 사이 입력 금지·실패 즉시 중단 / accepted online UPDATE 뒤 다음 구간이 새 assignment를 사용 / frame 생성·렌더가 allocate·advance·session mutation을 하지 않음 / matplotlib 실패 시 committed execution 보존 + 정적 map·표 fallback / AppTest + headless(Agg) / P3/P4/P9 수치·감사 event 불변 |
 | P11 | native desktop operator console + 별도 2D simulator 창 (D-049) | `python3 -m desktop` 한 명령으로 두 top-level Qt 창 / 동일 `MissionSession` 공유 / live·cached·mock 출처 명시 / 자연어·후보 선택·checkpoint·연속 재생 연결 / simulator는 `MapRenderSpec`·`PlaybackSpec`만 그리며 연구 로직 미복제 / playback 중 입력 비활성, checkpoint에서 재활성 / simulator 창 종료·view 오류가 committed 실행을 rollback하지 않음 / Streamlit 보존 / `QT_QPA_PLATFORM=offscreen` 자동 테스트 / P3/P4/P9 수치·감사 JSON 불변 |
+| P12.0 | RQ5·incident contingency 계약 | v1.47 / D-051 커밋 |
+| P12.1 | strict `MissionDirective`/response policy + 한 턴 REPORT response slot | 같은 scene에서 response step만 다른 명령이 서로 다른 policy를 만들고 future incident workflow prefix가 정확히 달라짐 / policy 없는 단순 REPORT는 scene-only 유지 / resource constraint는 무시하지 않고 UNSUPPORTED |
+| P12.2 | patrol scene + strict latent observation fixture | 초기 known incident 0 / latent data가 LLM context·초기 graph·scene hash에 없음 / 지정 `AREA_RECON` 완료 전 event 0, 완료 checkpoint에서 정확히 1회 / 잘못된 zone·trigger·type 거부 |
+| P12.3 | sensor/operator 공통 atomic incident transaction | 같은 zone·response step이면 두 source가 같은 scene/graph diff를 생성 / planning·paused 모두 성공 후 한 번에 commit / Validator·reallocation 실패 시 scene/state/runtime identity와 hash·시각 불변 / sensor observation 별도 typed audit |
+| P12.4 | Live counterfactual + 두 발표 scenario | 사전 고정 명령/annotation으로 initial graph·policy·report zone·response prefix exact scoring / 같은 scene의 다른 명령이 다른 graph/policy, 다른 zone이 다른 target을 생성 / scripted mock은 정확한 제시 문장 외 입력을 backend 소비 없이 거부 / sensor 시나리오와 operator-report 시나리오 모두 `COMPLETED`, capability/precedence violation 0, P9 selective release 원시값 감사 / 실제 model snapshot 기록 |
+| P12.5 | native UI 연결 | scenario는 명시적 선택·seed/fixture id 표시 / Live parsed directive·event source·patch·release/rebid 표시 / sensor observation과 operator report를 구분 / 다음 checkpoint 이후 변경 경로 재생 / cached를 live로 표시 금지 / P3/P4/P9 골든 불변 |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
 
@@ -981,14 +1008,15 @@ heterogeneous capability allocation, platform-aware travel cost, 2D end-to-end �
 
 ## 17. 명시적 범위 제외
 
-실제 RGB/thermal perception, 자동 화재 탐지, 물리적 화재 안정성 판정, `WATER_LOAD`,
+실제 RGB/thermal perception, 학습 기반 자동 화재 탐지, 물리적 화재 안정성 판정, `WATER_LOAD`,
 suppressant 잔량과 재보급, same-agent resource coupling, obstacle removal, relay deployment,
-target tracking, 일반 조건부 task graph, SLAM, 동적 장애물 회피, 일반 road planner, LLM 직접
+target tracking, `FIRE_DETECTED` 고정 contingency 밖의 일반 조건부 task graph, SLAM, 동적 장애물 회피, 일반 road planner, LLM 직접
 agent 할당, 새로운 CBBA 알고리즘 제안, P0~P6.5 완료 전 RQ3 구현(P7 Gazebo는 RQ3의
 선행조건이 아님 — §16 cut-order·§15·§1 참고, D-027), MP4MR A~G 체계 복제, 모든
 agent가 최소 1개 task를 받아야 한다는 제약, bundle 길이 ≥2를 Phase 1 invariant나 완료 게이트로
 쓰는 것(P8에서는 실험 precondition으로 재검토 가능 — §15 P8), 임의 wall-clock 시점의 강제
-중단, RUNNING task abort·migration, 실행 후 terminal graph 수정, 자동 perception event,
+중단, RUNNING task abort·migration, 실행 후 terminal graph 수정, P12의 strict simulated
+`FIRE_DETECTED` fixture 밖의 자동 perception event,
 P9 정책의 전역 최소성·최적성 주장.
 
 ---
@@ -1728,3 +1756,75 @@ mission 생성, structured clarification, checkpoint frame 진행, playback 중 
 checkpoint 후 재활성, 연속 모드 terminal 도달, 온라인 UPDATE 뒤 다음 frame assignment 반영,
 오류 시 자동 retry 없음, audit event 순서와 파일 경로 보존. P3/P4/P9 골든과
 `VALIDATOR_VERSION`/`ONLINE_POLICY_VERSION`은 불변이어야 한다.
+
+---
+
+## 22. LLM-driven incident contingency (P12, D-051)
+
+### 22.1 범위와 LLM 경계
+
+P12는 정적 graph만 만들던 `NEW_MISSION`을 **초기 graph + 좁은 incident response policy**로
+확장한다. interaction intent의 `incident_response_up_to`는 없거나 §4 workflow step 하나다.
+예: "전체 구역을 정찰하고 화재를 발견하면 지상 진압까지 대응"은 초기 `AREA_RECON` graph와
+`GROUND_SUPPRESSION` policy를 만든다. 아직 존재하지 않는 incident id나 task를 미리 만들지
+않는다. "정찰만"은 policy가 `None`이어야 한다.
+
+`REPORT_INCIDENT`는 기존 `zone_ref`와 선택 `response_up_to`를 가진다. 명시 step이 있으면 그것을
+사용하고, 없으면 활성 session policy를 사용한다. 둘 다 없으면 기존처럼 scene-only report로
+commit하며 대응 task를 추측해 추가하지 않는다. 특정 agent·대수·제외 agent 등 resource
+constraint는 P12 범위 밖이고 `UNSUPPORTED`로 fail closed한다.
+
+### 22.2 observation과 latent-world 경계
+
+`LatentIncidentFixture`는 id, 공개할 zone, trigger task id를 strict하게 저장한다. fixture는
+scene과 별도이며 LLM prompt/context, 초기 graph, `scene_hash`에 포함하지 않는다. trigger는 해당
+zone의 `AREA_RECON` task여야 하고 checkpoint의 `completed_now`에 처음 나타난 경우에만
+`FireDetectedObservation`을 정확히 한 번 낸다. 재개·rerun·cached 재생은 같은 observation을
+중복 발행하지 않는다.
+
+observation은 `source=SENSOR_SIMULATED`, detecting agent id, zone, simulation time, fixture id를
+typed audit에 남긴다. 실제 센서 confidence나 영상 결과를 발명하지 않는다. task가 완료됐다는
+사실과 fixture 조건이 맞았다는 것만 뜻한다.
+
+### 22.3 공통 atomic incident transaction
+
+sensor observation과 operator report는 zone이 결정된 뒤 같은 transaction을 호출한다:
+
+1. 원본을 바꾸지 않고 `register_incident()`로 candidate scene과 결정론적 id를 만든다.
+2. response step이 있으면 candidate incident에 `build_chain_patch()`를 만든다.
+3. planning은 candidate state에 `apply_patch → allocate`, paused runtime은 checkpoint clone에
+   `apply_online_patch(SELECTIVE)`를 수행한다.
+4. scene/state/plan 또는 scene/runtime/state를 모든 계산 성공 뒤 한 번에 publish한다.
+
+실패 시 원 scene·state·plan·runtime identity, simulation time, completed/RUNNING commitment와
+hash를 보존한다. sensor/operator source에 따라 알고리즘 경로를 복제하지 않는다. 성공 event는
+incident id, source, policy origin(`EXPLICIT|SESSION_POLICY|NONE`), patch/hash, before/after
+assignment, released task를 감사한다.
+
+### 22.4 하드코딩 방지와 평가
+
+P12의 결정론적 scene/compiler/Validator는 안전 경계이지 고정 LLM 응답이 아니다. Live 경로에는
+reference fixture fallback이 없다. 다음 counterfactual을 사전 annotation으로 고정한다.
+
+- 같은 patrol scene: 정찰만 / 감지 시 THERMAL_RECON / DROP / INSPECTION / SUPPRESSION 명령은
+  서로 다른 policy를 내며, 동일 sensor observation 뒤 정확히 0/1/2/3/4 workflow task를 만든다.
+- 같은 command: Warehouse와 Tank Farm operator report는 서로 다른 zone으로 grounding되고
+  서로 다른 incident target·경로를 만든다.
+- 같은 의미의 허용된 한국어/영어 paraphrase는 같은 directive가 되어야 하고, 미지·모호 zone은
+  추측하지 않고 clarification한다.
+
+mock은 UI wiring을 위한 scripted mode일 뿐이다. 현재 기대 문장과 다른 입력을 같은 응답으로
+처리하지 않고, backend item을 소비하지 않은 채 명시적으로 거부한다. 발표의 핵심 결과는 live
+또는 그 live 호출의 exact cached replay로 보여주고 provenance를 항상 표시한다.
+
+### 22.5 실행·시각화 의미
+
+P12도 P9/P10의 task-completion checkpoint만 사용한다. sensor event는 trigger recon completion
+직후, operator report는 pause에서 처리한다. 임의 wall-clock interrupt·RUNNING task migration은
+추가하지 않는다. UI는 initial directive, 활성 response policy, observation source, 신규 incident,
+patch task, selectively released task와 다음 segment의 assignment/path를 구분해 표시한다.
+
+두 발표 scenario 모두 최종 `COMPLETED`, capability/precedence violation 0이어야 한다. 이 결과는
+simulated observation에 대한 온라인 mission adaptation이며 실제 perception 또는 물리적 화재
+진압 성공 주장이 아니다. 기존 reference scene과 P3/P4/P9 fixture는 변경하지 않고 골든값을
+그대로 보존한다.

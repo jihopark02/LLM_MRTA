@@ -1651,3 +1651,27 @@ extra의 의미는 바꾸지 않는다. 사용자 pip 26.2.1에서 build isolati
 
 **영향** `pyproject.toml` 빌드 도구 하한과 사용 문서의 최신 결정 표기만 변경한다. 연구 계약
 v1.46, 알고리즘·감사 schema·Validator/online policy 버전과 P3/P4/P9 결과는 불변이다.
+
+## D-051: LLM-driven incident contingency와 simulated observation (계약 v1.47)
+
+**배경** P11 native UI에서 mock에 임의 문장을 입력해도 reference 12-task graph가 나와 고정
+시나리오처럼 보였고, live의 "UAV 한 대로 정찰"은 resource constraint가 schema에 없어 정직하게
+UNSUPPORTED됐다. 발표 목표는 (1) UAV 순찰 완료 뒤 화재 observation으로 대응 임무가 생기는
+경로와 (2) 실행 중 "Warehouse에서 불이 났어" 같은 자연어 보고가 필요한 assignment를 바꾸는
+경로다. 기존 계약은 자동 perception과 조건부 graph를 제외하고 REPORT를 scene-only로 고정해
+이 목표를 구현할 수 없다.
+
+**결정** 일반 perception·임의 조건식은 열지 않는다. P12에서 LLM이 `NEW_MISSION`의 초기 graph와
+별도로 고정 event `FIRE_DETECTED`의 workflow prefix를 추출하고, `REPORT_INCIDENT`에서는 zone과
+선택 response step을 추출한다. strict latent fixture가 `AREA_RECON` 완료 checkpoint에서 simulated
+observation을 한 번만 공개한다. sensor/operator 입력은 같은 atomic incident transaction과 기존
+Validator/P9 selective release를 사용한다. 초기 command·response step·reported zone을 바꾼
+counterfactual Live 평가로 결과가 입력에 민감함을 보인다.
+
+**제외** 실제 영상·열화상 인식, confidence 추정, 임의 wall-clock interrupt, RUNNING migration,
+일반 event-condition language, LLM 직접 좌표·priority·agent·release 결정. 특정 agent나 agent 수
+제약은 별도 계약 없이는 지원하지 않고 무시하지도 않는다.
+
+**영향** interaction intent/session/audit 확장, strict patrol/latent fixture, 공통 incident
+transaction, evaluation과 native UI. 기존 `industrial_park.yaml`, P1 reference fixture,
+Validator 1.4, online policy 1.0, P3/P4/P9 결과는 불변이어야 한다.
