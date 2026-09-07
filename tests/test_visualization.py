@@ -627,3 +627,186 @@ def test_building_a_runtime_map_does_not_touch_the_executor(fixture_scene, pause
     runtime_map_spec(fixture_scene, paused)
 
     assert (pre_state_hash(paused.work), paused.now, scene_hash(fixture_scene)) == before
+
+
+# -- P8.5f: drawing the map (§18.14) -------------------------------------
+
+
+def _hand_built_map(mode="execution", legs=None):
+    from demo.visualization import (
+        AgentMapSpec,
+        MapLegSpec,
+        MapPointSpec,
+        MapRenderSpec,
+    )
+
+    return MapRenderSpec(
+        mode=mode,
+        zones=(MapPointSpec("Z1", 0.0, 0.0, "zone", "Zone One"),),
+        incidents=(MapPointSpec("F1", 10.0, 10.0, "incident", "F1"),),
+        route_lanes=(((0.0, 0.0), (10.0, 0.0)),),
+        agents=(
+            AgentMapSpec("A1", PlatformKind.UAV, "#111111", (0.0, 0.0)),
+            AgentMapSpec("A2", PlatformKind.UGV, "#222222", (10.0, 0.0)),
+        ),
+        task_points=(MapPointSpec("T1", 10.0, 10.0, "task", "THERMAL"),),
+        legs=(
+            (MapLegSpec("A1", "T1", 0, ((0.0, 0.0), (10.0, 10.0)), "completed"),)
+            if legs is None
+            else legs
+        ),
+        simulation_time=12.5,
+    )
+
+
+def _map_gids(figure) -> set[str]:
+    return {
+        artist.get_gid()
+        for artist in figure.axes[0].get_children()
+        if artist.get_gid()
+    }
+
+
+def test_the_map_renderer_consumes_only_the_spec():
+    from demo.visualization import render_mission_map
+
+    figure = render_mission_map(_hand_built_map())
+    try:
+        assert _map_gids(figure) == {"A1:0:completed:T1"}
+    finally:
+        figure.clear()
+
+
+@pytest.mark.parametrize("mode", ["plan", "runtime", "execution"])
+def test_each_mode_gets_its_own_title(mode):
+    from demo.visualization import MAP_MODE_TITLES, render_mission_map
+
+    figure = render_mission_map(_hand_built_map(mode=mode))
+    try:
+        title = figure.axes[0].get_title(loc="left")
+        assert MAP_MODE_TITLES[mode] in title
+        assert "12.5 s" in title
+        # the three views are never overlaid — one map states one moment
+        assert sum(other in title for other in MAP_MODE_TITLES.values()) == 1
+    finally:
+        figure.clear()
+
+
+def test_every_drawable_leg_becomes_an_identified_line(fixture_scene, graph, finished):
+    from demo.visualization import execution_map_spec, render_mission_map
+
+    spec = execution_map_spec(fixture_scene, graph, finished)
+    figure = render_mission_map(spec)
+    try:
+        drawable = {leg.gid for leg in spec.legs if len(leg.points) >= 2}
+        assert _map_gids(figure) == drawable
+    finally:
+        figure.clear()
+
+
+def test_leg_lines_use_the_agent_colour_and_phase_style(fixture_scene, paused):
+    from demo.visualization import LEG_LINESTYLES, render_mission_map, runtime_map_spec
+
+    spec = runtime_map_spec(fixture_scene, paused)
+    colors = {agent.agent_id: agent.color for agent in spec.agents}
+    figure = render_mission_map(spec)
+    try:
+        lines = {line.get_gid(): line for line in figure.axes[0].get_lines() if line.get_gid()}
+        for leg in spec.legs:
+            if len(leg.points) < 2:
+                continue
+            line = lines[leg.gid]
+            assert line.get_color() == colors[leg.agent_id]
+            assert line.get_linestyle() == {
+                "solid": "-", "dashed": "--", "dotted": ":",
+            }[LEG_LINESTYLES[leg.phase]]
+            assert [tuple(p) for p in zip(*line.get_data(), strict=False)] == list(leg.points)
+    finally:
+        figure.clear()
+
+
+def test_the_leg_legend_lists_only_the_phases_present(fixture_scene, paused):
+    from demo.visualization import render_mission_map, runtime_map_spec
+
+    spec = runtime_map_spec(fixture_scene, paused)
+    figure = render_mission_map(spec)
+    try:
+        ax = figure.axes[0]
+        legends = [ax.get_legend()] + [
+            child for child in ax.get_children()
+            if child is not ax.get_legend() and type(child).__name__ == "Legend"
+        ]
+        by_title = {legend.get_title().get_text(): legend for legend in legends}
+        assert set(by_title) == {"Agents", "Leg"}
+        listed = {t.get_text() for t in by_title["Leg"].get_texts()}
+        assert listed == {leg.phase for leg in spec.legs}
+    finally:
+        figure.clear()
+
+
+def test_task_order_numbers_are_drawn(fixture_scene, graph, finished):
+    from demo.visualization import execution_map_spec, render_mission_map
+
+    spec = execution_map_spec(fixture_scene, graph, finished)
+    figure = render_mission_map(spec)
+    try:
+        texts = {t.get_text() for t in figure.axes[0].texts}
+        for leg in spec.legs:
+            if len(leg.points) >= 2:
+                assert str(leg.order + 1) in texts
+    finally:
+        figure.clear()
+
+
+def test_the_map_uses_an_equal_aspect_with_padding():
+    from demo.visualization import render_mission_map
+
+    spec = _hand_built_map()
+    figure = render_mission_map(spec)
+    try:
+        ax = figure.axes[0]
+        assert ax.get_aspect() == 1.0                      # axis("equal")
+        left, right = ax.get_xlim()
+        assert left < 0.0 and right > 10.0                 # padded past the extent
+    finally:
+        figure.clear()
+
+
+def test_degenerate_legs_do_not_raise():
+    from demo.visualization import MapLegSpec, render_mission_map
+
+    # A UGV already standing on its target node yields a one-point "leg"; a
+    # spec with no legs at all happens before anything is assigned.
+    single = (MapLegSpec("A2", "T1", 0, ((10.0, 0.0),), "remaining"),)
+    for legs in (single, ()):
+        figure = render_mission_map(_hand_built_map(legs=legs))
+        try:
+            assert _map_gids(figure) == set()               # nothing drawable
+            assert figure.axes
+        finally:
+            figure.clear()
+
+
+def test_rendering_the_map_does_not_mutate_the_spec(fixture_scene, graph, finished):
+    from demo.visualization import execution_map_spec, render_mission_map
+
+    spec = execution_map_spec(fixture_scene, graph, finished)
+    figure = render_mission_map(spec)
+    try:
+        assert spec == execution_map_spec(fixture_scene, graph, finished)
+    finally:
+        figure.clear()
+
+
+@pytest.mark.parametrize("suffix", ["png", "pdf"])
+def test_the_map_saves_headless(tmp_path, suffix):
+    from demo.visualization import render_mission_map
+
+    figure = render_mission_map(_hand_built_map())
+    try:
+        assert type(figure.canvas).__name__ == "FigureCanvasAgg"
+        out = tmp_path / f"map.{suffix}"
+        figure.savefig(out)
+        assert out.stat().st_size > 0
+    finally:
+        figure.clear()

@@ -251,6 +251,12 @@ class MapPointSpec:
 
 @dataclass(frozen=True, slots=True)
 class AgentMapSpec:
+    """Where an agent is *in the moment the map depicts*.
+
+    plan: its start, since nothing has run. runtime: its last confirmed
+    position (never an interpolated pose, D-044). execution: where it ended.
+    """
+
     agent_id: str
     platform_kind: PlatformKind
     color: str
@@ -425,16 +431,20 @@ def execution_map_spec(
     agents: list[AgentMapSpec] = []
     for agent in sorted(scene.fleet, key=lambda a: a.agent_id):
         start = start_ref(agent, scene)
-        agents.append(
-            AgentMapSpec(
-                agent.agent_id, agent.platform_kind, colors[agent.agent_id],
-                _ref_point(start, scene),
-            )
-        )
-        walked, _ = _walk(
+        walked, final = _walk(
             agent, order.get(agent.agent_id, ()), graph, scene, "completed", start
         )
         legs += walked
+        # The run is over, so the marker is where the agent ended — the same
+        # rule as the other two modes: it shows where the agent is in the
+        # moment this map depicts (start for a plan, last confirmed while
+        # paused). An agent that drew no leg never moved.
+        agents.append(
+            AgentMapSpec(
+                agent.agent_id, agent.platform_kind, colors[agent.agent_id],
+                _ref_point(final, scene),
+            )
+        )
     return MapRenderSpec(
         mode="execution",
         zones=zones,
@@ -540,6 +550,146 @@ FIGURE_WIDTH_IN = 9.5
 
 def figure_height(row_count: int) -> float:
     return min(MAX_HEIGHT_IN, max(MIN_HEIGHT_IN, MIN_HEIGHT_IN + ROW_HEIGHT_IN * row_count))
+
+
+#: Title per mode. The three maps are never overlaid — the operator must be able
+#: to tell an intended plan from what actually ran (§18.14).
+MAP_MODE_TITLES = {
+    "plan": "Plan-time CBBA — intended route (nothing has run)",
+    "runtime": "Online execution paused — last confirmed positions",
+    "execution": "Completed execution — route actually driven",
+}
+MAP_WIDTH_IN = 9.5
+MAP_HEIGHT_IN = 7.0
+_MAP_PAD = 0.06          # fraction of the drawn extent added as margin
+
+
+def _map_bounds(spec: "MapRenderSpec"):
+    xs, ys = [], []
+    for point in spec.zones + spec.incidents + spec.task_points:
+        xs.append(point.x)
+        ys.append(point.y)
+    for agent in spec.agents:
+        xs.append(agent.position[0])
+        ys.append(agent.position[1])
+    for lane in spec.route_lanes:
+        for x, y in lane:
+            xs.append(x)
+            ys.append(y)
+    for leg in spec.legs:
+        for x, y in leg.points:
+            xs.append(x)
+            ys.append(y)
+    if not xs:
+        return (-1.0, 1.0, -1.0, 1.0)
+    pad = max(max(xs) - min(xs), max(ys) - min(ys)) * _MAP_PAD or 1.0
+    return (min(xs) - pad, max(xs) + pad, min(ys) - pad, max(ys) + pad)
+
+
+def render_mission_map(spec: MapRenderSpec):
+    """Draw a ``MapRenderSpec``. Returns a matplotlib ``Figure``.
+
+    One renderer for all three modes (§18.14): separate ones would let the
+    background, colours, legends and line styles drift apart between a plan and
+    the run it is compared against. The spec is the only data input — no
+    ``Scene``, executor or result is read here.
+    """
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+    from matplotlib.lines import Line2D
+
+    fig = Figure(figsize=(MAP_WIDTH_IN, MAP_HEIGHT_IN), dpi=110)
+    FigureCanvasAgg(fig)
+    ax = fig.add_subplot()
+
+    # Route graph first, as a neutral backdrop.
+    for lane in spec.route_lanes:
+        ax.plot(
+            [x for x, _ in lane], [y for _, y in lane],
+            color="#d5d9de", linewidth=1.6, zorder=0, solid_capstyle="round",
+        )
+
+    for zone in spec.zones:
+        ax.plot([zone.x], [zone.y], marker="P", markersize=11, linestyle="none",
+                color="#c9ced6", markeredgecolor="#98a0ab", zorder=1)
+        ax.annotate(zone.label, (zone.x, zone.y), textcoords="offset points",
+                    xytext=(0, 11), ha="center", fontsize=7, color="#6b7280")
+    for incident in spec.incidents:
+        ax.plot([incident.x], [incident.y], marker="X", markersize=12,
+                linestyle="none", color="#c0392b", markeredgecolor="#7b1e14", zorder=2)
+        ax.annotate(incident.entity_id, (incident.x, incident.y),
+                    textcoords="offset points", xytext=(0, -15), ha="center",
+                    fontsize=7, color="#7b1e14")
+    for task in spec.task_points:
+        ax.plot([task.x], [task.y], marker=".", markersize=6, linestyle="none",
+                color="#4c566a", zorder=2)
+
+    colors = {agent.agent_id: agent.color for agent in spec.agents}
+    for leg in spec.legs:
+        if len(leg.points) < 2:
+            continue                     # a zero-length hop draws nothing
+        line = ax.plot(
+            [x for x, _ in leg.points], [y for _, y in leg.points],
+            color=colors.get(leg.agent_id, "#4c566a"),
+            linestyle=leg.linestyle, linewidth=1.8, zorder=4, solid_capstyle="round",
+        )[0]
+        line.set_gid(leg.gid)
+        end_x, end_y = leg.points[-1]
+        ax.annotate(
+            str(leg.order + 1), (end_x, end_y), textcoords="offset points",
+            xytext=(6, 6), fontsize=7, zorder=5,
+            color=colors.get(leg.agent_id, "#4c566a"),
+        )
+
+    for agent in spec.agents:
+        marker = UAV_MARKER if agent.platform_kind is PlatformKind.UAV else UGV_MARKER
+        ax.plot(
+            [agent.position[0]], [agent.position[1]],
+            marker=marker, markersize=13, linestyle="none",
+            color=agent.color, markeredgecolor="#2b2f36", markeredgewidth=0.9, zorder=6,
+        )
+
+    title = MAP_MODE_TITLES.get(spec.mode, spec.mode)
+    if spec.simulation_time is not None:
+        title += f"  ·  t = {spec.simulation_time:.1f} s"
+    ax.set_title(title, fontsize=10, loc="left")
+
+    left, right, bottom, top = _map_bounds(spec)
+    ax.set_xlim(left, right)
+    ax.set_ylim(bottom, top)
+    ax.set_aspect("equal", adjustable="box")
+    ax.tick_params(labelsize=7, colors="#6b7280")
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+
+    agent_legend = ax.legend(
+        handles=[
+            Line2D([], [], marker=(UAV_MARKER if a.platform_kind is PlatformKind.UAV
+                                   else UGV_MARKER),
+                   linestyle="none", markersize=8, color=a.color,
+                   markeredgecolor="#2b2f36", label=a.agent_id)
+            for a in spec.agents
+        ],
+        title="Agents", loc="upper left", bbox_to_anchor=(1.01, 1.0),
+        fontsize=7.5, title_fontsize=8, frameon=False,
+    )
+    ax.add_artist(agent_legend)
+    # Only the phases this map actually contains: a plan has nothing dashed,
+    # and listing "planned" beside "completed" (both solid) reads as a
+    # distinction the picture is not making.
+    drawn_phases = {leg.phase for leg in spec.legs}
+    present = [phase for phase in LEG_LINESTYLES if phase in drawn_phases]
+    if present:
+        ax.legend(
+            handles=[
+                Line2D([], [], color="#4c566a", linestyle=LEG_LINESTYLES[phase], label=phase)
+                for phase in present
+            ],
+            title="Leg", loc="lower left", bbox_to_anchor=(1.01, 0.0),
+            fontsize=7.5, title_fontsize=8, frameon=False,
+        )
+    fig.tight_layout()
+    return fig
 
 
 def render_task_graph(spec: DagRenderSpec):
@@ -648,4 +798,6 @@ __all__ = [
     "execution_map_spec",
     "figure_height",
     "render_task_graph",
+    "MAP_MODE_TITLES",
+    "render_mission_map",
 ]
