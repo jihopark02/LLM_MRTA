@@ -351,6 +351,11 @@ def _map_panel(session: MissionSession) -> None:
         return
     drawn = [(label, spec, _map_figure(spec)) for label, spec in specs]
     if any(figure is None for _, _, figure in drawn):
+        # Release whatever did draw before bailing out, so a partial failure
+        # leaves nothing behind.
+        for _, _, figure in drawn:
+            if figure is not None:
+                figure.clear()
         st.caption(VIZ_MISSING_NOTE)
         return
     tabs = st.tabs([label for label, _, _ in drawn])
@@ -358,6 +363,16 @@ def _map_panel(session: MissionSession) -> None:
         with tab:
             _show_figure(figure)
             st.caption(f"{label} · agent {len(spec.agents)}기 · leg {len(spec.legs)}개")
+            if label == "Plan-time" and session.runtime is not None:
+                # session.plan is the pre-execution analysis and is not
+                # recomputed by a paused UPDATE, while the task markers come
+                # from the current graph. Without this the tasks added online
+                # look like planned work nobody was assigned.
+                st.caption(
+                    "이 계획은 온라인 실행을 시작하기 전의 분석입니다. "
+                    "이후 온라인 업데이트로 추가된 task는 표시되지만 계획 경로는 없습니다 "
+                    "— 실제 배정은 Runtime 탭을 보세요."
+                )
 
 
 def _execution_panel(session: MissionSession) -> None:

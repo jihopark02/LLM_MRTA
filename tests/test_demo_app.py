@@ -266,7 +266,7 @@ def test_the_console_still_runs_without_matplotlib(
     ]
 
 
-def test_the_dag_tracks_an_update_made_while_execution_is_paused(
+def test_an_update_made_while_paused_reaches_the_dag_and_both_maps(
     tmp_path, monkeypatch
 ):
     at = _planned_app(tmp_path, monkeypatch)
@@ -282,11 +282,40 @@ def test_the_dag_tracks_an_update_made_while_execution_is_paused(
 
     # the new incident's chain is in the graph the panel just drew
     session = at.session_state["mission_session"]
+    from demo.app import _mission_map_specs
     from demo.visualization import dag_render_spec
 
     spec = dag_render_spec(session.state.graph)
     assert "FIRE_SITE_3" in spec.row_labels
     assert spec.task_ids == {task.task_id for task in session.state.graph.tasks}
+
+    # ...and in both 2D maps, not just the DAG (§15 P8.5: an online update must
+    # show up on the next render).
+    added = {
+        task.task_id
+        for task in session.state.graph.tasks
+        if task.target == "FIRE_SITE_3"
+    }
+    assert added, "the scripted update must have added the new incident's chain"
+
+    maps = dict((label, spec) for label, spec in _mission_map_specs(session))
+    assert set(maps) == {"Plan-time", "Runtime"}
+    for label, map_spec in maps.items():
+        drawn = {point.entity_id for point in map_spec.task_points}
+        assert added <= drawn, f"{label} map is missing the new tasks"
+    assert "FIRE_SITE_3" in {
+        point.entity_id for point in maps["Runtime"].incidents
+    }
+    assert "FIRE_SITE_3" in {
+        point.entity_id for point in maps["Plan-time"].incidents
+    }
+
+    # The plan predates the online update and is not recomputed by a paused
+    # UPDATE, so the new tasks appear as markers with no planned route. Say so,
+    # or they read as planned work nobody was assigned.
+    assert not [leg for leg in maps["Plan-time"].legs if leg.task_id in added]
+    assert [leg for leg in maps["Runtime"].legs if leg.task_id in added]
+    assert any("온라인 실행을 시작하기 전의 분석" in item.value for item in at.caption)
 
 
 # -- 2D map tabs (§18.14, P8.5g) -----------------------------------------
