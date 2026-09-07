@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from allocation.allocate import allocate
+from execution.executor import SimExecutor
 from interaction.audit import CheckpointAudit, ExecutionAudit
 from interaction.audit_io import session_audit_payload
 from interaction.online_execute import advance_online_session
@@ -299,3 +300,93 @@ def test_pending_clarification_blocks_online_continue(planned_session):
     assert planned_session.phase is SessionPhase.PLANNING
     assert planned_session.runtime is None
     assert planned_session.event_log == ()
+
+
+# -- online retry after a failed advance (§19.1, D-041) -------------------
+
+
+def _explode(monkeypatch):
+    def boom(self, *args, **kwargs):
+        raise RuntimeError("sim exploded")
+
+    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", boom)
+
+
+def test_a_failed_advance_keeps_the_runtime_and_stays_resumable(
+    planned_session, monkeypatch
+):
+    advance_online_session(planned_session, mode="mock")
+    good = _runtime_signature(planned_session.runtime)
+
+    _explode(monkeypatch)
+    audit = advance_online_session(planned_session, mode="mock")
+
+    # §19.1 table: EXECUTION_FAILED + no execution + a runtime == resumable.
+    assert planned_session.phase is SessionPhase.EXECUTION_FAILED
+    assert planned_session.execution is None
+    assert planned_session.runtime is not None
+    assert audit.execution_termination == "ERROR"
+    assert audit.error_type == "RuntimeError"
+    # the preserved checkpoint is exactly the last good one — nothing rewound
+    assert _runtime_signature(planned_session.runtime) == good
+
+
+def test_online_execution_resumes_from_the_preserved_checkpoint(
+    planned_session, monkeypatch
+):
+    advance_online_session(planned_session, mode="mock")
+    paused_at = planned_session.runtime.now
+    _explode(monkeypatch)
+    advance_online_session(planned_session, mode="mock")
+
+    monkeypatch.undo()
+    audit = advance_online_session(planned_session, mode="mock")
+
+    assert isinstance(audit, CheckpointAudit)
+    assert planned_session.phase is SessionPhase.EXECUTION_PAUSED
+    # a retry continues the same run rather than restarting it
+    assert planned_session.runtime.now > paused_at
+
+
+def test_a_resumed_run_still_finishes_on_the_golden_makespan(
+    planned_session, monkeypatch
+):
+    advance_online_session(planned_session, mode="mock")
+    _explode(monkeypatch)
+    advance_online_session(planned_session, mode="mock")
+    monkeypatch.undo()
+
+    advance_online_session(planned_session, mode="mock")  # the retry itself
+    for _ in range(60):
+        if planned_session.phase is not SessionPhase.EXECUTION_PAUSED:
+            break
+        advance_online_session(planned_session, mode="mock")
+
+    assert planned_session.phase is SessionPhase.EXECUTED
+    result = planned_session.execution
+    assert result.termination.value == "COMPLETED"
+    assert result.makespan == pytest.approx(257.850455, abs=1e-6)  # P4 golden
+    assert not result.capability_violations and not result.precedence_violations
+
+
+def test_a_one_shot_failure_without_a_runtime_is_not_an_online_retry(planned_session):
+    # §19.1 table row 2: EXECUTION_FAILED with no runtime belongs to the
+    # one-shot path (§18.1), so the online action must refuse it.
+    planned_session.phase = SessionPhase.EXECUTION_FAILED
+    assert planned_session.runtime is None
+
+    with pytest.raises(ValueError, match="preserved runtime"):
+        advance_online_session(planned_session, mode="mock")
+
+
+def test_a_completed_online_run_cannot_be_advanced_again(planned_session):
+    for _ in range(60):
+        if planned_session.phase is not SessionPhase.PLANNING and (
+            planned_session.phase is not SessionPhase.EXECUTION_PAUSED
+        ):
+            break
+        advance_online_session(planned_session, mode="mock")
+
+    assert planned_session.phase is SessionPhase.EXECUTED
+    with pytest.raises(ValueError, match="before completion"):
+        advance_online_session(planned_session, mode="mock")

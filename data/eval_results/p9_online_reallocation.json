@@ -42,6 +42,9 @@
         "THERMAL_RECON__FIRE_SITE_4",
         "THERMAL_RECON__FIRE_SITE_5"
       ],
+      "directly_affected_tasks": [
+        "AREA_RECON__ZONE_C"
+      ],
       "existing_owner_changes": {},
       "makespan": 453.8827357517861,
       "new_task_assignments": {
@@ -64,6 +67,7 @@
         "GROUND_INSPECTION__FIRE_SITE_5": "G2",
         "SUPPRESSANT_DROP__FIRE_SITE_2": "R2"
       },
+      "suffix_extra_release_count": null,
       "termination": "COMPLETED",
       "uav_flight_distance": 1448.0621303955643,
       "ugv_route_distance": 761.7030867101714
@@ -84,6 +88,9 @@
         "THERMAL_RECON__FIRE_SITE_3",
         "THERMAL_RECON__FIRE_SITE_4",
         "THERMAL_RECON__FIRE_SITE_5"
+      ],
+      "directly_affected_tasks": [
+        "AREA_RECON__ZONE_C"
       ],
       "existing_owner_changes": {},
       "makespan": 453.8827357517861,
@@ -107,6 +114,7 @@
         "GROUND_INSPECTION__FIRE_SITE_5": "G2",
         "SUPPRESSANT_DROP__FIRE_SITE_2": "R2"
       },
+      "suffix_extra_release_count": null,
       "termination": "COMPLETED",
       "uav_flight_distance": 1448.0621303955643,
       "ugv_route_distance": 761.7030867101714
@@ -127,6 +135,9 @@
         "THERMAL_RECON__FIRE_SITE_3",
         "THERMAL_RECON__FIRE_SITE_4",
         "THERMAL_RECON__FIRE_SITE_5"
+      ],
+      "directly_affected_tasks": [
+        "AREA_RECON__ZONE_C"
       ],
       "existing_owner_changes": {},
       "makespan": 453.8827357517861,
@@ -151,6 +162,7 @@
         "GROUND_INSPECTION__FIRE_SITE_5": "G2",
         "SUPPRESSANT_DROP__FIRE_SITE_2": "R2"
       },
+      "suffix_extra_release_count": 0,
       "termination": "COMPLETED",
       "uav_flight_distance": 1448.0621303955643,
       "ugv_route_distance": 761.7030867101714

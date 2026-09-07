@@ -1,4 +1,13 @@
-"""P9 bidder-connected bundle-suffix release policy (contract §19.3)."""
+"""P9 bidder-connected selective release (contract §19.3).
+
+Release the unstarted assignments whose eligible bidders overlap the new READY
+tasks', then rebid them together.  Step 3 also carries any assignment queued
+*behind* an affected one in the same bundle — a conservative rule that protects
+bundle prefix commitments, **not a demonstrated result**: on every reachable
+online path a canonical update makes only THERMAL_RECON READY, whose bidders are
+every UAV, so no agent can hold a mixed affected/unaffected bundle and
+``released == directly_affected`` always (§19.3, D-041).
+"""
 
 from __future__ import annotations
 

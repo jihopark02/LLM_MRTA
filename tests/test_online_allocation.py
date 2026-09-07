@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from allocation.online import ReleasePolicy, apply_online_patch
+import pytest
+
+from allocation.online import (
+    ReleasePolicy,
+    _selective_suffix,
+    apply_online_patch,
+)
 from core.enums import TaskStatus, TaskType
 from core.mission_state import MissionState
 from execution.executor import SimExecutor, Termination
@@ -147,3 +153,77 @@ def test_online_selective_execution_resumes_and_finishes_without_violations():
     assert result.capability_violations == []
     assert result.precedence_violations == []
     assert _assignment_invariant_errors(resumed.work) == []
+
+
+# -- §19.3 step 3 bundle suffix: branch coverage only (D-041) --------------
+#
+# These pin that the suffix helper is *correct* when it fires. They are NOT
+# evidence that it fires in a real run: on every reachable online path a
+# canonical update makes only THERMAL_RECON READY, whose bidder union is every
+# UAV, so UAV bundles are wholly affected and UGV bundles wholly unaffected and
+# no mixed bundle exists (§19.3 "suffix 확장의 실증 범위"). The states below are
+# assembled by hand to reach the branch.
+
+
+def _hand_built_mixed_bundle():
+    """An agent holding an affected task ahead of an unaffected one."""
+    executor, _ = _paused_reference()
+    assigned = sorted(
+        task.task_id
+        for task in executor.graph.tasks
+        if task.status is TaskStatus.ASSIGNED
+    )
+    owner = next(
+        aid for aid, agent in executor.agents.items() if len(agent.bundle) >= 2
+    )
+    return executor, owner, assigned
+
+
+def test_suffix_releases_an_unaffected_task_queued_behind_an_affected_one():
+    executor, owner, _ = _hand_built_mixed_bundle()
+    bundle = executor.agents[owner].bundle
+    head, tail = bundle[0], bundle[1]
+    assert executor.graph[head].status is TaskStatus.ASSIGNED
+    assert executor.graph[tail].status is TaskStatus.ASSIGNED
+
+    # Only the bundle head is "directly affected"; the tail is not.
+    released = _selective_suffix(executor, (head,))
+
+    assert head in released
+    assert tail in released, "the suffix must carry the queued task with it"
+    assert set(released) - {head} == {tail}
+
+
+def test_suffix_keeps_tasks_queued_ahead_of_the_affected_one():
+    executor, owner, _ = _hand_built_mixed_bundle()
+    bundle = executor.agents[owner].bundle
+    head, tail = bundle[0], bundle[1]
+
+    released = _selective_suffix(executor, (tail,))
+
+    # The prefix commitment before the affected task survives (§19.3 step 3).
+    assert head not in released
+    assert released == (tail,)
+
+
+def test_suffix_refuses_an_affected_task_missing_from_its_owner_bundle():
+    executor, owner, _ = _hand_built_mixed_bundle()
+    orphan = executor.agents[owner].bundle[0]
+    for agent in executor.agents.values():
+        if orphan in agent.bundle:
+            agent.bundle.remove(orphan)
+
+    with pytest.raises(ValueError, match="missing from owner bundle"):
+        _selective_suffix(executor, (orphan,))
+
+
+def test_the_frozen_path_never_reaches_the_suffix_extension():
+    """The honest end-to-end statement: released == directly_affected."""
+    executor, scene = _paused_reference()
+    updated_scene, patch = _new_fire_patch(executor, scene)
+
+    result = apply_online_patch(executor, patch, updated_scene)
+
+    assert result.new_ready_tasks == ("THERMAL_RECON__FIRE_SITE_3",)
+    assert set(result.released_tasks) == set(result.directly_affected_tasks)
+    assert not set(result.released_tasks) - set(result.directly_affected_tasks)

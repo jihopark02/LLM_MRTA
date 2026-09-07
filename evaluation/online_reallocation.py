@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -57,7 +58,14 @@ class PolicyRun:
     policy: str
     completed_prefix: tuple[str, ...]
     running_commitments: dict[str, str]
+    directly_affected_tasks: tuple[str, ...]
     released_tasks: tuple[str, ...]
+    #: §19.5/D-041. released − directly_affected: how many tasks the §19.3
+    #: bundle-suffix step released *beyond* the directly affected ones. Defined
+    #: only for `selective`; the same subtraction under full-reset just counts
+    #: what full-reset drops anyway, so calling that a suffix effect would be
+    #: misleading. 0 means the suffix did not fire — reported, never hidden.
+    suffix_extra_release_count: int | None
     preserved_assigned_tasks: tuple[str, ...]
     existing_owner_changes: dict[str, tuple[str, str]]
     new_task_assignments: dict[str, str]
@@ -96,6 +104,35 @@ def _strict_keys(raw: dict, expected: set[str], label: str) -> None:
         )
 
 
+# An evaluation fixture is an input to a published result, so it is read with
+# the same strictness D-023 imposed on the scene loader: a wrong type is
+# refused at load, never laundered through str()/float() into a plausible
+# value that only fails a drift guard several steps later (§19.5, D-041).
+def _text(raw: dict, key: str, label: str) -> str:
+    value = raw[key]
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{label}.{key} must be a non-empty str, got {value!r}")
+    return value
+
+
+def _text_list(raw: dict, key: str, label: str) -> tuple[str, ...]:
+    value = raw[key]
+    if not isinstance(value, list) or not all(
+        isinstance(item, str) and item.strip() for item in value
+    ):
+        raise ValueError(f"{label}.{key} must be a list of non-empty str, got {value!r}")
+    return tuple(value)
+
+
+def _finite_number(raw: dict, key: str, label: str) -> float:
+    value = raw[key]
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label}.{key} must be a number, got {value!r}")
+    if not math.isfinite(value):
+        raise ValueError(f"{label}.{key} must be finite, got {value!r}")
+    return float(value)
+
+
 def load_online_fixture(path: str | Path = _DEFAULT_FIXTURE) -> OnlineFixture:
     path = Path(path)
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -132,19 +169,27 @@ def load_online_fixture(path: str | Path = _DEFAULT_FIXTURE) -> OnlineFixture:
     event = raw["checkpoint_event"]
     if not isinstance(event, int) or isinstance(event, bool) or event <= 0:
         raise ValueError("checkpoint_event must be a positive int")
+    up_to = _text(raw, "online_update_up_to", "online fixture")
+    if up_to not in {step.value for step in WORKFLOW_CHAIN}:
+        raise ValueError(
+            f"online_update_up_to must be one of "
+            f"{sorted(step.value for step in WORKFLOW_CHAIN)}, got {up_to!r}"
+        )
     return OnlineFixture(
-        fixture_id=str(raw["fixture_id"]),
-        base_scene=str(raw["base_scene"]),
-        initial_report_zones=tuple(raw["initial_report_zones"]),
+        fixture_id=_text(raw, "fixture_id", "online fixture"),
+        base_scene=_text(raw, "base_scene", "online fixture"),
+        initial_report_zones=_text_list(raw, "initial_report_zones", "online fixture"),
         checkpoint_event=event,
-        expected_time=float(checkpoint["simulation_time"]),
-        expected_completed_now=tuple(checkpoint["completed_now"]),
-        online_report_zone=str(raw["online_report_zone"]),
-        online_update_up_to=str(raw["online_update_up_to"]),
-        expected_new_incident_id=str(raw["expected_new_incident_id"]),
+        expected_time=_finite_number(checkpoint, "simulation_time", "expected_checkpoint"),
+        expected_completed_now=_text_list(
+            checkpoint, "completed_now", "expected_checkpoint"
+        ),
+        online_report_zone=_text(raw, "online_report_zone", "online fixture"),
+        online_update_up_to=up_to,
+        expected_new_incident_id=_text(raw, "expected_new_incident_id", "online fixture"),
         expected_release={
-            ReleasePolicy(name): tuple(tasks)
-            for name, tasks in expected_release.items()
+            ReleasePolicy(name): _text_list(expected_release, name, "expected_release")
+            for name in expected_release
         },
     )
 
@@ -193,6 +238,11 @@ def _run_policy(
         raise RuntimeError(f"{application.policy.value}: RUNNING commitments changed")
 
     released = set(application.released_tasks)
+    suffix_extra = (
+        len(released - set(application.directly_affected_tasks))
+        if application.policy is ReleasePolicy.SELECTIVE
+        else None
+    )
     preserved_assigned = tuple(sorted(set(assigned_before) - released))
     existing_changes = {
         task_id: (assigned_before[task_id], application.after_assignments[task_id])
@@ -209,7 +259,9 @@ def _run_policy(
         policy=application.policy.value,
         completed_prefix=completed_prefix,
         running_commitments=dict(running),
+        directly_affected_tasks=application.directly_affected_tasks,
         released_tasks=application.released_tasks,
+        suffix_extra_release_count=suffix_extra,
         preserved_assigned_tasks=preserved_assigned,
         existing_owner_changes=existing_changes,
         new_task_assignments=new_assignments,
@@ -347,6 +399,12 @@ def text_report(run: OnlineComparison) -> str:
             f"makespan={policy.makespan:.3f} termination={policy.termination}"
         )
         lines.append(f"  released: {', '.join(policy.released_tasks) or 'none'}")
+        extra = policy.suffix_extra_release_count
+        lines.append(
+            f"  directly affected: "
+            f"{', '.join(policy.directly_affected_tasks) or 'none'}"
+            f" | suffix_extra_release_count={'n/a' if extra is None else extra}"
+        )
     return "\n".join(lines)
 
 

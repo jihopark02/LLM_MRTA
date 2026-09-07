@@ -1,6 +1,6 @@
 # P9 실행 중 명령과 선택적 재할당 결과
 
-재현 기준: 계약 v1.37 / D-040, `ONLINE_POLICY_VERSION=1.0`, `VALIDATOR_VERSION=1.4`.
+재현 기준: 계약 v1.38 / D-041, `ONLINE_POLICY_VERSION=1.0`, `VALIDATOR_VERSION=1.4`.
 
 ## 구현 범위
 
@@ -31,11 +31,13 @@ checkpoint에는 COMPLETED 10개와 RUNNING 5개가 잠겨 있고, 미시작 ASS
 
 ## 원시 결과
 
-| 정책 | release | 보존된 미시작 assignment | 새 epoch rounds | 최종 makespan | 종료/위반 |
-|---|---:|---:|---:|---:|---|
-| no-reset | 0 | 2 | 3 | 453.883s | COMPLETED, 0/0 |
-| full-reset | 2 | 0 | 4 | 453.883s | COMPLETED, 0/0 |
-| selective | 1 | 1 | 4 | 453.883s | COMPLETED, 0/0 |
+| 정책 | release | 보존된 미시작 assignment | suffix 추가 release | 새 epoch rounds | 최종 makespan | 종료/위반 |
+|---|---:|---:|---:|---:|---:|---|
+| no-reset | 0 | 2 | n/a | 3 | 453.883s | COMPLETED, 0/0 |
+| full-reset | 2 | 0 | n/a | 4 | 453.883s | COMPLETED, 0/0 |
+| selective | 1 | 1 | **0** | 4 | 453.883s | COMPLETED, 0/0 |
+
+세 정책 모두 직접 영향 task는 `AREA_RECON__ZONE_C` 하나였다.
 
 selective는 `AREA_RECON__ZONE_C`만 release하고, bidder가 겹치지 않는 UGV task
 `GROUND_INSPECTION__FIRE_SITE_1`을 보존했다. full-reset은 둘 다 release했다. 세 정책 모두
@@ -51,8 +53,30 @@ no-reset과 달리 영향받은 항공 task를 release/rebid했다. COMPLETED/RU
 
 그러나 makespan, 거리, 최종 owner는 같았다. 따라서 이 결과로 selective가 더 빠르거나 더
 최적이라고 주장할 수 없다. 입증된 것은 고정 checkpoint에서 불필요한 release 범위를 줄였다는
-것뿐이다. 또한 `bidder-connected bundle suffix`는 결정론적 정책이지 전역 최소 reset을
-계산하는 알고리즘이 아니다.
+것뿐이다. 이 정책은 결정론적 규칙이지 전역 최소 reset을 계산하는 알고리즘이 아니다.
+
+### bundle suffix 확장은 실증되지 않았다 (D-041)
+
+§19.3 3단계는 직접 영향 task **뒤에 줄 서 있는 비영향 task까지** release하는 bundle-suffix
+규칙을 포함한다. 이 실행에서 그 확장은 **한 번도 동작하지 않았다** —
+`suffix_extra_release_count = 0`, 즉 `released == directly_affected`다.
+
+이는 fixture를 잘못 골라서가 아니라 현재 운용 경로의 구조 때문이다. canonical online
+update(`build_chain_patch`)는 `AREA_RECON`을 만들지 않으므로 신규 incident에서 즉시 READY가
+되는 task는 `THERMAL_RECON` 하나뿐이고, 그 bidder union은 UAV 전체다. 따라서 모든 UAV task가
+영향, 모든 UGV task가 비영향이 되는데 bundle은 한 agent(=UAV이거나 UGV)의 것이므로 **섞인
+bundle이 존재할 수 없다**.
+
+그러므로 이 문서가 주장하는 것은 다음까지다.
+
+> 신규 READY task와 입찰자가 겹치는 기존 미시작 assignment만 release/rebid하여, full reset보다
+> 더 많은 기존 assignment를 보존하면서 무위반 완주했다.
+
+주장하지 **않는** 것: 직접 영향 task 뒤의 비영향 task까지 suffix 규칙으로 추가 release하는
+동작이 실제 end-to-end 시나리오에서 발생했다는 것. suffix 분기의 정확성은 손으로 구성한
+상태에 대한 단위테스트(`tests/test_online_allocation.py`)로만 고정돼 있으며, 이는 **분기 검증**
+이지 end-to-end 실증이 아니다. 코드에 규칙을 남겨 둔 이유는 다른 신규 READY 조합에서 bundle
+prefix commitment를 깨지 않기 위한 보수적 안전장치이기 때문이다.
 
 재현:
 

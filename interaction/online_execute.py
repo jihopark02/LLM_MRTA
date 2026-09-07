@@ -20,17 +20,24 @@ def _graph_hash(session: MissionSession) -> str:
     return graph_hash(graph_hash_nodes(graph), sorted(graph_edge_keys(graph)))
 
 
+#: §19.1. PLANNING starts a run; PAUSED continues one; EXECUTION_FAILED is a
+#: retry, but only while the last good runtime survived the failure (D-041).
+_RESUMABLE = {SessionPhase.EXECUTION_PAUSED, SessionPhase.EXECUTION_FAILED}
+
+
 def _preconditions(session: MissionSession) -> None:
     if session.state is None or session.plan is None:
         raise ValueError("a committed mission and plan are required before online execution")
     if session.pending_clarification is not None:
         raise ValueError("resolve or cancel the pending clarification before execution")
-    if session.phase not in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}:
-        raise ValueError("online execution can start or continue only before completion")
+    if session.phase not in {SessionPhase.PLANNING} | _RESUMABLE:
+        raise ValueError("online execution can start, continue or retry only before completion")
     if session.phase is SessionPhase.PLANNING and session.runtime is not None:
         raise ValueError("a planning session cannot already own an online runtime")
-    if session.phase is SessionPhase.EXECUTION_PAUSED and session.runtime is None:
-        raise ValueError("a paused session must own an online runtime")
+    if session.phase in _RESUMABLE and session.runtime is None:
+        # An EXECUTION_FAILED without a runtime is a one-shot failure; §18.1
+        # sends that back through execute_session, not through here.
+        raise ValueError("resuming online execution requires the preserved runtime")
 
 
 def _active_assignments(executor: SimExecutor) -> dict[str, str]:
@@ -105,11 +112,16 @@ def advance_online_session(
     *,
     mode: str,
 ) -> CheckpointAudit | ExecutionAudit:
-    """Start or advance online execution by one completion event.
+    """Start, advance or retry online execution by one completion event.
 
     Work is performed on a new executor.  The session's runtime/state pair is
     replaced only after a successful advance, so an exception cannot leave a
     half-advanced clock or task status behind (§19.4).
+
+    A failed advance keeps the last good runtime, so calling this again retries
+    from that checkpoint (§19.1, D-041) — the counterpart of §18.1's one-shot
+    "retry the same graph".  Retrying resumes the same run: it does not rewind
+    simulation time or the completed prefix.
     """
     checked_mode = require_mode(mode)
     _preconditions(session)

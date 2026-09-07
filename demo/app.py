@@ -369,15 +369,26 @@ def main() -> None:
         if session.phase is SessionPhase.EXECUTION_FAILED
         else "임무 실행"
     )
+    # §19.1/D-041: a failed advance keeps its runtime, so that state offers a
+    # retry rather than a dead end. Without the runtime it was a one-shot
+    # failure and belongs to the one-shot button instead.
+    online_resumable = (
+        session.phase is SessionPhase.EXECUTION_PAUSED
+        or (
+            session.phase is SessionPhase.EXECUTION_FAILED
+            and session.runtime is not None
+        )
+    )
     online_disabled = (
         session.state is None
         or session.plan is None
         or pending
-        or session.phase
-        not in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}
+        or not (session.phase is SessionPhase.PLANNING or online_resumable)
     )
     online_label = (
-        "다음 task 완료까지 계속"
+        "마지막 checkpoint에서 온라인 실행 재시도"
+        if session.phase is SessionPhase.EXECUTION_FAILED and session.runtime is not None
+        else "다음 task 완료까지 계속"
         if session.phase is SessionPhase.EXECUTION_PAUSED
         else "온라인 실행 시작"
     )
