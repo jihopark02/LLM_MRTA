@@ -1,8 +1,18 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.37 (D-040). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.38 (D-041). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.38 (D-041): P9 재검토 반영. §19.3 정책명을 **bidder-connected selective release**로
+  바꾸고 bundle suffix를 "mixed bundle 상태를 위한 보수적 구현 규칙"으로 격하 — 현재
+  canonical online update는 새 incident의 `THERMAL_RECON`만 즉시 READY로 만들고, 그 bidder
+  union은 UAV 전체이므로 어떤 agent도 영향/비영향이 섞인 bundle을 가질 수 없다. 따라서
+  `released == directly_affected`가 되어 suffix 확장은 **실증되지 않았다**. §19.5의
+  "bundle 길이가 suffix 차이를 만들지 못하는 checkpoint는 실험 fixture로 사용하지 않는다"는
+  현재 fixture와 모순이므로 삭제하고, `suffix_extra_release_count`를 원시 지표로 보고한다.
+  §19.1에 online 재시도 lifecycle(`EXECUTION_FAILED` + runtime 보존 → checkpoint 재개)과
+  `(phase, execution, runtime)` 조합의 의미를 명문화. §19.5에 평가 fixture strict schema
+  원칙 추가(D-023과 동일). `VALIDATOR_VERSION` 불변(1.4).
 - v1.37 (D-040): P9 감사의 `preserved active assignment`를 **release되지 않았고 전후 owner도
   같은 commitment**로 명확히 한다. release 후 같은 agent가 다시 낙찰한 경우는 owner change
   0이지만 preserved로 세지 않는다. P9.4 고정 fixture·세 정책 결과와 온라인 Streamlit 경로를
@@ -884,8 +894,8 @@ invariant를 통과해야 한다.
 | P9.0 | RQ4 온라인 명령·선택적 재할당 계약 | v1.36 / D-039 커밋 |
 | P9.1 | `SimExecutor` checkpoint/resume | P4 one-shot 골든 불변 / task-completion event pause / checkpoint→restore 결과가 중단 없는 실행과 동일 / 상태·시각·위치·경로·누적 지표 보존 |
 | P9.2 | bidder-connected bundle-suffix release + incremental CBBA | COMPLETED/RUNNING 불변 / 영향 없는 ASSIGNED 보존 / release suffix 일관성 / 재경매 뒤 assignment invariant·capability·precedence 위반 0 |
-| P9.3 | paused-session REPORT/UPDATE/QUERY + typed audit | 턴 전체 atomicity / accepted update에서만 runtime 교체 / clarification·거부·오류 시 runtime identity·hash 불변 / 온라인 assignment 변화와 release 집합 감사 |
-| P9.4 | Streamlit checkpoint·계속·온라인 명령 UI + 비교 실험 | 명령 전/후 assignment·release·현재 시각 표시 / 대표 scenario 완주 / no-reset·full-reset·selective 원시 지표 비교 |
+| P9.3 | paused-session REPORT/UPDATE/QUERY + typed audit | 턴 전체 atomicity / accepted update에서만 runtime 교체 / clarification·거부·오류 시 runtime identity·hash 불변 / 온라인 assignment 변화와 release 집합 감사 / advance 예외 뒤 runtime 보존 + checkpoint 재개 가능(D-041) |
+| P9.4 | Streamlit checkpoint·계속·온라인 명령 UI + 비교 실험 | 명령 전/후 assignment·release·현재 시각 표시 / 대표 scenario 완주 / no-reset·full-reset·selective 원시 지표 비교 + `suffix_extra_release_count` 보고 / fixture strict schema / 실패 후 재개 버튼(D-041) |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
 
@@ -1313,10 +1323,30 @@ P9는 P8의 실행 전 planning session을 없애지 않고 그 뒤에 붙는 �
 만드는 것. 신규 incident는 여전히 운용자의 `REPORT_INCIDENT`로만 들어온다. executor 시간은
 wall-clock이 아니라 기존 2D discrete-event simulation time이다.
 
-phase는 `PLANNING → EXECUTION_PAUSED ↔ EXECUTION_PAUSED → EXECUTED|EXECUTION_FAILED`다.
+phase는 `PLANNING → EXECUTION_PAUSED ↔ EXECUTION_PAUSED → EXECUTED|EXECUTION_FAILED`이고,
+**runtime이 보존된 `EXECUTION_FAILED`에서는 `EXECUTION_PAUSED`로 되돌아올 수 있다**(아래 재시도).
 각 pause/continue action은 LLM turn이 아니며 `turn_count`를 소비하지 않는다. pending
 clarification이 있으면 실행을 계속할 수 없다. P8의 one-shot `execute_session()`은 보존하고,
 P9 UI가 명시적으로 온라인 실행을 선택한 경우에만 checkpoint 경로를 사용한다.
+
+**online 재시도(D-041).** advance 도중 예외가 나면 세션은 마지막 정상 checkpoint를 그대로
+들고 `EXECUTION_FAILED`가 된다. 이 상태는 막다른 길이 아니다 — §18.1이 one-shot에 "실패 시
+동일 graph 재시도"를 허용하듯, online도 **보존된 checkpoint에서 재개**할 수 있다. 재시도가
+성공하면 아직 남은 task가 있으면 `EXECUTION_PAUSED`, 완주하면 `EXECUTED`, 또 실패하면 다시
+`EXECUTION_FAILED`다. 재시도는 새 실행이 아니라 같은 runtime의 재개이므로 simulation time과
+완료 prefix를 되돌리지 않는다.
+
+`(phase, execution, runtime)` 조합의 의미를 소비자(UI·감사 독자)가 구분할 수 있어야 한다:
+
+| phase | `execution` | `runtime` | 뜻 | 다음 행동 |
+|---|---|---|---|---|
+| `EXECUTION_FAILED` | 있음 | 없음 | one-shot이 `DEADLOCK`/`STEP_LIMIT`로 끝남 | 동일 graph one-shot 재시도 |
+| `EXECUTION_FAILED` | 없음 | 없음 | one-shot executor 예외 | 처음부터 one-shot 재시도 |
+| `EXECUTION_FAILED` | 없음 | **있음** | online advance 예외 | **checkpoint에서 online 재개** |
+| `EXECUTION_PAUSED` | 없음 | 있음 | 정상 일시정지 | 다음 event로 계속 |
+
+예외 실패에 가짜 `ExecutionResult`를 만들지 않는다 — 실제로 실행 결과가 없었기 때문이며,
+원인은 `ExecutionAudit`의 `error_type`·`error_detail`에 남는다.
 
 ### 19.2 checkpoint/restore 의미
 
@@ -1336,7 +1366,7 @@ pause 지점은 `_advance()`가 가장 이른 completion 시각으로 진행하�
 있다. 새 READY 상태는 recompute하되 다음 CBBA epoch는 명령을 받을 기회를 주기 위해 pause
 뒤 resume 또는 accepted update에서 수행한다.
 
-### 19.3 선택적 release 정책
+### 19.3 선택적 release 정책 (bidder-connected selective release)
 
 accepted online patch를 candidate checkpoint 복제본에 적용한 뒤 다음 순서로 release 집합을
 결정한다.
@@ -1346,9 +1376,9 @@ accepted online patch를 candidate checkpoint 복제본에 적용한 뒤 다음 
 2. 기존 `ASSIGNED`(아직 시작 안 함) task 중 bidder set이 위 새 task bidder union과 교집합인
    task를 **직접 영향 task**로 본다. COMPLETED·CANCELLED·RUNNING·새 task는 대상이 아니다.
 3. 직접 영향 task를 보유한 agent별로 CBBA `bundle`에서 가장 이른 영향 task를 찾고, 그
-   위치부터 뒤의 `ASSIGNED` task 전체를 release한다. 이는 bundle prefix commitment를
-   보존하기 위한 suffix rule이다. 같은 task를 `path`, task owner, bid에서도 원자적으로
-   제거한다.
+   위치부터 뒤의 `ASSIGNED` task 전체를 release한다. 같은 task를 `path`, task owner, bid에서도
+   원자적으로 제거한다. 이 bundle-suffix 확장은 **보수적 구현 규칙이지 실증된 연구 주장이
+   아니다** — 아래 "suffix 확장의 실증 범위" 참고.
 4. 새 READY task와 released task를 하나의 READY frontier로 `run_epoch`에 넣는다. 보존된
    ASSIGNED/RUNNING task는 `held`, RUNNING agent의 남은 시간은 기존 residual-path
    `start_delay`로 유지한다.
@@ -1357,6 +1387,24 @@ accepted online patch를 candidate checkpoint 복제본에 적용한 뒤 다음 
 makespan을 증명하지 않는다. `no-reset`(기존 held 전부 유지), `full-reset`(모든 미시작 ASSIGNED
 release), `selective`를 비교할 때도 우열의 일반화가 아니라 고정 scenario의 원시 결과로만
 보고한다.
+
+**suffix 확장의 실증 범위(D-041).** 3단계가 직접 영향 task 뒤의 **비**영향 task까지 추가로
+release하려면 한 agent의 bundle에 영향 task와 비영향 task가 섞여 있어야 한다. canonical online
+update(`build_chain_patch`)는 한 incident의 workflow chain만 추가하고 `AREA_RECON`은 절대
+만들지 않으므로, 신규 incident의 경우 즉시 `READY`가 되는 것은 `THERMAL_RECON` 하나뿐이다.
+그 bidder union은 UAV 전체이므로 모든 UAV task가 영향 task가 되고 모든 UGV task가 비영향이
+된다 — bundle은 한 agent의 것이고 agent는 UAV이거나 UGV이므로 **섞인 bundle이 존재할 수
+없다**. 결과적으로 현재 운용 경로에서는 항상 `released == directly_affected`이고
+
+    suffix_extra_release_count = |released − directly_affected| = 0
+
+이다. 따라서 P9가 실증한 것은 **"신규 READY task와 입찰자가 겹치는 기존 미시작 assignment만
+release/rebid한다"**이며, bundle suffix 확장이 실제로 동작했다고 주장하지 않는다. 이 규칙을
+코드에 남기는 이유는 다른 신규 READY 조합(예: `SUPPRESSANT_DROP`이 새로 READY가 되면
+`AREA_RECON`이 비영향이 되어 S-agent bundle이 섞일 수 있다)에서 bundle prefix commitment를
+깨지 않기 위한 보수적 안전장치이기 때문이다. 그 상태가 실제 실행에서 도달 가능한지는
+확인되지 않았다 — 단위테스트로 **분기의 정확성**은 고정하되, 그것을 end-to-end 실증으로
+기술하지 않는다(D-006과 같은 원칙).
 
 ### 19.4 online turn atomicity와 감사
 
@@ -1388,8 +1436,15 @@ preserved로 세지 않는다.
 incident REPORT+UPDATE를 적용해 `no-reset`, `full-reset`, `selective` 세 정책을 실행한다.
 각 정책에서 다음 원시값을 저장한다: completed/RUNNING 보존 수, released 수와 id, 보존된
 ASSIGNED 수와 id, 기존 task owner change 수, 신규 task assignment, 추가 consensus rounds,
-최종 makespan·UAV/UGV 거리·capability/precedence violation·termination. bundle 길이가 suffix
-차이를 만들지 못하는 checkpoint는 실험 fixture로 사용하지 않는다.
+최종 makespan·UAV/UGV 거리·capability/precedence violation·termination, 그리고 직접 영향 task
+수와 **`suffix_extra_release_count`**(= released − directly_affected). 마지막 값은 §19.3의
+suffix 확장이 이 실행에서 실제로 동작했는지를 그대로 드러내며, 현재 대표 fixture에서는 0이다.
+0이라는 사실을 숨기거나 suffix가 동작한 것처럼 서술하지 않는다.
+
+평가 fixture도 연구 결과의 입력이므로 **strict schema**로 읽는다(D-023과 동일 원칙):
+`str`이 와야 할 자리의 `int`를 `str()`로, `float`가 와야 할 자리의 문자열을 `float()`로
+세탁하지 않는다. 후속 drift guard가 오염을 막더라도 오류가 늦고 불명확해지므로, 타입 위반은
+로드 시점에 거부한다.
 
 필수 안전 게이트: 세 정책 모두 같은 완료 prefix와 RUNNING commitment를 보존, 최종
 `COMPLETED`, capability/precedence violation 0. selective는 full-reset보다 적어도 한 개 이상의

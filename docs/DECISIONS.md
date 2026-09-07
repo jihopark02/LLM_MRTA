@@ -1341,3 +1341,50 @@ COMPLETED, capability/precedence violation 0, makespan 453.883s였고 기존 own
 **영향** §19.4 보존 지표 정의, `allocation/online.py`, P9 Streamlit UI,
 `evaluation/online_reallocation.py`, `docs/P9_RESULTS.md`. whole-graph Validator의 판정·hash는
 바뀌지 않으므로 `VALIDATOR_VERSION`은 1.4 그대로다.
+
+## D-041: suffix 주장 축소 + online 재시도 lifecycle + fixture strict schema (계약 v1.38)
+
+**배경** P9.0~P9.4 완료 후 독립 재검토. Blocker는 없었고 checkpoint 등가성·턴 atomicity·
+감사 순서는 재현으로 확인됐다. 다만 계약이 실증 범위를 넘어서는 주장을 하고 있었고,
+lifecycle에 막다른 상태가 있었다.
+
+1. **suffix 확장이 실증되지 않았다.** 대표 fixture와 모든 단위테스트에서
+   `released == directly_affected`이고 `suffix_extra_release_count = 0`이다. 재현:
+   frozen checkpoint에서 어떤 agent도 bundle에 ASSIGNED task를 2개 이상 갖지 않으며,
+   `_selective_suffix()`를 `return directly_affected`로 바꿔도 625개 테스트와 P9 실험이
+   전부 통과한다. 원인은 fixture 선택이 아니라 운용 경로 구조다 — `build_chain_patch`는
+   `AREA_RECON`을 만들지 않으므로 신규 incident의 즉시 READY task는 `THERMAL_RECON`뿐이고,
+   그 bidder union이 UAV 전체라 UAV bundle은 전부 영향, UGV bundle은 전부 비영향이 되어
+   섞인 bundle이 존재할 수 없다.
+2. **§19.5가 자기모순이었다.** "bundle 길이가 suffix 차이를 만들지 못하는 checkpoint는
+   실험 fixture로 사용하지 않는다"고 쓰고 정확히 그런 fixture를 고정했다.
+3. **online advance 예외가 세션을 막다른 길로 만든다.** 재현: 예외 주입 후
+   `phase=EXECUTION_FAILED`·`runtime` 보존인데, online 재개는 phase 때문에, one-shot은
+   runtime 때문에 거부된다. 상태 오염은 없으나 §18.1이 one-shot에 주는 재시도가 online에는
+   없다.
+4. **평가 fixture loader가 타입을 세탁한다.** `str(raw[...])`/`float(...)`가 `int` fixture_id,
+   문자열 simulation_time을 조용히 통과시킨다. D-023이 scene loader에 금지한 패턴이다.
+
+**결정** 계약 v1.38:
+
+- **정책명을 `bidder-connected selective release`로 한다.** 실증된 주장은 "신규 READY task와
+  입찰자가 겹치는 기존 미시작 assignment만 release/rebid해 full reset보다 더 많은 assignment를
+  보존하면서 무위반 완주했다"까지다. bundle suffix 확장은 **보수적 구현 규칙**으로 격하하고,
+  §19.3에 왜 현재 경로에서 도달하지 않는지와 어떤 조합에서 도달할 수 있는지를 명시한다.
+  코드는 남긴다 — 다른 신규 READY 조합에서 bundle prefix commitment를 지키는 안전장치이기
+  때문이다. 단위테스트로 **분기의 정확성**만 고정하고, 이를 end-to-end 실증으로 서술하지
+  않는다(D-006과 같은 원칙: 도달하지 않는 경로는 도달하지 않는다고 쓴다).
+- **`suffix_extra_release_count`를 §19.5 원시 지표로 보고한다.** 현재 값 0을 결과 문서와 JSON에
+  그대로 적는다. 이 값은 `released`와 `directly_affected` 두 목록에서 파생되므로
+  `OnlineReallocationAudit`에 중복 저장하지 않는다 — 주장이 걸린 곳은 실험이지 턴 감사가 아니다.
+- **§19.5의 모순 문장을 삭제**하고, 평가 fixture strict schema 원칙을 추가한다.
+- **online 재시도 lifecycle**: runtime이 보존된 `EXECUTION_FAILED`에서 checkpoint 재개를
+  허용한다. `(phase, execution, runtime)` 세 조합의 의미를 §19.1 표로 명문화해 소비자가
+  one-shot 결과 실패 / one-shot 예외 / online 예외를 구분하게 한다. 예외 실패에 가짜
+  `ExecutionResult`를 만들지 않는다.
+
+**영향** `allocation/online.py`(지표 노출 없음 — 파생), `evaluation/online_reallocation.py`
+(strict loader + `suffix_extra_release_count`), `interaction/online_execute.py`(재시도 허용),
+`demo/app.py`(재개 버튼), `tests/test_online_{allocation,evaluation,session}.py`,
+`docs/P9_RESULTS.md`. 판정 규칙·hash·CBBA 수식 불변 — `VALIDATOR_VERSION` 1.4 그대로,
+P9 결과 수치(release 0/2/1, makespan 453.883s, 위반 0)도 그대로다.
