@@ -13,6 +13,13 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 APP = Path(__file__).parents[1] / "demo" / "app.py"
 
 
+@pytest.fixture(autouse=True)
+def _no_animation_wall_clock_delay(monkeypatch):
+    """AppTest verifies frame flow, not presentation wall-clock speed."""
+    monkeypatch.setenv("LLM_MRTA_PLAYBACK_SECONDS", "0")
+    monkeypatch.setenv("LLM_MRTA_PLAYBACK_FRAMES", "2")
+
+
 def _submit(at: AppTest, command: str) -> AppTest:
     return at.chat_input[0].set_value(command).run()
 
@@ -433,6 +440,100 @@ def test_without_matplotlib_the_map_panel_falls_back_but_controls_remain(
     # and the console is still operable
     assert not next(b for b in at.button if b.label == "임무 실행").disabled
     assert not next(b for b in at.button if b.label == "온라인 실행 시작").disabled
+
+
+# -- checkpoint-segment animation (§20, D-046/D-047) -------------------
+
+
+def test_online_button_replays_the_committed_segment_then_accepts_input(
+    tmp_path, monkeypatch
+):
+    at = _planned_app(tmp_path, monkeypatch)
+    assert at.checkbox[0].label == "checkpoint 구간 애니메이션"
+    assert at.checkbox[0].value is True
+    assert at.selectbox[1].label == "애니메이션 배속 (표시 전용)"
+    before_events = len(at.session_state["mission_session"].event_log)
+
+    at = next(b for b in at.button if b.label == "온라인 실행 시작").click().run()
+
+    assert not at.exception
+    assert not at.chat_input[0].disabled
+    assert any("구간 재생 완료" in item.value for item in at.success)
+    playback = at.session_state["last_playback"]
+    assert len(playback.frames) == 2
+    assert playback.end_time > playback.start_time
+    assert playback.frames[0].progress == 0.0
+    assert playback.frames[-1].progress == 1.0
+    # Playback is a view: the only new audit item is the execution checkpoint.
+    session = at.session_state["mission_session"]
+    assert len(session.event_log) == before_events + 1
+    assert session.phase.value == "EXECUTION_PAUSED"
+
+
+def test_online_update_is_present_in_the_next_played_segment(tmp_path, monkeypatch):
+    at = _planned_app(tmp_path, monkeypatch)
+    at = next(b for b in at.button if b.label == "온라인 실행 시작").click().run()
+    at = _submit(at, MOCK_COMMANDS[1])
+    at = next(b for b in at.button if b.label == "FIRE_SITE_1").click().run()
+    at = _submit(at, MOCK_COMMANDS[2])
+    at = _submit(at, MOCK_COMMANDS[3])
+    session = at.session_state["mission_session"]
+    added = {
+        task.task_id for task in session.state.graph.tasks if task.target == "FIRE_SITE_3"
+    }
+    assert added
+
+    at = next(
+        b for b in at.button if b.label == "다음 task 완료까지 계속"
+    ).click().run()
+
+    assert not at.exception
+    playback = at.session_state["last_playback"]
+    shown = {
+        leg.task_id for frame in playback.frames for leg in frame.map_spec.legs
+    }
+    # Only the first workflow step is READY immediately. Its new assignment
+    # must already drive this next segment; dependent steps correctly remain
+    # PENDING and enter later segments when their predecessors complete.
+    ready_added = {task_id for task_id in added if task_id.startswith("THERMAL_RECON")}
+    assert ready_added and ready_added <= shown
+    runtime = at.session_state["mission_session"].runtime
+    for task_id in ready_added:
+        assert runtime.assignments[task_id] in runtime.agents
+
+
+def test_animation_import_failure_keeps_the_committed_checkpoint(
+    tmp_path, monkeypatch, without_matplotlib
+):
+    at = _planned_app(tmp_path, monkeypatch)
+    at = next(b for b in at.button if b.label == "온라인 실행 시작").click().run()
+
+    assert not at.exception
+    assert next(m.value for m in at.metric if m.label == "Phase") == "EXECUTION_PAUSED"
+    assert any("정적 지도로 전환" in item.value for item in at.warning)
+    session = at.session_state["mission_session"]
+    assert session.runtime is not None and session.runtime.now > 0.0
+    assert session.event_log[-1].event_type == "EXECUTION_CHECKPOINT"
+
+
+def test_frame_spec_failure_does_not_roll_back_execution(tmp_path, monkeypatch):
+    import demo.animation as animation
+
+    at = _planned_app(tmp_path, monkeypatch)
+    with monkeypatch.context() as failure:
+        failure.setattr(
+            animation,
+            "build_playback_spec",
+            lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("frame exploded")),
+        )
+        at = next(b for b in at.button if b.label == "온라인 실행 시작").click().run()
+
+    assert not at.exception
+    assert next(m.value for m in at.metric if m.label == "Phase") == "EXECUTION_PAUSED"
+    assert any("frame exploded" in item.value for item in at.warning)
+    session = at.session_state["mission_session"]
+    assert session.runtime is not None and session.runtime.now > 0.0
+    assert session.event_log[-1].event_type == "EXECUTION_CHECKPOINT"
 
 
 # -- the Plan-time map must describe the state it is actually in ----------

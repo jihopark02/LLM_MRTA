@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from dataclasses import asdict
 from pathlib import Path
 from uuid import uuid4
@@ -28,7 +29,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from demo.mock_script import MOCK_COMMANDS, make_mock_backend
-from execution.executor import Termination
+from execution.executor import SimExecutor, Termination
 from interaction.audit import CheckpointAudit, ExecutionAudit
 from interaction.audit_io import write_session_audit
 from interaction.execute import execute_session
@@ -47,6 +48,8 @@ SCENE_PATH = ROOT / "scenarios" / "industrial_park.yaml"
 RUNTIME_ROOT = Path(os.environ.get("LLM_MRTA_RUNTIME_ROOT", ROOT / "data"))
 AUDIT_PATH = RUNTIME_ROOT / "interaction_runs"
 CACHE_PATH = RUNTIME_ROOT / "llm_cache"
+PLAYBACK_FRAMES = 18
+PLAYBACK_WALL_SECONDS = 3.0
 
 
 def _new_session() -> MissionSession:
@@ -58,6 +61,86 @@ def _initialise() -> None:
         st.session_state.mission_session = _new_session()
         st.session_state.chat = []
         st.session_state.backends = {}
+
+
+def _playback_figure(frame):
+    """Draw one P10 frame, or ``None`` when optional viz is unavailable."""
+    try:
+        from demo.visualization import render_playback_frame
+
+        return render_playback_frame(frame)
+    except ImportError:
+        return None
+
+
+def _playback_panel(enabled: bool, speed: int) -> None:
+    """Synchronously replay one committed segment, then expose the checkpoint.
+
+    Streamlit does not process another widget event while this run is drawing
+    frames.  Execution has already committed, so a draw/import failure only
+    degrades the view and can never roll the simulator back (§20.4).
+    """
+    error = st.session_state.pop("pending_playback_error", None)
+    if error is not None:
+        st.warning(
+            "실행은 checkpoint에 반영됐지만 애니메이션을 만들지 못했습니다: "
+            f"{error}. 정적 Runtime 지도와 표를 사용하세요."
+        )
+    playback = st.session_state.pop("pending_playback", None)
+    if playback is None:
+        return
+    st.session_state.last_playback = playback
+    if not enabled:
+        st.info(
+            f"화면 재생을 건너뛰었습니다 (simulation t={playback.start_time:.1f}"
+            f"→{playback.end_time:.1f}s). 실행 결과는 그대로 반영됐습니다."
+        )
+        return
+
+    st.subheader("Checkpoint 구간 2D 애니메이션")
+    st.caption(
+        "기록된 discrete-event schedule의 보간입니다. 실제 robot telemetry나 물리 pose가 아닙니다."
+    )
+    holder = st.empty()
+    progress = st.progress(0.0)
+    wall_seconds = float(os.environ.get("LLM_MRTA_PLAYBACK_SECONDS", PLAYBACK_WALL_SECONDS))
+    delay = max(0.0, wall_seconds) / speed / max(1, len(playback.frames) - 1)
+    for index, frame in enumerate(playback.frames):
+        figure = _playback_figure(frame)
+        if figure is None:
+            st.warning(
+                "애니메이션 렌더러를 불러오지 못했습니다. 실행은 보존되며 정적 지도로 전환합니다."
+            )
+            progress.empty()
+            return
+        holder.pyplot(figure)
+        figure.clear()
+        progress.progress((index + 1) / len(playback.frames))
+        if index + 1 < len(playback.frames) and delay:
+            time.sleep(delay)
+    progress.empty()
+    st.success(
+        f"구간 재생 완료: simulation t={playback.start_time:.1f}"
+        f"→{playback.end_time:.1f}s. 지금 후속 명령을 입력할 수 있습니다."
+    )
+
+
+def _queue_playback(session: MissionSession, before) -> None:
+    """Build a view from the committed runtime; never alter execution state."""
+    if session.runtime is None:
+        return
+    after = session.runtime.checkpoint()
+    if after.now <= before.now:
+        return
+    try:
+        from demo.animation import build_playback_spec
+
+        frame_count = int(os.environ.get("LLM_MRTA_PLAYBACK_FRAMES", PLAYBACK_FRAMES))
+        st.session_state.pending_playback = build_playback_spec(
+            session.scene, before, after, frame_count=frame_count
+        )
+    except Exception as exc:  # noqa: BLE001 - view failure must not undo execution
+        st.session_state.pending_playback_error = f"{type(exc).__name__}: {exc}"
 
 
 def _backend(mode: str):
@@ -502,6 +585,10 @@ def main() -> None:
 
     st.title("LLM-MRTA Operator Console")
     mode = st.sidebar.selectbox("실행 모드", ("live", "cached", "mock"), index=0)
+    playback_enabled = st.sidebar.checkbox("checkpoint 구간 애니메이션", value=True)
+    playback_speed = st.sidebar.selectbox(
+        "애니메이션 배속 (표시 전용)", (1, 2, 5), index=1, format_func=lambda value: f"{value}x"
+    )
     st.sidebar.info(f"현재 응답 출처: {mode.upper()}")
     if mode == "live":
         st.sidebar.caption("실제 OpenAI API를 호출하며 성공 응답을 로컬 캐시에 기록합니다.")
@@ -522,6 +609,10 @@ def main() -> None:
     st.sidebar.write(f"Session: `{session.session_id}`")
     st.sidebar.metric("Phase", session.phase.value)
     st.sidebar.write(f"Audit events: {len(session.event_log)}")
+
+    # A queued segment was already committed by the preceding button action.
+    # Replay it before rendering any interactive controls for this run.
+    _playback_panel(playback_enabled, playback_speed)
 
     st.subheader("운용자–LLM 대화")
     for message in st.session_state.chat:
@@ -587,6 +678,11 @@ def main() -> None:
         _persist(session)
         st.rerun()
     if online_col.button(online_label, disabled=online_disabled):
+        before = (
+            session.runtime.checkpoint()
+            if session.runtime is not None
+            else SimExecutor(session.state, session.scene).checkpoint()
+        )
         audit = advance_online_session(session, mode=mode)
         if isinstance(audit, CheckpointAudit):
             completed = ", ".join(audit.completed_now) or "없음"
@@ -597,6 +693,7 @@ def main() -> None:
                 text += f" ({audit.error_type}: {audit.error_detail})"
         _record("[온라인 실행: 다음 완료 이벤트]", text)
         _persist(session)
+        _queue_playback(session, before)
         st.rerun()
 
     left, right = st.columns(2)

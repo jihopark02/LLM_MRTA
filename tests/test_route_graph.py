@@ -204,3 +204,31 @@ def test_the_two_queries_agree_on_the_scene_route_graph():
                 for a, b in zip(path, path[1:], strict=False)
             )
             assert total == pytest.approx(graph.shortest_path_distance(src, dst))
+
+
+# -- lane_weight (§20.2, D-046) -----------------------------------------
+
+
+def test_lane_weight_exposes_the_exact_cost_in_both_directions():
+    graph = RouteGraph()
+    graph.add_node("A", (0.0, 0.0))
+    graph.add_node("B", (100.0, 0.0))
+    graph.add_lane("A", "B", weight=3.25)
+
+    assert graph.lane_weight("A", "B") == 3.25
+    assert graph.lane_weight("B", "A") == 3.25
+
+
+def test_lane_weight_refuses_an_unknown_node_or_a_non_lane():
+    graph = line_graph()
+    with pytest.raises(KeyError, match="unknown route node"):
+        graph.lane_weight("N0", "NOPE")
+    with pytest.raises(KeyError, match="no route lane"):
+        graph.lane_weight("N0", "N2")
+
+
+def test_lane_weight_query_does_not_mutate_the_graph():
+    graph = _diamond()
+    before = (graph.nodes, graph.lanes)
+    graph.lane_weight("N0", "NA")
+    assert (graph.nodes, graph.lanes) == before

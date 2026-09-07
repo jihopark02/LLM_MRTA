@@ -106,5 +106,21 @@ class RouteGraph:
         result = self._shortest_path(src, dst)
         return None if result is None else result[1]
 
+    def lane_weight(self, a: str, b: str) -> float:
+        """Weight of one existing undirected lane, without mutating the graph.
+
+        P10 playback uses the same weights as Dijkstra to place a UGV along a
+        returned shortest-path polyline.  Exposing this read-only query avoids
+        silently substituting Euclidean segment length when a scenario uses
+        explicit, non-Euclidean lane costs (§20.2).
+        """
+        for node in (a, b):
+            if node not in self._nodes:
+                raise KeyError(f"unknown route node: {node}")
+        try:
+            return self._adj[a][b]
+        except KeyError as exc:
+            raise KeyError(f"no route lane: {a}-{b}") from exc
+
     def is_reachable(self, src: str, dst: str) -> bool:
         return self.shortest_path_distance(src, dst) is not None

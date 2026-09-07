@@ -237,7 +237,7 @@ LEG_LINESTYLES = {
     "in_progress": "dashed",
     "remaining": "dotted",
 }
-MAP_MODES = ("plan", "runtime", "execution")
+MAP_MODES = ("plan", "runtime", "execution", "playback")
 
 
 @dataclass(frozen=True, slots=True)
@@ -567,6 +567,7 @@ MAP_MODE_TITLES = {
     "plan": "Plan-time CBBA baseline — route computed before execution",
     "runtime": "Online execution paused — last confirmed positions",
     "execution": "Completed execution — route actually driven",
+    "playback": "Online checkpoint playback — schedule interpolation, not telemetry",
 }
 MAP_WIDTH_IN = 9.5
 MAP_HEIGHT_IN = 7.0
@@ -737,6 +738,26 @@ def render_mission_map(spec: MapRenderSpec):
     return fig
 
 
+def render_playback_frame(frame):
+    """Draw one immutable P10 frame without reading a session or executor."""
+    figure = render_mission_map(frame.map_spec)
+    activity = "  ·  ".join(
+        f"{agent.agent_id} {agent.activity}"
+        + (f" ({agent.task_id})" if agent.task_id else "")
+        for agent in frame.agents
+    )
+    figure.axes[0].text(
+        0.0,
+        -0.12,
+        activity,
+        transform=figure.axes[0].transAxes,
+        fontsize=6.5,
+        color="#4c566a",
+        va="top",
+    )
+    return figure
+
+
 def render_task_graph(spec: DagRenderSpec):
     """Draw a ``DagRenderSpec``. Returns a matplotlib ``Figure``.
 
@@ -845,4 +866,5 @@ __all__ = [
     "render_task_graph",
     "MAP_MODE_TITLES",
     "render_mission_map",
+    "render_playback_frame",
 ]
