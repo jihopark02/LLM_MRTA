@@ -19,18 +19,18 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-047, 계약 v1.44)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-048, 계약 v1.45)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-07 기준)
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.5,
-P9.0~P9.4와 P10 완료 (브랜치 `feature/operator-interaction`). 계약 v1.44, 최신 결정
-D-047.**
+P9.0~P9.4와 P10 완료 (브랜치 `feature/operator-interaction`). 계약 v1.45, 최신 결정
+D-048.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 759개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 762개 통과, ruff clean.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 최초 범위는 실행 개시 전 다중 턴
 자연어 계획 세션이며, 후속 P9가 이를 task-completion checkpoint의 온라인 명령으로 확장했다.
@@ -111,6 +111,10 @@ completion checkpoint를 commit한 뒤 그 구간을 재생한다. UAV는 직선
 task target에서 dwell한다. 재생은 순수 presentation view이고 실제 telemetry·동역학·임의
 wall-clock interrupt가 아니다. 재생 완료 checkpoint에서만 후속 명령을 받아 P9 selective
 release/rebid를 수행한다. matplotlib 부재/렌더 실패는 실행을 되돌리지 않고 정적 표로 degrade한다.
+UI의 `다음 checkpoint까지 재생`은 가장 이른 completion마다 멈춰 정지 원인과 계속 RUNNING인
+agent의 TRAVEL/DWELL 상태를 표시하고 중간 명령을 허용한다. `끝까지 연속 재생`은 같은 action을
+terminal까지 반복하되 구간 사이 control을 렌더하지 않으며 오류에서 자동 retry 없이 멈춘다
+(D-048).
 다음은 실제 UI 리허설과 발표 자료 정리다.
 
 P8.3 구조 (D-031~D-034, 계약 v1.32):

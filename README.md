@@ -19,7 +19,7 @@ Unmanned Systems
 canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행 감사, live/cached/mock)
 + `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가, P9
 실행 중 명령·선택적 재할당, P8.5 정적 DAG/2D 지도와 P10 checkpoint 구간 애니메이션까지
-완료**. 테스트 759개 통과.
+완료**. 테스트 762개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -34,7 +34,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.44 / 최신 결정 D-047 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.45 / 최신 결정 D-048 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
@@ -61,12 +61,13 @@ streamlit run demo/app.py
 세 모드는 UI와 감사 JSON에 명시되며 서로 바꿔 표시하지 않는다. P8.3 검증 기록은
 [`docs/P8_3_RESULTS.md`](docs/P8_3_RESULTS.md)에 있다.
 
-온라인 실행은 `온라인 실행 시작`/`다음 task 완료까지 계속`을 누를 때마다 다음
-task-completion checkpoint까지 진행하고 그 구간을 2D로 재생한다(P10). UAV는 직선, UGV는
-route graph polyline을 따라 움직이며 travel과 dwell이 구분된다. 재생이 끝난 checkpoint에서
-후속 자연어 명령을 입력하면 P9 selective release/rebid가 반영되고 다음 구간이 바뀐 assignment로
-재생된다. 이는 discrete-event schedule의 보간이며 실제 telemetry·물리 pose나 임의 시각
-interrupt를 뜻하지 않는다. 사이드바에서 재생 on/off와 1x/2x/5x 표시 배속을 고를 수 있다.
+온라인 실행은 두 방식이다(D-048). `온라인 실행 시작`/`다음 checkpoint까지 재생`은 전역에서
+가장 이른 task-completion checkpoint마다 멈추므로, 여기서 후속 자연어 명령과 P9 selective
+release/rebid를 시험할 수 있다. 화면은 정지 원인 task와 아직 `TRAVEL/DWELL 중 일시정지`인
+agent를 구분한다. `끝까지 연속 재생`은 같은 checkpoint 구간을 terminal까지 이어서 재생하지만
+구간 사이 명령은 받지 않는다. UAV는 직선, UGV는 route graph polyline을 따라 움직인다. 이는
+discrete-event schedule의 보간이며 실제 telemetry·물리 pose나 임의 시각 interrupt를 뜻하지
+않는다. 사이드바에서 재생 on/off와 1x/2x/5x 표시 배속을 고를 수 있다.
 
 새로운 LLM 모델이나 CBBA 알고리즘을 제안하는 연구가 아니다. 검증된 구성요소를 통합하고
 재현 가능하게 시연·평가한다.
