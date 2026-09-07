@@ -1469,3 +1469,49 @@ P9 실험 수치·결론 불변, `VALIDATOR_VERSION` 1.4 불변.
 `tests/test_visualization.py`(신규), `tests/test_demo_app.py`. `core/`·`allocation/`·
 `execution/`·`interaction/`·`evaluation/` 무변경. 새 지표·새 주장 없음, P9 수치 불변,
 `VALIDATOR_VERSION` 1.4 불변.
+
+## D-044: D-043 보정 — 데이터 모델과 결정론 기준 정합 (계약 v1.41)
+
+**D-043을 보정한다.** 방향(DAG + 정적 2D, 애니메이션 제외, 순수 view)은 그대로이고, 구현 전에
+계약이 실제 데이터 모델과 어긋난 다섯 곳을 고친다. 전부 코드로 재현·확인했다.
+
+1. **`TaskStatus`는 5종이 아니라 6종이다.** `core/enums.py`에 `CANCELLED`가 있다. §10에서
+   cancellation이 미지원이라 정상 시나리오엔 안 나오지만 Validator와 checkpoint가 지원하는 유효
+   상태다. 색 표를 6종으로 정의하고(`CANCELLED` 진한 빨강), **enum을 순회하며** 검사해 나중에
+   멤버가 늘면 renderer보다 테스트가 먼저 깨지게 한다.
+
+2. **UGV polyline을 그릴 공개 API가 없다.** `RouteGraph`는 `shortest_path_distance()`와
+   `is_reachable()`만 제공하고 경유 node를 주지 않는다. 이대로면 view가 Dijkstra를 재구현해야
+   하는데 그것이 바로 "연구 로직 비복제" 위반이다. 따라서 D-043의 "core 무변경"을 **"할당·실행
+   의미는 불변, 시각화용 read-only 최단경로 조회 API 추가만 허용"**으로 완화한다. 요구사항은
+   기존 API와 같은 tie-break, 모든 node 쌍에서 누적 weight == 거리, graph 불변, 결정론,
+   도달 불가 시 일관된 반환, 그리고 **P3/P4 골든(359.8 / 257.9) 불변**. `VALIDATOR_VERSION`은
+   1.4 그대로다 — 판정 규칙이 아니다.
+
+3. **paused runtime의 "현재 위치"는 존재하지 않는다.** `SimExecutor._advance()`는 task가
+   **완료될 때만** `agent.position`(UGV는 `access_nodes`)을 갱신하므로, RUNNING 중인 agent를
+   현재 state에서 읽으면 출발 위치가 나온다. 애니메이션·보간이 범위 밖인데 "현재 위치를
+   표시한다"고 쓴 것은 모순이었다. **마지막 확정 위치 + RUNNING target + dashed in-progress
+   leg**로 정의하고 UI 레이블도 `Last confirmed position` / `RUNNING target` /
+   `In-progress leg`로 쓴다. 물리 pose 보간을 주장하지 않는다 — 보간은 UGV route 상의 거리 기반
+   보간까지 끌고 와 범위를 넘긴다.
+
+4. **"동일 Figure"는 테스트 기준이 될 수 없다.** 실측: `Figure == Figure`는 identity 비교라
+   **False**다. PNG·PDF 바이트는 이 환경(matplotlib 3.10.9)에선 우연히 일치했지만 버전·font·
+   backend·metadata·antialiasing에 따라 환경마다 달라질 수 있어 계약 기준으로 부적합하다.
+   결정론의 대상을 **`RenderSpec`**(node id → 좌표·색·모양, edge 목록)으로 옮긴다. 공개
+   렌더러는 계속 `Figure`를 반환하고, spec을 만드는 helper를 테스트한다. artist `gid`에
+   task·edge id를 넣어 발표 그림을 사후 대조할 수 있게 한다.
+
+5. **degrade는 모듈 import 실패까지 견뎌야 한다.** `demo/app.py`가 `demo/visualization.py`를
+   top-level에서 import하고 그 모듈이 top-level에서 matplotlib을 import하면, degrade 분기에
+   닿기도 전에 앱이 죽는다. 함수 호출 실패가 아니라 **matplotlib 부재를 흉내 낸 import 실패**
+   상태에서 UI가 기동되는지를 테스트로 고정한다.
+
+**영향** `core/route_graph.py`(read-only 경로 API 1개 추가), 신규 `demo/visualization.py`,
+`demo/app.py`, `tests/test_route_graph.py`, 신규 `tests/test_visualization.py`,
+`tests/test_demo_app.py`. `allocation/`·`execution/`·`interaction/`·`evaluation/` 무변경.
+새 지표·새 주장 없음, P3/P4/P9 수치 불변, `VALIDATOR_VERSION` 1.4 불변.
+
+구현 순서: D-044 → DAG `RenderSpec` → DAG `Figure` → DAG UI 연결 → `RouteGraph` 경로 API →
+2D `RenderSpec`/`Figure` → 발표 PNG/PDF.
