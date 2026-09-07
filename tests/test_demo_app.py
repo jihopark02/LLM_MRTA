@@ -107,7 +107,7 @@ def test_streamlit_mock_path_accepts_an_update_while_execution_is_paused(
         if phase == "EXECUTED":
             break
         button = next(
-            button for button in at.button if button.label == "다음 task 완료까지 계속"
+            button for button in at.button if button.label == "다음 checkpoint까지 재생"
         )
         at = button.click().run()
         assert not at.exception
@@ -142,7 +142,7 @@ def _paused_app(tmp_path, monkeypatch):
 def _online_button(at):
     labels = {
         "온라인 실행 시작",
-        "다음 task 완료까지 계속",
+        "다음 checkpoint까지 재생",
         "마지막 checkpoint에서 온라인 실행 재시도",
     }
     return next(button for button in at.button if button.label in labels)
@@ -468,6 +468,70 @@ def test_online_button_replays_the_committed_segment_then_accepts_input(
     session = at.session_state["mission_session"]
     assert len(session.event_log) == before_events + 1
     assert session.phase.value == "EXECUTION_PAUSED"
+    assert any("정지 원인:" in item.value for item in at.success)
+    running_table = next(
+        frame for frame in at.dataframe if "checkpoint_state" in str(frame.value)
+    )
+    assert "중 일시정지" in str(running_table.value)
+
+
+def test_continuous_playback_repeats_checkpoints_to_terminal_without_turns(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("LLM_MRTA_RUNTIME_ROOT", str(tmp_path))
+    at = AppTest.from_file(APP, default_timeout=60).run()
+    at = at.selectbox[0].select("mock").run()
+    at = _submit(at, MOCK_COMMANDS[0])
+    session = at.session_state["mission_session"]
+    turn_count = session.turn_count
+
+    at = next(b for b in at.button if b.label == "끝까지 연속 재생").click().run()
+
+    assert not at.exception
+    session = at.session_state["mission_session"]
+    assert session.phase.value == "EXECUTED"
+    assert session.execution.termination.value == "COMPLETED"
+    assert session.turn_count == turn_count
+    assert at.session_state["continuous_playback"] is False
+    execution_events = [
+        event.event_type for event in session.event_log if event.event_type != "TURN"
+    ]
+    assert execution_events.count("EXECUTION_CHECKPOINT") > 1
+    assert execution_events[-1] == "EXECUTION"
+    assert next(b for b in at.button if b.label == "끝까지 연속 재생").disabled
+
+
+def test_continuous_playback_stops_on_exception_without_implicit_retry(
+    tmp_path, monkeypatch
+):
+    from execution.executor import SimExecutor
+
+    monkeypatch.setenv("LLM_MRTA_RUNTIME_ROOT", str(tmp_path))
+    at = AppTest.from_file(APP, default_timeout=60).run()
+    at = at.selectbox[0].select("mock").run()
+    at = _submit(at, MOCK_COMMANDS[0])
+    original = SimExecutor.advance_to_next_completion
+    calls = 0
+
+    def fail_second(self, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("continuous exploded")
+        return original(self, *args, **kwargs)
+
+    with monkeypatch.context() as failure:
+        failure.setattr(SimExecutor, "advance_to_next_completion", fail_second)
+        at = next(b for b in at.button if b.label == "끝까지 연속 재생").click().run()
+
+    assert not at.exception
+    assert calls == 2, "an execution exception must stop rather than auto-retry"
+    session = at.session_state["mission_session"]
+    assert session.phase.value == "EXECUTION_FAILED"
+    assert session.runtime is not None and session.execution is None
+    assert at.session_state["continuous_playback"] is False
+    assert session.event_log[-1].error_type == "RuntimeError"
+    assert _online_button(at).label == "마지막 checkpoint에서 온라인 실행 재시도"
 
 
 def test_online_update_is_present_in_the_next_played_segment(tmp_path, monkeypatch):
@@ -484,7 +548,7 @@ def test_online_update_is_present_in_the_next_played_segment(tmp_path, monkeypat
     assert added
 
     at = next(
-        b for b in at.button if b.label == "다음 task 완료까지 계속"
+        b for b in at.button if b.label == "다음 checkpoint까지 재생"
     ).click().run()
 
     assert not at.exception
@@ -513,6 +577,20 @@ def test_animation_import_failure_keeps_the_committed_checkpoint(
     assert any("정적 지도로 전환" in item.value for item in at.warning)
     session = at.session_state["mission_session"]
     assert session.runtime is not None and session.runtime.now > 0.0
+    assert session.event_log[-1].event_type == "EXECUTION_CHECKPOINT"
+
+
+def test_continuous_mode_stops_at_the_first_checkpoint_if_drawing_is_unavailable(
+    tmp_path, monkeypatch, without_matplotlib
+):
+    at = _planned_app(tmp_path, monkeypatch)
+    at = next(b for b in at.button if b.label == "끝까지 연속 재생").click().run()
+
+    assert not at.exception
+    session = at.session_state["mission_session"]
+    assert session.phase.value == "EXECUTION_PAUSED"
+    assert at.session_state["continuous_playback"] is False
+    assert any("정적 지도로 전환" in item.value for item in at.warning)
     assert session.event_log[-1].event_type == "EXECUTION_CHECKPOINT"
 
 
@@ -570,7 +648,7 @@ def test_a_completed_run_after_an_update_points_at_the_execution_tab(
         if phase != "EXECUTION_PAUSED":
             break
         at = next(
-            b for b in at.button if b.label == "다음 task 완료까지 계속"
+            b for b in at.button if b.label == "다음 checkpoint까지 재생"
         ).click().run()
 
     assert next(m.value for m in at.metric if m.label == "Phase") == "EXECUTED"
@@ -599,7 +677,7 @@ def test_a_failed_run_never_points_at_a_tab_that_is_not_shown(tmp_path, monkeypa
             lambda self, *a, **k: (_ for _ in ()).throw(RuntimeError("sim exploded")),
         )
         at = next(
-            b for b in at.button if b.label == "다음 task 완료까지 계속"
+            b for b in at.button if b.label == "다음 checkpoint까지 재생"
         ).click().run()
 
     assert next(m.value for m in at.metric if m.label == "Phase") == "EXECUTION_FAILED"

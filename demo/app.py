@@ -61,6 +61,7 @@ def _initialise() -> None:
         st.session_state.mission_session = _new_session()
         st.session_state.chat = []
         st.session_state.backends = {}
+        st.session_state.continuous_playback = False
 
 
 def _playback_figure(frame):
@@ -82,6 +83,7 @@ def _playback_panel(enabled: bool, speed: int) -> None:
     """
     error = st.session_state.pop("pending_playback_error", None)
     if error is not None:
+        st.session_state.continuous_playback = False
         st.warning(
             "실행은 checkpoint에 반영됐지만 애니메이션을 만들지 못했습니다: "
             f"{error}. 정적 Runtime 지도와 표를 사용하세요."
@@ -108,6 +110,7 @@ def _playback_panel(enabled: bool, speed: int) -> None:
     for index, frame in enumerate(playback.frames):
         figure = _playback_figure(frame)
         if figure is None:
+            st.session_state.continuous_playback = False
             st.warning(
                 "애니메이션 렌더러를 불러오지 못했습니다. 실행은 보존되며 정적 지도로 전환합니다."
             )
@@ -141,6 +144,45 @@ def _queue_playback(session: MissionSession, before) -> None:
         )
     except Exception as exc:  # noqa: BLE001 - view failure must not undo execution
         st.session_state.pending_playback_error = f"{type(exc).__name__}: {exc}"
+
+
+def _advance_online_once(session: MissionSession, mode: str):
+    """Commit one checkpoint action, record it, and queue its pure playback."""
+    before = (
+        session.runtime.checkpoint()
+        if session.runtime is not None
+        else SimExecutor(session.state, session.scene).checkpoint()
+    )
+    audit = advance_online_session(session, mode=mode)
+    if isinstance(audit, CheckpointAudit):
+        completed = ", ".join(audit.completed_now) or "없음"
+        text = (
+            f"t={audit.simulation_time:.1f}s checkpoint에서 일시정지 "
+            f"(완료: {completed})"
+        )
+    else:
+        text = f"실행 종료: {audit.execution_termination}, makespan {audit.makespan:.1f}s"
+        if audit.error_type:
+            text += f" ({audit.error_type}: {audit.error_detail})"
+    _record("[온라인 실행: 다음 checkpoint]", text)
+    _persist(session)
+    _queue_playback(session, before)
+    return audit
+
+
+def _continue_to_terminal(session: MissionSession, mode: str) -> None:
+    """Advance one more segment before controls render, while auto mode is on."""
+    if not st.session_state.get("continuous_playback", False):
+        return
+    if session.phase is not SessionPhase.EXECUTION_PAUSED:
+        st.session_state.continuous_playback = False
+        return
+    audit = _advance_online_once(session, mode)
+    if isinstance(audit, ExecutionAudit):
+        # COMPLETED, DEADLOCK, STEP_LIMIT and exceptions all stop auto mode.
+        # In particular, do not turn an exception into an implicit retry.
+        st.session_state.continuous_playback = False
+    st.rerun()
 
 
 def _backend(mode: str):
@@ -499,12 +541,12 @@ def _execution_panel(session: MissionSession) -> None:
         )
         st.info(
             "온라인 실행이 task 완료 경계에서 일시정지됐습니다. "
-            "지금 후속 명령을 입력하거나 다음 완료까지 계속할 수 있습니다."
+            "지금 후속 명령을 입력하거나 다음 checkpoint까지 재생할 수 있습니다."
         )
         st.metric("Current simulation time", f"{runtime.now:.1f} s")
         if checkpoint is not None:
-            st.write("이번 checkpoint에서 완료")
-            st.write(", ".join(checkpoint.completed_now) or "없음")
+            completed = ", ".join(checkpoint.completed_now) or "없음"
+            st.success(f"정지 원인: {completed} 완료")
             st.write("RUNNING")
             st.dataframe(
                 [
@@ -512,6 +554,11 @@ def _execution_panel(session: MissionSession) -> None:
                         "task_id": task_id,
                         "agent_id": value["agent_id"],
                         "finish_time": value["finish_time"],
+                        "checkpoint_state": (
+                            "TRAVEL 중 일시정지"
+                            if runtime.now < runtime.task_start[task_id]
+                            else "DWELL 중 일시정지"
+                        ),
                     }
                     for task_id, value in sorted(checkpoint.running.items())
                 ],
@@ -613,6 +660,9 @@ def main() -> None:
     # A queued segment was already committed by the preceding button action.
     # Replay it before rendering any interactive controls for this run.
     _playback_panel(playback_enabled, playback_speed)
+    # Continuous mode deliberately advances before chat/buttons are rendered,
+    # so there is no command window between its checkpoint segments (D-048).
+    _continue_to_terminal(session, mode)
 
     st.subheader("운용자–LLM 대화")
     for message in st.session_state.chat:
@@ -661,15 +711,16 @@ def main() -> None:
         or pending
         or not (session.phase is SessionPhase.PLANNING or online_resumable)
     )
-    online_label = (
+    checkpoint_label = (
         "마지막 checkpoint에서 온라인 실행 재시도"
         if online_retryable
-        else "다음 task 완료까지 계속"
+        else "다음 checkpoint까지 재생"
         if session.phase is SessionPhase.EXECUTION_PAUSED
         else "온라인 실행 시작"
     )
-    one_shot_col, online_col = st.columns(2)
+    one_shot_col, checkpoint_col, continuous_col = st.columns(3)
     if one_shot_col.button(run_label, type="primary", disabled=one_shot_disabled):
+        st.session_state.continuous_playback = False
         audit = execute_session(session, mode=mode)
         text = f"실행 종료: {audit.execution_termination}, makespan {audit.makespan:.1f}s"
         if audit.error_type:
@@ -677,23 +728,15 @@ def main() -> None:
         _record("[한 번에 끝까지 실행]", text)
         _persist(session)
         st.rerun()
-    if online_col.button(online_label, disabled=online_disabled):
-        before = (
-            session.runtime.checkpoint()
-            if session.runtime is not None
-            else SimExecutor(session.state, session.scene).checkpoint()
-        )
-        audit = advance_online_session(session, mode=mode)
-        if isinstance(audit, CheckpointAudit):
-            completed = ", ".join(audit.completed_now) or "없음"
-            text = f"t={audit.simulation_time:.1f}s에서 일시정지 (완료: {completed})"
-        else:
-            text = f"실행 종료: {audit.execution_termination}, makespan {audit.makespan:.1f}s"
-            if audit.error_type:
-                text += f" ({audit.error_type}: {audit.error_detail})"
-        _record("[온라인 실행: 다음 완료 이벤트]", text)
-        _persist(session)
-        _queue_playback(session, before)
+    if checkpoint_col.button(checkpoint_label, disabled=online_disabled):
+        st.session_state.continuous_playback = False
+        _advance_online_once(session, mode)
+        st.rerun()
+    if continuous_col.button("끝까지 연속 재생", disabled=online_disabled):
+        st.session_state.continuous_playback = True
+        audit = _advance_online_once(session, mode)
+        if isinstance(audit, ExecutionAudit):
+            st.session_state.continuous_playback = False
         st.rerun()
 
     left, right = st.columns(2)
