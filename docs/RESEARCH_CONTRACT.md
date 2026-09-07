@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.41 (D-044). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.42 (D-045). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.42 (D-045): D-044의 `gid` 문구 정정(문서 전용). "발표 그림을 사후에 대조"는 기술적으로
+  사실이 아니다 — PNG는 artist `gid`를 보존하지 않으므로 저장된 파일을 파싱해 node·edge를
+  감사할 수 없다. 실제로 가능하고 P8.5b가 구현한 경계는 **저장 직전 `Figure`의 artist 집합을
+  그 `RenderSpec`과 대조**하는 것이다. renderer 코드 변경 없음, 새 주장·지표 없음.
+  `VALIDATOR_VERSION` 불변(1.4).
 - v1.41 (D-044): D-043 보정 5건 — 구현 전에 계약과 데이터 모델의 충돌을 없앤다. ①
   `TaskStatus`는 **6종**(`CANCELLED` 포함)이므로 renderer가 enum 전체를 처리한다. ②
   `RouteGraph`에 경유 node를 돌려주는 **read-only 조회 API**를 예외적으로 허용한다 — 없으면
@@ -914,7 +919,7 @@ invariant를 통과해야 한다.
 | P8.2 | orchestrator + intent interpreter (게이트 `MockBackend`) | I1~I8 headless / session lifecycle·NO_CHANGE·referent 규칙 강제 / CLARIFICATION·QUERY·UNSUPPORTED 턴에 `session.state`·`session.scene` identity 불변 / 턴별 감사 JSON |
 | P8.3 | 최소 Streamlit UI + 통합 `event_log` + 구조화된 후보 선택 (D-031, D-032) | 자동: private append boundary가 보존하는 `event_log` 순서 = event 순서 유일 진실 원천, `event_seq` 직렬화 파생, `t1 t2 EXECUTION t3` JSON 순서 일치, execution이 `turn_count` 미소비 / `ClarificationReason`이 ambiguity와 unknown·missing을 구분 / `select_clarification_candidate`는 LLM 호출 0·`input_kind=CANDIDATE_SELECTION`·`resumed_from_turn_id` 기록 / pending은 `AMBIGUOUS_ENTITY`이면서 나머지 필수 slot이 완전할 때만 생성, pending 중 자유 입력은 LLM 미전달·실행 비활성, 잘못된 후보는 pending 유지, 취소는 graph·scene·referent 불변 / 실행 성공·비정상 종료·예외가 모두 `ExecutionAudit`로 기록 / scene 로더가 정규화 빈 incident id 거부 / `VALIDATOR_VERSION == "1.4"` / 전체 단위테스트 green. 수동: §18.12 최소 표시 항목(1~14) 전부 렌더 / 실제 API 3턴 / PLANNING↔EXECUTED↔EXECUTION_FAILED / 실행은 결정론 버튼 / live 실패 시 cached·mock + 모드 배너(cached를 live로 표시 금지) |
 | P8.4 | N=12 정량 평가 (live) | grounder-only + end-to-end 표 / dialogue + turn + 지표별 분모 보고 / gold 사전 커밋 / 감사 JSON |
-| P8.5 | UI TaskGraph DAG + 정적 2D 임무 지도 (D-043, D-044) | 순수 view(렌더 전후 `pre_state_hash`·`scene_hash` 불변) / `RenderSpec`의 node·edge 집합이 `TaskGraph`와 정확히 일치 / **`TaskStatus` 6종 전부**(`CANCELLED` 포함) 고정 색, enum 순회로 검사 / UAV·UGV task 구분 / 같은 입력 → 같은 `RenderSpec`(Figure·이미지 바이트가 아님) / artist `gid`에 task·edge id / UAV 직선 vs UGV route-graph polyline 구분 / `RouteGraph` 경로 API가 모든 node 쌍에서 `shortest_path_distance`와 일치, P3/P4 골든 불변 / plan-time·paused runtime·completed execution 구분 / paused는 마지막 확정 위치 + RUNNING target + in-progress leg(보간 주장 금지) / online update 후 재렌더에 신규 task 반영 / headless(Agg) 테스트 통과 / **matplotlib import 실패를 흉내 내도 UI 기동** / 발표 그림도 같은 renderer 산출 / 애니메이션 범위 밖 / P9 수치와 기존 테스트 불변 |
+| P8.5 | UI TaskGraph DAG + 정적 2D 임무 지도 (D-043, D-044) | 순수 view(렌더 전후 `pre_state_hash`·`scene_hash` 불변) / `RenderSpec`의 node·edge 집합이 `TaskGraph`와 정확히 일치 / **`TaskStatus` 6종 전부**(`CANCELLED` 포함) 고정 색, enum 순회로 검사 / UAV·UGV task 구분 / 같은 입력 → 같은 `RenderSpec`(Figure·이미지 바이트가 아님) / artist `gid`에 task·edge id, 저장 직전 Figure를 spec과 대조(PNG 파싱 아님) / UAV 직선 vs UGV route-graph polyline 구분 / `RouteGraph` 경로 API가 모든 node 쌍에서 `shortest_path_distance`와 일치, P3/P4 골든 불변 / plan-time·paused runtime·completed execution 구분 / paused는 마지막 확정 위치 + RUNNING target + in-progress leg(보간 주장 금지) / online update 후 재렌더에 신규 task 반영 / headless(Agg) 테스트 통과 / **matplotlib import 실패를 흉내 내도 UI 기동** / 발표 그림도 같은 renderer 산출 / 애니메이션 범위 밖 / P9 수치와 기존 테스트 불변 |
 | P9.0 | RQ4 온라인 명령·선택적 재할당 계약 | v1.36 / D-039 커밋 |
 | P9.1 | `SimExecutor` checkpoint/resume | P4 one-shot 골든 불변 / task-completion event pause / checkpoint→restore 결과가 중단 없는 실행과 동일 / 상태·시각·위치·경로·누적 지표 보존 |
 | P9.2 | bidder-connected bundle-suffix release + incremental CBBA | COMPLETED/RUNNING 불변 / 영향 없는 ASSIGNED 보존 / release suffix 일관성 / 재경매 뒤 assignment invariant·capability·precedence 위반 0 |
@@ -1361,8 +1366,10 @@ backend·metadata·antialiasing에 따라 환경마다 달라질 수 있다. 따
 이미지가 아니라 **그림의 의미 명세**다 — node id → (좌표, 색, 모양), edge 목록처럼 그리기 직전의
 구조화된 값. 공개 렌더러는 계속 `Figure`를 반환하되 그 `RenderSpec`을 만드는 helper를 따로 두고
 테스트한다: 같은 입력 → 같은 `RenderSpec`, `RenderSpec`의 node 집합 == `TaskGraph`의 node 집합,
-edge도 마찬가지. 그림의 artist에는 task id·edge id를 `gid`로 넣어 발표 그림을 사후에 대조할 수
-있게 한다.
+edge도 마찬가지. 그림의 artist에는 task id·edge id를 `gid`로 부여해 **저장 직전 `Figure`의
+artist 집합을 그 `RenderSpec`과 대조**한다(D-045). PNG는 `gid`를 보존하지 않으므로 이것은
+**저장된 PNG 파일 자체를 파싱해 node·edge를 감사한다는 뜻이 아니다**. SVG는 element id로
+보존할 수 있으나 SVG 산출은 P8.5 범위 밖이다.
 
 force-directed 배치처럼 실행마다 흔들리는 layout은 쓰지 않는다 — 위 결정론이 곧 발표 그림의
 재현성이다. 이 도메인의

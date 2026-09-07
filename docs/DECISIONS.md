@@ -1515,3 +1515,28 @@ P9 실험 수치·결론 불변, `VALIDATOR_VERSION` 1.4 불변.
 
 구현 순서: D-044 → DAG `RenderSpec` → DAG `Figure` → DAG UI 연결 → `RouteGraph` 경로 API →
 2D `RenderSpec`/`Figure` → 발표 PNG/PDF.
+
+## D-045: `gid` 감사 문구 정정 (계약 v1.42, 문서 전용)
+
+**D-044의 한 문장을 정정한다.** D-044 본문은 append-only 규칙에 따라 그대로 둔다.
+
+**배경** P8.5b 구현 중 확인된 사실. D-044 §18.14는 "그림의 artist에는 task id·edge id를
+`gid`로 넣어 **발표 그림을 사후에 대조**할 수 있게 한다"고 썼다. 이는 기술적으로 사실이
+아니다 — `gid`는 메모리상의 matplotlib artist 속성이고 **PNG는 이를 보존하지 않으므로**,
+저장된 발표 그림 파일을 파싱해 node·edge를 감사할 수 없다.
+
+실제로 검증 가능하고 P8.5b가 구현한 경계는 다르다: **저장 직전 `Figure`의 artist `gid` 집합을
+그 그림을 만든 `RenderSpec`과 대조**하는 것이다. `tests/test_visualization.py`가 그렇게
+검사한다.
+
+**결정** 계약 v1.42. §18.14의 해당 문장을 다음 의미로 바꾼다.
+
+> artist에 task id와 edge id를 `gid`로 부여해 저장 직전 matplotlib `Figure`의 artist 집합을
+> 해당 `RenderSpec`과 대조한다. PNG는 `gid`를 보존하지 않으므로, 저장된 PNG 파일 자체를
+> 파싱해 node·edge를 감사한다는 의미가 아니다. SVG는 element id를 보존할 수 있으나 SVG
+> 산출은 P8.5 범위 밖이다.
+
+§15 P8.5 게이트 행의 `gid` 항목에도 같은 한정을 붙인다.
+
+**영향** 문서만. renderer 코드 변경 없음, 새 주장·지표 없음, `VALIDATOR_VERSION` 1.4 불변,
+P3/P4 골든(359.8385 / 257.8505)과 P9 수치 불변.
