@@ -110,7 +110,7 @@ def _natural_key(text: str) -> tuple:
     """Sort FIRE_SITE_2 before FIRE_SITE_10.
 
     Plain string order would put FIRE_SITE_10 first and make the figure read
-    wrongly once a scene passes nine incidents. Still fully deterministic.
+    wrongly once a scene passes nine incidents.
     """
     parts: list[object] = []
     digits = ""
@@ -125,6 +125,18 @@ def _natural_key(text: str) -> tuple:
     if digits:
         parts.append((1, int(digits), ""))
     return tuple(parts)
+
+
+def _sort_key(text: str) -> tuple:
+    """Total order on target ids.
+
+    ``_natural_key`` alone is not one: it parses digits as ints, so
+    "FIRE_SITE_2" and "FIRE_SITE_02" collide. Targets are collected into a set
+    first, so a tie would leave the row order to set iteration — and therefore
+    to ``PYTHONHASHSEED``, which breaks "same graph, same spec". The raw string
+    is the tie-break, so no two distinct ids can ever compare equal.
+    """
+    return (_natural_key(text), text)
 
 
 def _marker(task) -> str:
@@ -149,11 +161,11 @@ def dag_render_spec(graph: TaskGraph) -> DagRenderSpec:
     """
     recon_targets = sorted(
         {t.target for t in graph.tasks if t.task_type is TaskType.AREA_RECON},
-        key=_natural_key,
+        key=_sort_key,
     )
     chain_targets = sorted(
         {t.target for t in graph.tasks if t.task_type is not TaskType.AREA_RECON},
-        key=_natural_key,
+        key=_sort_key,
     )
     row_of = {target: row for row, target in enumerate(recon_targets + chain_targets)}
 

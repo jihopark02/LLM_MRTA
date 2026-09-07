@@ -5,6 +5,7 @@ no equality and its bytes move with the matplotlib version, fonts and backend
 (D-044). Everything here is checked on the structured value.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,8 @@ from demo.visualization import (
     TYPE_LABELS,
     UAV_MARKER,
     UGV_MARKER,
+    _natural_key,
+    _sort_key,
     dag_render_spec,
 )
 from interaction.ground import build_chain_patch
@@ -218,3 +221,42 @@ def test_an_online_update_adds_a_row_and_its_tasks_to_the_next_spec(scene, graph
     assert after.task_ids - before.task_ids == set(result.added_tasks)
     assert after.edge_keys == committed.graph.edges
     assert len(after.nodes) == len(before.nodes) + len(result.added_tasks)
+
+
+def test_the_target_order_is_total_even_when_natural_keys_collide():
+    # int() parsing makes these two natural keys equal; the raw string breaks
+    # the tie so no two distinct ids ever compare the same (D-044 determinism).
+    assert _natural_key("FIRE_SITE_2") == _natural_key("FIRE_SITE_02")
+    assert _sort_key("FIRE_SITE_2") != _sort_key("FIRE_SITE_02")
+
+
+def test_row_order_does_not_depend_on_the_hash_seed():
+    """Targets are collected into a set, so a key tie would hand row order to
+    set iteration — and therefore to PYTHONHASHSEED. Pinned across seeds."""
+    probe = (
+        "import dataclasses;"
+        "from core.enums import TaskType;"
+        "from demo.visualization import dag_render_spec;"
+        "from scenarios.compiler import compile_reference_graph;"
+        "from scenarios.scene import load_scene;"
+        "s=load_scene('scenarios/industrial_park.yaml');"
+        "i=dict(s.incidents);"
+        "i['FIRE_SITE_02']=dataclasses.replace(i['FIRE_SITE_2'],incident_id='FIRE_SITE_02');"
+        "s=dataclasses.replace(s,incidents=i);"
+        "g=compile_reference_graph(s,[(TaskType.THERMAL_RECON,x) "
+        "for x in ('FIRE_SITE_2','FIRE_SITE_02')],[]);"
+        "print(dag_render_spec(g).row_labels)"
+    )
+    root = Path(__file__).parents[1]
+    seen = set()
+    for seed in ("0", "1", "2", "12345", "99999"):
+        done = subprocess.run(
+            [sys.executable, "-c", probe],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+            env={**os.environ, "PYTHONHASHSEED": seed},
+        )
+        seen.add(done.stdout.strip())
+    assert len(seen) == 1, f"row order varies with PYTHONHASHSEED: {seen}"
