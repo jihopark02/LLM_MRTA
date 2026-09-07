@@ -194,3 +194,93 @@ def test_a_terminal_deadlock_does_not_offer_a_retry(tmp_path, monkeypatch):
     at = at.run()
     # DEADLOCK is a result, not a crash: the run is over, so no resume is offered.
     assert _online_button(at).disabled
+
+
+# -- DAG panel and viz degrade (§18.14, D-044) ----------------------------
+
+
+class _BlockMatplotlib:
+    """Import hook that makes matplotlib look uninstalled."""
+
+    def find_spec(self, name, path=None, target=None):
+        if name == "matplotlib" or name.startswith("matplotlib."):
+            raise ImportError(f"No module named {name!r}")
+        return None
+
+
+@pytest.fixture
+def without_matplotlib():
+    import sys
+
+    saved = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "matplotlib" or name.startswith("matplotlib.")
+    }
+    for name in saved:
+        del sys.modules[name]
+    hook = _BlockMatplotlib()
+    sys.meta_path.insert(0, hook)
+    try:
+        yield
+    finally:
+        sys.meta_path.remove(hook)
+        sys.modules.update(saved)
+
+
+def _planned_app(tmp_path, monkeypatch):
+    monkeypatch.setenv("LLM_MRTA_RUNTIME_ROOT", str(tmp_path))
+    at = AppTest.from_file(APP, default_timeout=20).run()
+    at = at.selectbox[0].select("mock").run()
+    return _submit(at, MOCK_COMMANDS[0])
+
+
+def test_the_graph_panel_draws_the_dag_and_keeps_the_table(tmp_path, monkeypatch):
+    at = _planned_app(tmp_path, monkeypatch)
+    assert not at.exception
+    assert len(at.image) == 1                        # st.pyplot surfaces as an Image
+    assert any("TaskGraph 표" in item.label for item in at.expander)
+    # the auditable table is still reachable underneath the figure
+    assert any(
+        "task_id" in str(frame.value) for frame in at.dataframe
+    ), "the TaskGraph table must survive alongside the figure"
+
+
+def test_the_console_still_runs_without_matplotlib(
+    tmp_path, monkeypatch, without_matplotlib
+):
+    from demo.app import VIZ_MISSING_NOTE
+
+    at = _planned_app(tmp_path, monkeypatch)
+
+    # Not "the call failed and was caught" — matplotlib genuinely cannot be
+    # imported here, and the console still starts and answers a turn (D-044).
+    assert not at.exception
+    assert list(at.image) == []
+    assert any(VIZ_MISSING_NOTE in item.value for item in at.caption)
+    assert any("task_id" in str(frame.value) for frame in at.dataframe)
+    assert ("Estimated makespan", "359.8 s") in [
+        (metric.label, metric.value) for metric in at.metric
+    ]
+
+
+def test_the_dag_tracks_an_update_made_while_execution_is_paused(
+    tmp_path, monkeypatch
+):
+    at = _planned_app(tmp_path, monkeypatch)
+    at = next(b for b in at.button if b.label == "온라인 실행 시작").click().run()
+
+    at = _submit(at, MOCK_COMMANDS[1])
+    at = next(b for b in at.button if b.label == "FIRE_SITE_1").click().run()
+    at = _submit(at, MOCK_COMMANDS[2])          # report a new incident
+    at = _submit(at, MOCK_COMMANDS[3])          # extend it — new tasks appear
+    assert not at.exception
+    assert len(at.image) == 1
+
+    # the new incident's chain is in the graph the panel just drew
+    session = at.session_state["mission_session"]
+    from demo.visualization import dag_render_spec
+
+    spec = dag_render_spec(session.state.graph)
+    assert "FIRE_SITE_3" in spec.row_labels
+    assert spec.task_ids == {task.task_id for task in session.state.graph.tasks}

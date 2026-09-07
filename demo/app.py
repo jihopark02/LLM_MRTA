@@ -115,31 +115,66 @@ def _scene_panel(session: MissionSession) -> None:
     )
 
 
+#: Shown instead of the DAG when the optional drawing stack is missing.
+VIZ_MISSING_NOTE = (
+    "그래프 그림은 `pip install -e '.[viz]'` 후에 표시됩니다. 아래 표는 그대로 사용할 수 있습니다."
+)
+
+
+def _dag_figure(graph):
+    """The DAG figure, or ``None`` when the drawing stack is unavailable.
+
+    Both the module import and the draw are guarded (§18.14, D-044).
+    ``demo.visualization`` deliberately keeps matplotlib out of its import path
+    today, but the console must survive either step failing — a missing ``viz``
+    extra degrades to the tables below, it does not take the app down.
+    """
+    try:
+        from demo.visualization import dag_render_spec, render_task_graph
+
+        return render_task_graph(dag_render_spec(graph))
+    except ImportError:
+        return None
+
+
 def _graph_panel(session: MissionSession) -> None:
     st.subheader("TaskGraph")
     if session.state is None:
         st.info("아직 생성된 임무가 없습니다.")
         return
     graph = session.state.graph
-    st.dataframe(
-        [
-            {
-                "task_id": task.task_id,
-                "task_type": task.task_type.value,
-                "target": task.target,
-                "status": task.status.value,
-            }
-            for task in sorted(graph.tasks, key=lambda item: item.task_id)
-        ],
-        width="stretch",
-        hide_index=True,
-    )
-    st.write("Dependencies")
-    st.dataframe(
-        [{"predecessor": pred, "successor": succ} for pred, succ in sorted(graph.edges)],
-        width="stretch",
-        hide_index=True,
-    )
+
+    figure = _dag_figure(graph)
+    if figure is None:
+        st.caption(VIZ_MISSING_NOTE)
+    else:
+        st.pyplot(figure)
+
+    # The tables stay: they are the auditable form, and they must remain
+    # reachable whether or not the figure rendered.
+    with st.expander("TaskGraph 표", expanded=figure is None):
+        st.dataframe(
+            [
+                {
+                    "task_id": task.task_id,
+                    "task_type": task.task_type.value,
+                    "target": task.target,
+                    "status": task.status.value,
+                }
+                for task in sorted(graph.tasks, key=lambda item: item.task_id)
+            ],
+            width="stretch",
+            hide_index=True,
+        )
+        st.write("Dependencies")
+        st.dataframe(
+            [
+                {"predecessor": pred, "successor": succ}
+                for pred, succ in sorted(graph.edges)
+            ],
+            width="stretch",
+            hide_index=True,
+        )
 
 
 def _last_turn_panel(session: MissionSession) -> None:
