@@ -564,7 +564,7 @@ def figure_height(row_count: int) -> float:
 #: Title per mode. The three maps are never overlaid — the operator must be able
 #: to tell an intended plan from what actually ran (§18.14).
 MAP_MODE_TITLES = {
-    "plan": "Plan-time CBBA — intended route (nothing has run)",
+    "plan": "Plan-time CBBA baseline — route computed before execution",
     "runtime": "Online execution paused — last confirmed positions",
     "execution": "Completed execution — route actually driven",
 }

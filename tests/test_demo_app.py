@@ -315,7 +315,7 @@ def test_an_update_made_while_paused_reaches_the_dag_and_both_maps(
     # or they read as planned work nobody was assigned.
     assert not [leg for leg in maps["Plan-time"].legs if leg.task_id in added]
     assert [leg for leg in maps["Runtime"].legs if leg.task_id in added]
-    assert any("온라인 실행을 시작하기 전의 분석" in item.value for item in at.caption)
+    assert any("Runtime 탭을 확인하세요" in item.value for item in at.caption)
 
 
 # -- 2D map tabs (§18.14, P8.5g) -----------------------------------------
@@ -433,3 +433,98 @@ def test_without_matplotlib_the_map_panel_falls_back_but_controls_remain(
     # and the console is still operable
     assert not next(b for b in at.button if b.label == "임무 실행").disabled
     assert not next(b for b in at.button if b.label == "온라인 실행 시작").disabled
+
+
+# -- the Plan-time map must describe the state it is actually in ----------
+
+
+def _stale_captions(at):
+    return [c.value for c in at.caption if "계획 경로가 없습니다" in c.value]
+
+
+def test_pausing_without_an_update_shows_no_stale_plan_note(tmp_path, monkeypatch):
+    at = _planned_app(tmp_path, monkeypatch)
+    at = next(b for b in at.button if b.label == "온라인 실행 시작").click().run()
+
+    assert not at.exception
+    # Starting an online run is not an update: the plan still covers every task,
+    # so claiming tasks were added would be false.
+    assert _map_tab_labels(at) == ["Plan-time", "Runtime"]
+    assert _stale_captions(at) == []
+
+
+def test_a_completed_run_after_an_update_points_at_the_execution_tab(
+    tmp_path, monkeypatch
+):
+    at = _planned_app(tmp_path, monkeypatch)
+    at = next(b for b in at.button if b.label == "온라인 실행 시작").click().run()
+    at = _submit(at, MOCK_COMMANDS[1])
+    at = next(b for b in at.button if b.label == "FIRE_SITE_1").click().run()
+    at = _submit(at, MOCK_COMMANDS[2])
+    at = _submit(at, MOCK_COMMANDS[3])
+    assert _stale_captions(at), "the paused state must already be explained"
+
+    for _ in range(40):
+        phase = next(m.value for m in at.metric if m.label == "Phase")
+        if phase != "EXECUTION_PAUSED":
+            break
+        at = next(
+            b for b in at.button if b.label == "다음 task 완료까지 계속"
+        ).click().run()
+
+    assert next(m.value for m in at.metric if m.label == "Phase") == "EXECUTED"
+    assert _map_tab_labels(at) == ["Plan-time", "Execution"]
+    # session.runtime outlives the paused phase, so the note must follow the
+    # phase rather than the runtime's mere existence.
+    note = _stale_captions(at)
+    assert note and "Execution 탭을 확인하세요" in note[0]
+    assert "Runtime 탭" not in note[0]
+
+
+def test_a_failed_run_never_points_at_a_tab_that_is_not_shown(tmp_path, monkeypatch):
+    from execution.executor import SimExecutor
+
+    at = _planned_app(tmp_path, monkeypatch)
+    at = next(b for b in at.button if b.label == "온라인 실행 시작").click().run()
+    at = _submit(at, MOCK_COMMANDS[1])
+    at = next(b for b in at.button if b.label == "FIRE_SITE_1").click().run()
+    at = _submit(at, MOCK_COMMANDS[2])
+    at = _submit(at, MOCK_COMMANDS[3])
+
+    with monkeypatch.context() as failure_patch:
+        failure_patch.setattr(
+            SimExecutor,
+            "advance_to_next_completion",
+            lambda self, *a, **k: (_ for _ in ()).throw(RuntimeError("sim exploded")),
+        )
+        at = next(
+            b for b in at.button if b.label == "다음 task 완료까지 계속"
+        ).click().run()
+
+    assert next(m.value for m in at.metric if m.label == "Phase") == "EXECUTION_FAILED"
+    assert _map_tab_labels(at) == ["Plan-time"]
+    note = _stale_captions(at)
+    assert note
+    assert "Runtime 탭" not in note[0] and "Execution 탭" not in note[0]
+
+
+@pytest.mark.parametrize("phase_action", ["pause", "run"])
+def test_the_plan_title_never_claims_nothing_has_run(tmp_path, monkeypatch, phase_action):
+    from demo.app import _mission_map_specs
+    from demo.visualization import MAP_MODE_TITLES, render_mission_map
+
+    at = _planned_app(tmp_path, monkeypatch)
+    label = "온라인 실행 시작" if phase_action == "pause" else "임무 실행"
+    at = next(b for b in at.button if b.label == label).click().run()
+
+    session = at.session_state["mission_session"]
+    plan_spec = dict(_mission_map_specs(session))["Plan-time"]
+    figure = render_mission_map(plan_spec)
+    try:
+        # A slide exported on its own must not carry a claim that is false for
+        # the state it was taken from.
+        title = figure.axes[0].get_title(loc="left")
+        assert "nothing has run" not in title
+        assert MAP_MODE_TITLES["plan"] in title
+    finally:
+        figure.clear()

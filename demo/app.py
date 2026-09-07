@@ -320,6 +320,41 @@ def _mission_map_specs(session: MissionSession):
     return specs
 
 
+def _post_plan_tasks(session: MissionSession) -> set[str]:
+    """Tasks in the graph that the stored plan never saw.
+
+    ``assignments | unassigned_tasks`` is the plan's full task set, so this is
+    exactly what a later online UPDATE added — not merely "something was left
+    unassigned at plan time".
+    """
+    planned = set(session.plan.assignments) | set(session.plan.unassigned_tasks)
+    return {task.task_id for task in session.state.graph.tasks} - planned
+
+
+def _plan_staleness_note(session: MissionSession) -> None:
+    """Explain the Plan-time map only when it is actually out of date.
+
+    A paused UPDATE deliberately does not recompute ``session.plan`` (§18.9
+    keeps plan-time analysis and runtime assignment apart), while the task
+    markers come from the current graph. When those disagree the added tasks
+    look like planned work nobody was assigned, so say what happened — and
+    point at a tab that exists in this phase, since ``session.runtime`` outlives
+    the paused state.
+    """
+    if not _post_plan_tasks(session):
+        return
+    if session.phase is SessionPhase.EXECUTION_PAUSED:
+        destination = "실제 온라인 배정은 Runtime 탭을 확인하세요."
+    elif session.phase is SessionPhase.EXECUTED:
+        destination = "실제 완료 경로는 Execution 탭을 확인하세요."
+    else:
+        destination = "실행 실패 상태와 감사 기록을 확인하세요."
+    st.caption(
+        "이 계획은 실행을 시작하기 전의 분석입니다. 이후 추가된 task는 지도에 표시되지만 "
+        f"계획 경로가 없습니다 — {destination}"
+    )
+
+
 def _failure_note(session: MissionSession) -> str | None:
     if session.phase is not SessionPhase.EXECUTION_FAILED:
         return None
@@ -363,16 +398,8 @@ def _map_panel(session: MissionSession) -> None:
         with tab:
             _show_figure(figure)
             st.caption(f"{label} · agent {len(spec.agents)}기 · leg {len(spec.legs)}개")
-            if label == "Plan-time" and session.runtime is not None:
-                # session.plan is the pre-execution analysis and is not
-                # recomputed by a paused UPDATE, while the task markers come
-                # from the current graph. Without this the tasks added online
-                # look like planned work nobody was assigned.
-                st.caption(
-                    "이 계획은 온라인 실행을 시작하기 전의 분석입니다. "
-                    "이후 온라인 업데이트로 추가된 task는 표시되지만 계획 경로는 없습니다 "
-                    "— 실제 배정은 Runtime 탭을 보세요."
-                )
+            if label == "Plan-time":
+                _plan_staleness_note(session)
 
 
 def _execution_panel(session: MissionSession) -> None:
