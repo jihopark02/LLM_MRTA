@@ -1571,3 +1571,18 @@ migration, 임의 wall-clock interrupt, background thread simulator, animation w
 `demo/app.py` UI 연결, `core/route_graph.py` read-only lane weight 조회, 관련 단위/AppTest.
 `allocation/`·`execution/`·`interaction/`·`evaluation/` 의미 불변. `VALIDATOR_VERSION` 1.4와
 `ONLINE_POLICY_VERSION`, P3/P4/P9 수치 불변.
+
+## D-047: playback 마지막 frame과 정적 Runtime marker 구분 (계약 v1.44)
+
+**D-046을 보정한다.** 첫 spec 회귀 테스트에서 "마지막 frame은 after checkpoint의 정적 runtime
+의미와 일치"를 agent 좌표 동일성으로 해석하자 reference 첫 checkpoint에서 바로 모순이
+재현됐다. `THERMAL_RECON__FIRE_SITE_1`이 완료되는 시각에도 S2는 다른 thermal task를 계속
+dwell 중이다. P8.5 정적 Runtime 지도는 보간 범위 밖이므로 S2를 출발점인 마지막 확정 위치에
+두지만, P10 playback은 S2를 기록된 schedule에 따라 task target에 둔다.
+
+마지막 frame에서 둘을 강제로 같게 만들면 S2가 target에서 출발점으로 순간이동한다. 따라서
+일치 게이트는 after checkpoint의 simulation time·RUNNING task·travel/dwell activity로 좁히고,
+완료 agent의 위치만 확정 target과 맞춘다. 계속 RUNNING인 agent의 보간 위치가 정적 Runtime
+marker와 다른 것은 의도된 차이다. D-046의 나머지 범위와 실패 정책은 불변이다.
+
+**영향** 계약·테스트 의미 정정. 실행/할당/감사 코드와 버전·수치 불변.

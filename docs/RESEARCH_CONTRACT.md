@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.43 (D-046). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.44 (D-047). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.44 (D-047): D-046의 "마지막 frame은 after checkpoint의 정적 runtime 의미와 일치"를
+  정정한다. 같은 completion 시각에도 다른 agent는 계속 RUNNING일 수 있고, P8.5 정적 지도는
+  그 agent를 마지막 **확정** 위치에 두지만 P10은 기록된 travel/dwell schedule로 보간한다.
+  따라서 완료 agent만 확정 target과 일치하고, RUNNING agent는 그 시각의 보간 위치라 정적
+  marker와 다를 수 있다. 마지막 frame의 time·activity·task는 after checkpoint와 일치해야 한다.
 - v1.43 (D-046): P10 checkpoint 구간 2D playback을 추가한다. P8.5에서 제외했던 애니메이션을
   일반 실시간 simulator가 아니라 **기존 P9 task-completion checkpoint 사이의 결정론적
   시각화**로 한정해 연다. 실행 상태는 먼저 원자적으로 다음 checkpoint에 commit되며, UI는 그
@@ -1623,7 +1628,9 @@ scene, before/after checkpoint, frame 수에는 같은 frame time·agent positio
 spec 생성과 frame 렌더는 `allocate()`, CBBA epoch, `advance_to_next_completion()`,
 `advance_online_session()`을 호출하지 않고 session·scene·checkpoint를 바꾸지 않는다. 전후
 checkpoint의 simulation time, graph/state, assignment, timing과 scene hash가 frame 생성 전후
-동일해야 한다. 마지막 frame은 commit된 after checkpoint의 정적 runtime 의미와 일치한다.
+동일해야 한다. 마지막 frame의 time과 agent activity/task는 commit된 after checkpoint와
+일치한다. 그 시각에도 RUNNING인 agent의 보간 위치는 P8.5 정적 Runtime 지도의 "마지막 확정
+위치"와 다를 수 있으며, 이것이 정상이다(D-047). 완료된 agent는 확정된 task target에 놓인다.
 
 ### 20.4 UI·실패 경계
 
