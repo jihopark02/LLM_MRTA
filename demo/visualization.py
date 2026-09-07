@@ -18,9 +18,13 @@ tables.
 
 from dataclasses import dataclass
 
+from allocation.allocate import AllocationResult
+from allocation.travel import start_ref, task_ref
 from core.enums import PlatformKind, TaskStatus, TaskType
 from core.task_graph import TaskGraph
+from execution.executor import ExecutionResult, SimExecutor
 from interaction.workflow import WORKFLOW_CHAIN
+from scenarios.scene import Scene
 
 #: §18.14. Every ``TaskStatus`` gets a colour, including ``CANCELLED`` — §10
 #: leaves cancellation unsupported so it never appears in a normal run, but the
@@ -215,6 +219,309 @@ def dag_render_spec(graph: TaskGraph) -> DagRenderSpec:
     )
 
 
+# -- 2D mission map spec (§18.14) ---------------------------------------
+
+#: Fixed per-agent colours, assigned by sorted agent id so the same agent is
+#: the same colour in every mode and every run.
+AGENT_COLORS = (
+    "#1f77b4", "#e8873a", "#2e9153", "#8c1c13",
+    "#7b52ab", "#0f8b8d", "#b5651d", "#4c566a",
+)
+
+#: How a leg is drawn. ``in_progress`` is dashed because it is *not* an
+#: interpolated pose — it joins an agent's last confirmed position to the
+#: target it is travelling toward (§18.14, D-044).
+LEG_LINESTYLES = {
+    "planned": "solid",
+    "completed": "solid",
+    "in_progress": "dashed",
+    "remaining": "dotted",
+}
+MAP_MODES = ("plan", "runtime", "execution")
+
+
+@dataclass(frozen=True, slots=True)
+class MapPointSpec:
+    entity_id: str
+    x: float
+    y: float
+    kind: str            # zone | incident | task
+    label: str
+
+
+@dataclass(frozen=True, slots=True)
+class AgentMapSpec:
+    agent_id: str
+    platform_kind: PlatformKind
+    color: str
+    position: tuple[float, float]
+
+
+@dataclass(frozen=True, slots=True)
+class MapLegSpec:
+    agent_id: str
+    task_id: str
+    order: int
+    points: tuple[tuple[float, float], ...]
+    phase: str
+
+    @property
+    def linestyle(self) -> str:
+        return LEG_LINESTYLES[self.phase]
+
+    @property
+    def gid(self) -> str:
+        return f"{self.agent_id}:{self.order}:{self.phase}:{self.task_id}"
+
+
+@dataclass(frozen=True, slots=True)
+class MapRenderSpec:
+    mode: str
+    zones: tuple[MapPointSpec, ...]
+    incidents: tuple[MapPointSpec, ...]
+    route_lanes: tuple[tuple[tuple[float, float], ...], ...]
+    agents: tuple[AgentMapSpec, ...]
+    task_points: tuple[MapPointSpec, ...]
+    legs: tuple[MapLegSpec, ...]
+    simulation_time: float | None = None
+
+
+def _agent_colors(scene: Scene) -> dict[str, str]:
+    return {
+        agent.agent_id: AGENT_COLORS[index % len(AGENT_COLORS)]
+        for index, agent in enumerate(sorted(scene.fleet, key=lambda a: a.agent_id))
+    }
+
+
+def _ref_point(ref, scene: Scene) -> tuple[float, float]:
+    """A LegRef as a 2D point: a UAV ref already is one, a UGV ref is a node."""
+    if isinstance(ref, str):
+        return tuple(scene.route_graph.position(ref))
+    return (float(ref[0]), float(ref[1]))
+
+
+def _uav_leg_points(from_ref, to_ref, scene: Scene):
+    """A straight hop — exactly two points (§8: UAV travel is Euclidean)."""
+    return (_ref_point(from_ref, scene), _ref_point(to_ref, scene))
+
+
+def _ugv_leg_points(from_node: str, to_node: str, scene: Scene):
+    """The lanes a UGV actually drives.
+
+    ``RouteGraph.shortest_path_nodes`` is the only source (D-044) — computing a
+    route here would duplicate the allocator's own decision and could disagree
+    with the distance it bid on.
+    """
+    nodes = scene.route_graph.shortest_path_nodes(from_node, to_node)
+    if nodes is None:
+        return ()
+    return tuple(tuple(scene.route_graph.position(node)) for node in nodes)
+
+
+def _leg_points(agent, from_ref, task, scene: Scene):
+    destination = task_ref(agent, task, scene)
+    if agent.platform_kind is PlatformKind.UAV:
+        return _uav_leg_points(from_ref, destination, scene), destination
+    return _ugv_leg_points(from_ref, destination, scene), destination
+
+
+def _scene_background(scene: Scene):
+    """Zones, incidents and lanes — identical whichever mode is drawn."""
+    zones = tuple(
+        MapPointSpec(zid, *map(float, zone.recon_waypoint), "zone", zone.name)
+        for zid, zone in sorted(scene.zones.items())
+    )
+    incidents = tuple(
+        MapPointSpec(iid, *map(float, incident.position), "incident", iid)
+        for iid, incident in sorted(scene.incidents.items())
+    )
+    lanes = tuple(
+        (tuple(scene.route_graph.position(a)), tuple(scene.route_graph.position(b)))
+        for a, b, _ in scene.route_graph.lanes
+    )
+    return zones, incidents, lanes
+
+
+def _task_points(graph: TaskGraph):
+    return tuple(
+        MapPointSpec(
+            task.task_id, float(task.position[0]), float(task.position[1]),
+            "task", TYPE_LABELS[task.task_type],
+        )
+        for task in sorted(graph.tasks, key=lambda t: t.task_id)
+    )
+
+
+def _ordered_for_agent(assignments: dict[str, str], times: dict[str, float]):
+    """agent_id -> task ids in execution order.
+
+    Ordered by the recorded time, never by task id or graph order: drawing a
+    route in alphabetical order would show a path nobody drove.
+    """
+    per_agent: dict[str, list[str]] = {}
+    for task_id, agent_id in assignments.items():
+        if task_id in times:
+            per_agent.setdefault(agent_id, []).append(task_id)
+    return {
+        agent_id: sorted(task_ids, key=lambda t: (times[t], t))
+        for agent_id, task_ids in per_agent.items()
+    }
+
+
+def _walk(agent, task_ids, graph, scene, phase, start):
+    """Chain legs from ``start``, returning the specs and the final ref."""
+    legs, current = [], start
+    for order, task_id in enumerate(task_ids):
+        points, current = _leg_points(agent, current, graph[task_id], scene)
+        if points:
+            legs.append(MapLegSpec(agent.agent_id, task_id, order, points, phase))
+    return legs, current
+
+
+def plan_map_spec(
+    scene: Scene, graph: TaskGraph, plan: AllocationResult
+) -> MapRenderSpec:
+    """The route the plan-time analysis intends (§18.14). Nothing has run."""
+    colors = _agent_colors(scene)
+    order = _ordered_for_agent(plan.assignments, plan.task_start)
+    zones, incidents, lanes = _scene_background(scene)
+    legs: list[MapLegSpec] = []
+    agents: list[AgentMapSpec] = []
+    for agent in sorted(scene.fleet, key=lambda a: a.agent_id):
+        start = start_ref(agent, scene)
+        agents.append(
+            AgentMapSpec(
+                agent.agent_id, agent.platform_kind, colors[agent.agent_id],
+                _ref_point(start, scene),
+            )
+        )
+        walked, _ = _walk(
+            agent, order.get(agent.agent_id, ()), graph, scene, "planned", start
+        )
+        legs += walked
+    return MapRenderSpec(
+        mode="plan",
+        zones=zones,
+        incidents=incidents,
+        route_lanes=lanes,
+        agents=tuple(agents),
+        task_points=_task_points(graph),
+        legs=tuple(legs),
+    )
+
+
+def execution_map_spec(
+    scene: Scene, graph: TaskGraph, result: ExecutionResult
+) -> MapRenderSpec:
+    """What actually happened (§18.14).
+
+    Only tasks with a recorded departure are drawn: a task that was released
+    and rebid away never left, so it is not part of anyone's route.
+    """
+    colors = _agent_colors(scene)
+    order = _ordered_for_agent(result.assignments, result.task_departure)
+    zones, incidents, lanes = _scene_background(scene)
+    legs: list[MapLegSpec] = []
+    agents: list[AgentMapSpec] = []
+    for agent in sorted(scene.fleet, key=lambda a: a.agent_id):
+        start = start_ref(agent, scene)
+        agents.append(
+            AgentMapSpec(
+                agent.agent_id, agent.platform_kind, colors[agent.agent_id],
+                _ref_point(start, scene),
+            )
+        )
+        walked, _ = _walk(
+            agent, order.get(agent.agent_id, ()), graph, scene, "completed", start
+        )
+        legs += walked
+    return MapRenderSpec(
+        mode="execution",
+        zones=zones,
+        incidents=incidents,
+        route_lanes=lanes,
+        agents=tuple(agents),
+        task_points=_task_points(graph),
+        legs=tuple(legs),
+        simulation_time=result.makespan,
+    )
+
+
+def runtime_map_spec(scene: Scene, runtime: SimExecutor) -> MapRenderSpec:
+    """A paused online run (§18.14, D-044).
+
+    Read from a checkpoint taken here, so the live executor is never touched.
+    An agent is drawn at its **last confirmed position** — the simulator only
+    updates a position when a task completes, so there is no current pose to
+    draw and none is invented. A RUNNING task becomes a dashed leg from that
+    position to its target; not-yet-started assignments follow the agent's own
+    path order.
+    """
+    checkpoint = runtime.checkpoint()
+    work = checkpoint._work                     # read-only, never handed out
+    graph = work.graph
+    colors = _agent_colors(scene)
+    access = dict(checkpoint.access_nodes)
+    sim = dict(checkpoint.sim)
+    departures = dict(checkpoint.task_departure)
+    done_order = _ordered_for_agent(dict(checkpoint.assignments), departures)
+
+    zones, incidents, lanes = _scene_background(scene)
+    legs: list[MapLegSpec] = []
+    agents: list[AgentMapSpec] = []
+    for agent_id in sorted(work.agents):
+        agent = work.agents[agent_id]
+        scene_agent = next(a for a in scene.fleet if a.agent_id == agent_id)
+        start = start_ref(scene_agent, scene)
+
+        completed = [
+            task_id
+            for task_id in done_order.get(agent_id, ())
+            if graph[task_id].status is TaskStatus.COMPLETED
+        ]
+        walked, _ = _walk(agent, completed, graph, scene, "completed", start)
+        legs += walked
+
+        # Last confirmed position: updated only on completion, never interpolated.
+        confirmed = (
+            agent.position
+            if agent.platform_kind is PlatformKind.UAV
+            else access.get(agent_id)
+        )
+        agents.append(
+            AgentMapSpec(
+                agent_id, agent.platform_kind, colors[agent_id],
+                _ref_point(confirmed, scene),
+            )
+        )
+
+        current = confirmed
+        running = sim[agent_id].current
+        order = len(completed)
+        if running is not None:
+            points, current = _leg_points(agent, current, graph[running], scene)
+            if points:
+                legs.append(MapLegSpec(agent_id, running, order, points, "in_progress"))
+            order += 1
+        for task_id in [t for t in agent.path if t != running]:
+            points, current = _leg_points(agent, current, graph[task_id], scene)
+            if points:
+                legs.append(MapLegSpec(agent_id, task_id, order, points, "remaining"))
+            order += 1
+
+    legs.sort(key=lambda leg: (leg.agent_id, leg.order))
+    return MapRenderSpec(
+        mode="runtime",
+        zones=zones,
+        incidents=incidents,
+        route_lanes=lanes,
+        agents=tuple(agents),
+        task_points=_task_points(graph),
+        legs=tuple(legs),
+        simulation_time=checkpoint.now,
+    )
+
+
 # -- drawing (§18.14) ---------------------------------------------------
 #
 # matplotlib is imported inside these functions, never at module scope: the
@@ -329,6 +636,16 @@ __all__ = [
     "DagEdgeSpec",
     "DagRenderSpec",
     "dag_render_spec",
+    "AGENT_COLORS",
+    "LEG_LINESTYLES",
+    "MAP_MODES",
+    "MapPointSpec",
+    "AgentMapSpec",
+    "MapLegSpec",
+    "MapRenderSpec",
+    "plan_map_spec",
+    "runtime_map_spec",
+    "execution_map_spec",
     "figure_height",
     "render_task_graph",
 ]

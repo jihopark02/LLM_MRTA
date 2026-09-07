@@ -397,3 +397,233 @@ def test_rendering_is_headless_and_saves(rendered, tmp_path):
     figure.savefig(out)                       # no display, no pyplot backend
     assert out.stat().st_size > 0
     assert type(figure.canvas).__name__ == "FigureCanvasAgg"
+
+
+# -- P8.5e: 2D mission map spec (§18.14, D-044) --------------------------
+
+
+@pytest.fixture
+def fixture_scene():
+    return load_reference_fixture().scene
+
+
+@pytest.fixture
+def planned(fixture_scene, graph):
+    from allocation.allocate import allocate
+
+    state = fresh_session_state(graph, fixture_scene)
+    return state, allocate(state, fixture_scene)
+
+
+@pytest.fixture
+def paused(fixture_scene, graph):
+    from execution.executor import SimExecutor
+
+    executor = SimExecutor(fresh_session_state(graph, fixture_scene), fixture_scene)
+    for _ in range(5):
+        executor.advance_to_next_completion()
+    return executor
+
+
+@pytest.fixture
+def finished(fixture_scene, graph):
+    from execution.executor import SimExecutor
+
+    return SimExecutor(fresh_session_state(graph, fixture_scene), fixture_scene).run()
+
+
+def test_all_three_builders_draw_the_same_scene_background(
+    fixture_scene, graph, planned, paused, finished
+):
+    from demo.visualization import execution_map_spec, plan_map_spec, runtime_map_spec
+
+    state, plan = planned
+    specs = [
+        plan_map_spec(fixture_scene, state.graph, plan),
+        runtime_map_spec(fixture_scene, paused),
+        execution_map_spec(fixture_scene, graph, finished),
+    ]
+    backgrounds = {(s.zones, s.incidents, s.route_lanes) for s in specs}
+    assert len(backgrounds) == 1
+    assert {s.mode for s in specs} == {"plan", "runtime", "execution"}
+
+
+def test_agent_colours_are_the_same_in_every_mode(
+    fixture_scene, graph, planned, paused, finished
+):
+    from demo.visualization import execution_map_spec, plan_map_spec, runtime_map_spec
+
+    state, plan = planned
+    colours = [
+        {a.agent_id: a.color for a in spec.agents}
+        for spec in (
+            plan_map_spec(fixture_scene, state.graph, plan),
+            runtime_map_spec(fixture_scene, paused),
+            execution_map_spec(fixture_scene, graph, finished),
+        )
+    ]
+    assert colours[0] == colours[1] == colours[2]
+    assert len(set(colours[0].values())) == len(colours[0]), "colours must be distinct"
+
+
+def test_map_specs_are_deterministic(fixture_scene, graph, planned, paused, finished):
+    from demo.visualization import execution_map_spec, plan_map_spec, runtime_map_spec
+
+    state, plan = planned
+    assert plan_map_spec(fixture_scene, state.graph, plan) == plan_map_spec(
+        fixture_scene, state.graph, plan
+    )
+    assert runtime_map_spec(fixture_scene, paused) == runtime_map_spec(
+        fixture_scene, paused
+    )
+    assert execution_map_spec(fixture_scene, graph, finished) == execution_map_spec(
+        fixture_scene, graph, finished
+    )
+
+
+def test_plan_legs_follow_task_start_order(fixture_scene, planned):
+    from demo.visualization import plan_map_spec
+
+    state, plan = planned
+    spec = plan_map_spec(fixture_scene, state.graph, plan)
+    for agent_id in {leg.agent_id for leg in spec.legs}:
+        legs = sorted(
+            (leg for leg in spec.legs if leg.agent_id == agent_id),
+            key=lambda leg: leg.order,
+        )
+        starts = [plan.task_start[leg.task_id] for leg in legs]
+        assert starts == sorted(starts), "a plan route must follow task_start"
+        assert all(leg.phase == "planned" for leg in legs)
+
+
+def test_execution_legs_follow_departure_order_not_task_id(
+    fixture_scene, graph, finished
+):
+    from demo.visualization import execution_map_spec
+
+    spec = execution_map_spec(fixture_scene, graph, finished)
+    for agent_id in {leg.agent_id for leg in spec.legs}:
+        legs = sorted(
+            (leg for leg in spec.legs if leg.agent_id == agent_id),
+            key=lambda leg: leg.order,
+        )
+        departures = [finished.task_departure[leg.task_id] for leg in legs]
+        assert departures == sorted(departures)
+    # only tasks that actually departed are drawn
+    assert {leg.task_id for leg in spec.legs} <= set(finished.task_departure)
+
+
+def test_uav_legs_are_two_point_straight_hops(fixture_scene, graph, finished):
+    from demo.visualization import execution_map_spec
+
+    spec = execution_map_spec(fixture_scene, graph, finished)
+    uav_ids = {
+        a.agent_id for a in spec.agents if a.platform_kind is PlatformKind.UAV
+    }
+    uav_legs = [leg for leg in spec.legs if leg.agent_id in uav_ids]
+    assert uav_legs
+    for leg in uav_legs:
+        assert len(leg.points) == 2, "UAV travel is Euclidean (§8)"
+        assert leg.points[1] == tuple(graph[leg.task_id].position)
+
+
+def test_ugv_legs_follow_the_route_graph_and_match_its_distance(
+    fixture_scene, graph, finished
+):
+    import math
+
+    from demo.visualization import execution_map_spec
+
+    spec = execution_map_spec(fixture_scene, graph, finished)
+    route = fixture_scene.route_graph
+    ugv_ids = {
+        a.agent_id for a in spec.agents if a.platform_kind is PlatformKind.UGV
+    }
+    ugv_legs = [leg for leg in spec.legs if leg.agent_id in ugv_ids]
+    assert ugv_legs
+
+    positions = {route.position(node): node for node in route.nodes}
+    for leg in ugv_legs:
+        nodes = [positions[point] for point in leg.points]   # every point is a node
+        assert tuple(nodes) == route.shortest_path_nodes(nodes[0], nodes[-1])
+        drawn = sum(
+            math.dist(a, b)
+            for a, b in zip(leg.points, leg.points[1:], strict=False)
+        )
+        lane_total = route.shortest_path_distance(nodes[0], nodes[-1])
+        assert drawn == pytest.approx(lane_total)
+
+
+def test_a_paused_run_marks_the_running_leg_as_in_progress(fixture_scene, paused):
+    from demo.visualization import runtime_map_spec
+
+    spec = runtime_map_spec(fixture_scene, paused)
+    running = {
+        agent_id: state.current
+        for agent_id, state in paused.sim.items()
+        if state.current is not None
+    }
+    assert running, "the fixture must pause with work in flight"
+
+    in_progress = {leg.agent_id: leg for leg in spec.legs if leg.phase == "in_progress"}
+    assert set(in_progress) == set(running)
+    for agent_id, leg in in_progress.items():
+        assert leg.task_id == running[agent_id]
+        assert leg.linestyle == "dashed"
+
+
+def test_a_paused_agent_sits_at_its_last_confirmed_position(fixture_scene, paused):
+    from demo.visualization import runtime_map_spec
+
+    spec = runtime_map_spec(fixture_scene, paused)
+    drawn = {agent.agent_id: agent.position for agent in spec.agents}
+    route = fixture_scene.route_graph
+    for agent_id, agent in paused.agents.items():
+        if agent.platform_kind is PlatformKind.UAV:
+            expected = tuple(agent.position)
+        else:
+            expected = tuple(route.position(paused.access_nodes[agent_id]))
+        # Exactly the confirmed point — no pose is interpolated (D-044).
+        assert drawn[agent_id] == expected
+
+    for leg in spec.legs:
+        if leg.phase == "in_progress":
+            assert leg.points[0] == drawn[leg.agent_id]
+
+
+def test_remaining_assignments_keep_the_agent_path_order(fixture_scene, paused):
+    from demo.visualization import runtime_map_spec
+
+    spec = runtime_map_spec(fixture_scene, paused)
+    for agent_id, agent in paused.agents.items():
+        running = paused.sim[agent_id].current
+        expected = [task for task in agent.path if task != running]
+        drawn = [
+            leg.task_id
+            for leg in sorted(
+                (x for x in spec.legs if x.agent_id == agent_id and x.phase == "remaining"),
+                key=lambda leg: leg.order,
+            )
+        ]
+        assert drawn == expected
+
+
+def test_leg_gids_are_unique_and_carry_their_identity(fixture_scene, paused):
+    from demo.visualization import runtime_map_spec
+
+    spec = runtime_map_spec(fixture_scene, paused)
+    gids = [leg.gid for leg in spec.legs]
+    assert len(set(gids)) == len(gids)
+    for leg in spec.legs:
+        assert leg.gid == f"{leg.agent_id}:{leg.order}:{leg.phase}:{leg.task_id}"
+
+
+def test_building_a_runtime_map_does_not_touch_the_executor(fixture_scene, paused):
+    from demo.visualization import runtime_map_spec
+    from validator.hashing import pre_state_hash
+
+    before = (pre_state_hash(paused.work), paused.now, scene_hash(fixture_scene))
+
+    runtime_map_spec(fixture_scene, paused)
+
+    assert (pre_state_hash(paused.work), paused.now, scene_hash(fixture_scene)) == before
