@@ -858,6 +858,46 @@ def test_intent_schema_error_is_recorded_not_propagated(scene):
     assert s.state is None and len(s.turn_log) == 1
 
 
+def test_successful_live_intent_repair_is_explicit_in_the_turn_audit(scene):
+    class RepairingLive:
+        mode = "live"
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, system, user, schema):
+            self.calls += 1
+            payload = wire_intent("QUERY_STATUS", about="agents").model_dump()
+            if self.calls == 1:
+                payload["note"] = "wrong slot"
+            return schema.model_validate(payload)
+
+    backend = RepairingLive()
+    result = handle_turn(sess(scene), "로봇 상태", backend)
+
+    assert result.outcome is TurnOutcome.ANSWERED
+    assert result.audit.intent_repair_attempted
+    assert result.audit.intent_repair_recovered
+    assert backend.calls == 2
+
+
+def test_failed_second_live_intent_wire_records_attempt_without_recovery(scene):
+    class TwiceInvalid:
+        mode = "live"
+
+        def complete(self, system, user, schema):
+            payload = wire_intent("NEW_MISSION").model_dump()
+            payload["zone_ref"] = "Warehouse"
+            return schema.model_validate(payload)
+
+    result = handle_turn(sess(scene), "전체 정찰", TwiceInvalid())
+
+    assert result.outcome is TurnOutcome.TURN_ERROR
+    assert result.audit.intent_repair_attempted
+    assert not result.audit.intent_repair_recovered
+    assert result.audit.error_type == "ValidationError"
+
+
 def test_mission_step_exception_is_recorded_not_propagated(scene):
     # The old try/except only wrapped the intent call, so a backend that died
     # in generate_mission's Step1/Step2/repair escaped handle_turn entirely.

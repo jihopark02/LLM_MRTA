@@ -66,7 +66,7 @@ from interaction.incident_response import (
     prepare_incident_transaction,
     publish_incident_transaction,
 )
-from interaction.interpret import classify
+from interaction.interpret import IntentRepairTrace, classify
 from interaction.mode import mode_of_backend, require_mode
 from interaction.session import (
     MissionSession,
@@ -148,6 +148,7 @@ class _Turn:
     selected_entity_id: str | None = None
     online_reallocation: OnlineReallocationAudit | None = None
     incident_action: IncidentActionAudit | None = None
+    intent_repair: IntentRepairTrace = field(default_factory=IntentRepairTrace)
 
     def resolved_models(self) -> list[str]:
         """Every backend call this turn made — intent classification plus any
@@ -236,6 +237,8 @@ def _finish(
         state_changed=_graph_hash_of(session) != turn.pre_graph_hash,
         referent_noted=turn.referent_noted,
         resolved_models=turn.resolved_models(),
+        intent_repair_attempted=turn.intent_repair.attempted,
+        intent_repair_recovered=turn.intent_repair.recovered,
         answer=turn.answer,
         error_type=type(exc).__name__ if exc is not None else None,
         error_detail=str(exc) if exc is not None else None,
@@ -583,7 +586,12 @@ def _do_query_status(
 
 def _dispatch(turn: _Turn, backend) -> TurnResult:
     session = turn.session
-    intent = classify(session, turn.utterance, backend)
+    intent = classify(
+        session,
+        turn.utterance,
+        backend,
+        repair_trace=turn.intent_repair,
+    )
 
     turn.intent_kind = intent.kind
     turn.slots = {

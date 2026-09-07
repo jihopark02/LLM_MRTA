@@ -142,6 +142,20 @@ def _turn_event(session_id="S1"):
     )
 
 
+def test_turn_audit_cannot_claim_an_unattempted_intent_repair_recovered():
+    from interaction.audit import TurnAudit
+
+    with pytest.raises(ValueError, match="cannot recover"):
+        TurnAudit(
+            session_id="S1",
+            turn_id="t1",
+            utterance="상태",
+            mode="live",
+            outcome="ANSWERED",
+            intent_repair_recovered=True,
+        )
+
+
 def test_event_log_is_append_only_through_the_session_boundary(scene):
     s = session(scene)
     event = _turn_event()

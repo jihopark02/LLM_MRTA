@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from interaction.interpret import classify
+from interaction.interpret import IntentRepairTrace, classify
 from interaction.prompts import intent_system
 from interaction.schemas import (
     IntentEnvelope,
@@ -302,8 +302,14 @@ def test_live_and_cached_intent_wire_get_exactly_one_strict_schema_repair(mode):
     valid = _wire_payload(incident_response_up_to="GROUND_SUPPRESSION")
     backend = _RepairBackend(mode, [invalid, valid])
     session = MissionSession("REPAIR", load_scene(SCENE))
+    trace = IntentRepairTrace()
 
-    result = classify(session, "화재를 발견하면 진압해줘", backend)
+    result = classify(
+        session,
+        "화재를 발견하면 진압해줘",
+        backend,
+        repair_trace=trace,
+    )
 
     assert isinstance(result, NewMissionIntent)
     assert result.incident_response_up_to == "GROUND_SUPPRESSION"
@@ -311,16 +317,19 @@ def test_live_and_cached_intent_wire_get_exactly_one_strict_schema_repair(mode):
     assert backend.calls[0][1:] == backend.calls[1][1:]
     assert "previous JSON response was rejected" in backend.calls[1][0]
     assert "cannot populate slots" in backend.calls[1][0]
+    assert trace.attempted and trace.recovered
 
 
 def test_second_invalid_live_wire_is_not_repaired_again():
     invalid = _wire_payload(zone_ref="Warehouse")
     backend = _RepairBackend("live", [invalid, invalid])
     session = MissionSession("REPAIR2", load_scene(SCENE))
+    trace = IntentRepairTrace()
 
     with pytest.raises(ValidationError, match="cannot populate slots"):
-        classify(session, "전체 구역 순찰", backend)
+        classify(session, "전체 구역 순찰", backend, repair_trace=trace)
     assert len(backend.calls) == 2
+    assert trace.attempted and not trace.recovered
 
 
 def test_non_schema_backend_failure_is_never_retried():

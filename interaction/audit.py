@@ -177,6 +177,8 @@ class TurnAudit:
     state_changed: bool = False
     referent_noted: str | None = None
     resolved_models: list[str] = field(default_factory=list)
+    intent_repair_attempted: bool = False
+    intent_repair_recovered: bool = False
     answer: str | None = None
     # A TURN_ERROR's cause must survive in the permanent record, not only in
     # the returned TurnResult (D-029).
@@ -188,6 +190,10 @@ class TurnAudit:
     selected_entity_id: str | None = None
 
     event_type: str = "TURN"
+
+    def __post_init__(self) -> None:
+        if self.intent_repair_recovered and not self.intent_repair_attempted:
+            raise ValueError("intent repair cannot recover without being attempted")
 
     def to_dict(self) -> dict:
         return asdict(self)
