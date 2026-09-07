@@ -1388,3 +1388,40 @@ lifecycle에 막다른 상태가 있었다.
 `demo/app.py`(재개 버튼), `tests/test_online_{allocation,evaluation,session}.py`,
 `docs/P9_RESULTS.md`. 판정 규칙·hash·CBBA 수식 불변 — `VALIDATOR_VERSION` 1.4 그대로,
 P9 결과 수치(release 0/2/1, makespan 453.883s, 위반 0)도 그대로다.
+
+## D-042: D-041 정정 — suffix 단정 완화 + terminal online 상태 (계약 v1.39)
+
+**배경** D-041 재검토. 지표 설계(파생값을 감사에 중복 저장하지 않음, `selective`에만 정의)와
+strict loader는 승인됐고 P9 수치도 그대로다. 그러나 D-041 자체에 두 가지 오류가 있었다.
+
+1. **suffix 실증 범위를 반대 방향으로 과도하게 단정했다.** D-041은 "모든 reachable online
+   path에서 `THERMAL_RECON`만 READY가 되므로 섞인 bundle이 존재할 수 없다"고 썼다. 이는
+   증명되지 않았다. `build_chain_patch`는 신규 incident의 전체 chain만 만드는 게 아니라
+   **기존 incident의 부분 workflow 연장**도 만든다 — `THERMAL_RECON`이 COMPLETED인 incident를
+   `SUPPRESSANT_DROP`까지 늘리면 신규 READY의 bidder는 R1/R2이고 `AREA_RECON`(bidder S1/S2)은
+   비영향이 되므로, S-agent bundle이 `THERMAL_RECON`(영향) → `AREA_RECON`(비영향) 순서면 suffix
+   확장이 발생할 여지가 있다. 그 상태의 실제 도달 가능성은 확인하지 않았다.
+2. **§19.1 표에 terminal online 실패 조합이 빠졌다.** `advance_to_next_completion()`은 예외
+   외에 `DEADLOCK`/`STEP_LIMIT`라는 **결과**로도 끝난다. 그 경로는 candidate를 runtime에
+   publish한 뒤 `phase=EXECUTION_FAILED`·`execution=ExecutionResult`·`runtime=candidate`를
+   만드는데, D-041의 재시도 게이트는 `runtime is not None`만 봤다. 재현: DEADLOCK 종료 뒤
+   `advance_online_session`을 다시 부르면 재개가 허용되고, phase가 `EXECUTION_PAUSED`로
+   되돌아가면서 **기록된 DEADLOCK 결과가 stale하게 남는다**(`session.execution`은 DEADLOCK인데
+   phase는 PAUSED).
+
+**결정** 계약 v1.39:
+
+- §19.3의 suffix 서술을 **관측 사실**과 **단정하지 않는 것**으로 분리한다. "대표 fixture와
+  현재 테스트가 다루는 신규 incident 전체-chain 경로에서는 섞인 bundle이 나오지 않았고
+  `suffix_extra_release_count = 0`이다"까지만 쓰고, 도메인 전체의 불가능성으로 일반화하지
+  않는다. 부분 workflow 연장에서 mixed bundle이 도달 가능한지는 미검증으로 명시한다.
+- **online 재시도 조건을 `phase == EXECUTION_FAILED AND runtime is not None AND
+  execution is None`으로 좁힌다.** `execution`이 있으면 executor가 결과로 끝난 것이므로 재개는
+  같은 종료를 반복할 뿐 아니라 기록을 지운다. §19.1 표에 해당 행(terminal — 재개 금지,
+  `QUERY_STATUS`만 또는 새 session)을 추가한다.
+- §19.5 fixture strict schema에 simulation time 음수 금지를 추가한다.
+
+**영향** `interaction/online_execute.py`(`_preconditions`), `demo/app.py`(재시도 버튼 조건),
+`evaluation/online_reallocation.py`(음수 시간 거부), `allocation/online.py` docstring,
+`docs/P9_RESULTS.md`, `tests/test_online_{session,evaluation}.py`, `tests/test_demo_app.py`.
+P9 실험 수치·결론 불변, `VALIDATOR_VERSION` 1.4 불변.

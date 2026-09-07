@@ -1,8 +1,18 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.38 (D-041). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.39 (D-042). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.39 (D-042): D-041 정정 2건. ① suffix 실증 범위를 **과도하게 단정**했다 — "모든
+  reachable path에서 섞인 bundle이 불가능"은 증명되지 않았다. `build_chain_patch`는 신규
+  incident의 전체 chain뿐 아니라 **기존 incident의 부분 workflow 연장**도 하므로, 예컨대
+  `THERMAL_RECON`이 COMPLETED인 incident를 `SUPPRESSANT_DROP`까지 늘리면 신규 READY의 bidder는
+  R1/R2가 되고 `AREA_RECON`은 비영향이 되어 S-agent bundle이 섞일 여지가 생긴다. 실제 도달
+  가능성은 확인하지 않았으므로 "검증된 경로에서 관측되지 않았다"로만 쓴다. ② §19.1 표에
+  `EXECUTION_FAILED` + `execution` **있음** + `runtime` 있음(온라인 `DEADLOCK`/`STEP_LIMIT`
+  종료) 행이 빠져 있었고, 그 결과 재시도 게이트가 이 terminal 상태까지 재개해 phase를
+  `EXECUTION_PAUSED`로 되돌리고 기록된 종료 결과를 지웠다. 재시도 조건을 **`execution is
+  None`까지 포함**해 좁힌다. `VALIDATOR_VERSION` 불변(1.4).
 - v1.38 (D-041): P9 재검토 반영. §19.3 정책명을 **bidder-connected selective release**로
   바꾸고 bundle suffix를 "mixed bundle 상태를 위한 보수적 구현 규칙"으로 격하 — 현재
   canonical online update는 새 incident의 `THERMAL_RECON`만 즉시 READY로 만들고, 그 bidder
@@ -1329,12 +1339,18 @@ phase는 `PLANNING → EXECUTION_PAUSED ↔ EXECUTION_PAUSED → EXECUTED|EXECUT
 clarification이 있으면 실행을 계속할 수 없다. P8의 one-shot `execute_session()`은 보존하고,
 P9 UI가 명시적으로 온라인 실행을 선택한 경우에만 checkpoint 경로를 사용한다.
 
-**online 재시도(D-041).** advance 도중 예외가 나면 세션은 마지막 정상 checkpoint를 그대로
-들고 `EXECUTION_FAILED`가 된다. 이 상태는 막다른 길이 아니다 — §18.1이 one-shot에 "실패 시
-동일 graph 재시도"를 허용하듯, online도 **보존된 checkpoint에서 재개**할 수 있다. 재시도가
-성공하면 아직 남은 task가 있으면 `EXECUTION_PAUSED`, 완주하면 `EXECUTED`, 또 실패하면 다시
-`EXECUTION_FAILED`다. 재시도는 새 실행이 아니라 같은 runtime의 재개이므로 simulation time과
-완료 prefix를 되돌리지 않는다.
+**online 재시도(D-041, D-042 정정).** advance 도중 **예외**가 나면 세션은 마지막 정상
+checkpoint를 그대로 들고 `EXECUTION_FAILED`가 되며 `execution`은 `None`으로 남는다. 이 상태는
+막다른 길이 아니다 — §18.1이 one-shot에 "실패 시 동일 graph 재시도"를 허용하듯, online도
+**보존된 checkpoint에서 재개**할 수 있다. 재시도가 성공하면 아직 남은 task가 있으면
+`EXECUTION_PAUSED`, 완주하면 `EXECUTED`, 또 실패하면 다시 `EXECUTION_FAILED`다. 재시도는 새
+실행이 아니라 같은 runtime의 재개이므로 simulation time과 완료 prefix를 되돌리지 않는다.
+
+재시도 조건은 정확히 **`phase == EXECUTION_FAILED` AND `runtime is not None` AND
+`execution is None`**이다(D-042). `execution`이 있다는 것은 executor가 예외로 죽은 게 아니라
+`DEADLOCK`/`STEP_LIMIT`라는 **결과**로 끝났다는 뜻이며, 같은 상태를 재개하면 결정론적으로 같은
+종료를 반복할 뿐 아니라 기록된 종료 결과를 지우고 phase를 `EXECUTION_PAUSED`로 되돌리게 된다.
+그런 terminal 상태는 재개하지 않는다.
 
 `(phase, execution, runtime)` 조합의 의미를 소비자(UI·감사 독자)가 구분할 수 있어야 한다:
 
@@ -1343,6 +1359,7 @@ P9 UI가 명시적으로 온라인 실행을 선택한 경우에만 checkpoint �
 | `EXECUTION_FAILED` | 있음 | 없음 | one-shot이 `DEADLOCK`/`STEP_LIMIT`로 끝남 | 동일 graph one-shot 재시도 |
 | `EXECUTION_FAILED` | 없음 | 없음 | one-shot executor 예외 | 처음부터 one-shot 재시도 |
 | `EXECUTION_FAILED` | 없음 | **있음** | online advance 예외 | **checkpoint에서 online 재개** |
+| `EXECUTION_FAILED` | 있음 | 있음 | online 실행이 `DEADLOCK`/`STEP_LIMIT`로 종료 | terminal — 재개 금지, `QUERY_STATUS`만 또는 새 session |
 | `EXECUTION_PAUSED` | 없음 | 있음 | 정상 일시정지 | 다음 event로 계속 |
 
 예외 실패에 가짜 `ExecutionResult`를 만들지 않는다 — 실제로 실행 결과가 없었기 때문이며,
@@ -1388,23 +1405,30 @@ makespan을 증명하지 않는다. `no-reset`(기존 held 전부 유지), `full
 release), `selective`를 비교할 때도 우열의 일반화가 아니라 고정 scenario의 원시 결과로만
 보고한다.
 
-**suffix 확장의 실증 범위(D-041).** 3단계가 직접 영향 task 뒤의 **비**영향 task까지 추가로
-release하려면 한 agent의 bundle에 영향 task와 비영향 task가 섞여 있어야 한다. canonical online
-update(`build_chain_patch`)는 한 incident의 workflow chain만 추가하고 `AREA_RECON`은 절대
-만들지 않으므로, 신규 incident의 경우 즉시 `READY`가 되는 것은 `THERMAL_RECON` 하나뿐이다.
-그 bidder union은 UAV 전체이므로 모든 UAV task가 영향 task가 되고 모든 UGV task가 비영향이
-된다 — bundle은 한 agent의 것이고 agent는 UAV이거나 UGV이므로 **섞인 bundle이 존재할 수
-없다**. 결과적으로 현재 운용 경로에서는 항상 `released == directly_affected`이고
+**suffix 확장의 실증 범위(D-041, D-042 정정).** 3단계가 직접 영향 task 뒤의 **비**영향 task까지
+추가로 release하려면 한 agent의 bundle에 영향 task와 비영향 task가 섞여 있어야 한다.
+
+**관측된 사실**: 대표 fixture와 현재 테스트가 다루는 경로 — 신규 incident에 전체 workflow
+chain을 추가하는 online update — 에서는 즉시 `READY`가 되는 것이 `THERMAL_RECON` 하나뿐이고
+그 bidder union이 UAV 전체다. 그러면 모든 UAV task가 영향, 모든 UGV task가 비영향이 되고
+bundle은 한 agent(UAV이거나 UGV)의 것이므로 그 경로에서는 섞인 bundle이 나오지 않았다.
+따라서 이 실행들에서는 항상 `released == directly_affected`이고
 
     suffix_extra_release_count = |released − directly_affected| = 0
 
-이다. 따라서 P9가 실증한 것은 **"신규 READY task와 입찰자가 겹치는 기존 미시작 assignment만
-release/rebid한다"**이며, bundle suffix 확장이 실제로 동작했다고 주장하지 않는다. 이 규칙을
-코드에 남기는 이유는 다른 신규 READY 조합(예: `SUPPRESSANT_DROP`이 새로 READY가 되면
-`AREA_RECON`이 비영향이 되어 S-agent bundle이 섞일 수 있다)에서 bundle prefix commitment를
-깨지 않기 위한 보수적 안전장치이기 때문이다. 그 상태가 실제 실행에서 도달 가능한지는
-확인되지 않았다 — 단위테스트로 **분기의 정확성**은 고정하되, 그것을 end-to-end 실증으로
-기술하지 않는다(D-006과 같은 원칙).
+**단정하지 않는 것(D-042)**: 이것을 "도메인 전체에서 섞인 bundle이 불가능하다"로 일반화하지
+않는다. `build_chain_patch`는 신규 incident의 전체 chain뿐 아니라 **기존 incident의 부분
+workflow 연장**도 만든다. 예를 들어 `THERMAL_RECON`이 이미 COMPLETED인 incident를
+`SUPPRESSANT_DROP`까지 늘리면 신규 READY task의 bidder는 R1/R2이고 `AREA_RECON`은 비영향이
+되므로, S-agent bundle이 `THERMAL_RECON`(영향) → `AREA_RECON`(비영향) 순서를 갖는다면 suffix
+확장이 발생할 여지가 있다. 그런 상태가 현재 CBBA·priority 아래에서 실제로 도달 가능한지는
+**검증하지 않았다**.
+
+따라서 P9가 실증한 것은 **"신규 READY task와 입찰자가 겹치는 기존 미시작 assignment만
+release/rebid한다"**까지이고, bundle suffix 확장이 실제로 동작했다고 주장하지 않는다. 규칙을
+코드에 남기는 이유는 위와 같은 다른 조합에서 bundle prefix commitment를 깨지 않기 위한
+보수적 안전장치이기 때문이다 — 단위테스트로 **분기의 정확성**은 고정하되, 그것을 end-to-end
+실증으로 기술하지 않는다(D-006과 같은 원칙).
 
 ### 19.4 online turn atomicity와 감사
 
@@ -1445,7 +1469,7 @@ fixture의 `selective` 값은 0이며, 0이라는 사실을 숨기거나 suffix�
 
 평가 fixture도 연구 결과의 입력이므로 **strict schema**로 읽는다(D-023과 동일 원칙):
 `str`이 와야 할 자리의 `int`를 `str()`로, `float`가 와야 할 자리의 문자열을 `float()`로
-세탁하지 않는다. 후속 drift guard가 오염을 막더라도 오류가 늦고 불명확해지므로, 타입 위반은
+세탁하지 않는다. simulation time은 유한할 뿐 아니라 음수가 아니어야 한다. 후속 drift guard가 오염을 막더라도 오류가 늦고 불명확해지므로, 타입 위반은
 로드 시점에 거부한다.
 
 필수 안전 게이트: 세 정책 모두 같은 완료 prefix와 RUNNING commitment를 보존, 최종
