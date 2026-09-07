@@ -1,8 +1,14 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.39 (D-042). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.40 (D-043). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.40 (D-043): P8.5 착수. 비어 있던 §15 P8.5 게이트를 채우고 §18.14(시각화)를 신설한다.
+  범위는 **TaskGraph DAG + 정적 2D 임무 지도까지**이며 **애니메이션은 범위 밖**. 순수 view —
+  `demo/visualization.py`가 matplotlib `Figure`만 반환하고 mission state를 바꾸지 않는다.
+  **결정론적 layout**(같은 graph → 같은 그림)을 요구하고, 같은 renderer가 UI와 발표 그림의
+  단일 진실 원천이 된다. `viz` extra 미설치 시 UI는 기존 표로 degrade한다(죽지 않는다).
+  새 연구 주장 없음 — 이미 얻은 결과의 전달 수단이다. `VALIDATOR_VERSION` 불변(1.4).
 - v1.39 (D-042): D-041 정정 2건. ① suffix 실증 범위를 **과도하게 단정**했다 — "모든
   reachable path에서 섞인 bundle이 불가능"은 증명되지 않았다. `build_chain_patch`는 신규
   incident의 전체 chain뿐 아니라 **기존 incident의 부분 workflow 연장**도 하므로, 예컨대
@@ -900,7 +906,7 @@ invariant를 통과해야 한다.
 | P8.2 | orchestrator + intent interpreter (게이트 `MockBackend`) | I1~I8 headless / session lifecycle·NO_CHANGE·referent 규칙 강제 / CLARIFICATION·QUERY·UNSUPPORTED 턴에 `session.state`·`session.scene` identity 불변 / 턴별 감사 JSON |
 | P8.3 | 최소 Streamlit UI + 통합 `event_log` + 구조화된 후보 선택 (D-031, D-032) | 자동: private append boundary가 보존하는 `event_log` 순서 = event 순서 유일 진실 원천, `event_seq` 직렬화 파생, `t1 t2 EXECUTION t3` JSON 순서 일치, execution이 `turn_count` 미소비 / `ClarificationReason`이 ambiguity와 unknown·missing을 구분 / `select_clarification_candidate`는 LLM 호출 0·`input_kind=CANDIDATE_SELECTION`·`resumed_from_turn_id` 기록 / pending은 `AMBIGUOUS_ENTITY`이면서 나머지 필수 slot이 완전할 때만 생성, pending 중 자유 입력은 LLM 미전달·실행 비활성, 잘못된 후보는 pending 유지, 취소는 graph·scene·referent 불변 / 실행 성공·비정상 종료·예외가 모두 `ExecutionAudit`로 기록 / scene 로더가 정규화 빈 incident id 거부 / `VALIDATOR_VERSION == "1.4"` / 전체 단위테스트 green. 수동: §18.12 최소 표시 항목(1~14) 전부 렌더 / 실제 API 3턴 / PLANNING↔EXECUTED↔EXECUTION_FAILED / 실행은 결정론 버튼 / live 실패 시 cached·mock + 모드 배너(cached를 live로 표시 금지) |
 | P8.4 | N=12 정량 평가 (live) | grounder-only + end-to-end 표 / dialogue + turn + 지표별 분모 보고 / gold 사전 커밋 / 감사 JSON |
-| P8.5 | UI graph·2D 실행 시각화 폴리싱 | — |
+| P8.5 | UI TaskGraph DAG + 정적 2D 임무 지도 (D-043) | 순수 view(렌더 전후 `pre_state_hash`·`scene_hash` 불변) / DAG node·edge 집합이 `TaskGraph`와 정확히 일치 / 5개 `TaskStatus` 전부 고정 색 / UAV·UGV task 구분 / 동일 graph → 동일 Figure(결정론 layout) / UAV 직선 vs UGV route-graph polyline 구분 / plan-time·paused runtime·completed execution 구분 / online update 후 재렌더에 신규 task 반영 / headless(Agg) 테스트 통과 / `viz` 미설치 시 UI가 표로 degrade / 발표 그림도 같은 renderer 산출 / 애니메이션 범위 밖 / P9 수치와 기존 테스트 불변 |
 | P9.0 | RQ4 온라인 명령·선택적 재할당 계약 | v1.36 / D-039 커밋 |
 | P9.1 | `SimExecutor` checkpoint/resume | P4 one-shot 골든 불변 / task-completion event pause / checkpoint→restore 결과가 중단 없는 실행과 동일 / 상태·시각·위치·경로·누적 지표 보존 |
 | P9.2 | bidder-connected bundle-suffix release + incremental CBBA | COMPLETED/RUNNING 불변 / 영향 없는 ASSIGNED 보존 / release suffix 일관성 / 재경매 뒤 assignment invariant·capability·precedence 위반 0 |
@@ -1317,6 +1323,48 @@ graph·scene·state·plan·referent 불변, pending만 제거한다. 후보 선�
 (재시도 가능). 한 세션에 pending은 최대 1개.
 
 ---
+
+### 18.14 시각화 (P8.5, D-043)
+
+지금까지의 UI(§18.12)는 전부 표와 숫자다. P8.5는 **이미 얻은 결과를 전달하기 위한 그림**을
+추가한다 — 새 연구 주장이 아니고, 어떤 지표도 이 절에서 생기지 않는다.
+
+**범위**: TaskGraph DAG + 정적 2D 임무 지도. **애니메이션은 범위 밖이다** — timestamp로
+재구성은 가능하나 agent별 보간, dwell/travel 분리, online update 전후 assignment 연결,
+Streamlit rerun 상태 관리, 발표 환경 성능이 모두 따라붙는다. 정적 그림에 순서와 상태를
+표시하는 것으로 충분하다.
+
+**순수 view 경계.** 렌더러는 `demo/visualization.py`에 두고 matplotlib `Figure`만 반환한다.
+`core/`·`allocation/`·`execution/`·`interaction/`은 바꾸지 않으며, 연구 로직을 복제하지 않고
+이미 계산된 값(`MissionState`, `AllocationResult`, `ExecutionResult`, executor checkpoint)만
+그린다. **렌더 전후로 `pre_state_hash`와 `scene_hash`가 변하지 않음을 테스트로 고정한다** —
+live `SimExecutor`를 넘길 때가 유일한 실질 위험이므로, 가능하면 checkpoint(이미 frozen deep
+snapshot)를 입력으로 받는다.
+
+**결정론.** 같은 graph는 항상 같은 그림이어야 한다. force-directed 배치처럼 실행마다 흔들리는
+layout은 쓰지 않는다 — 발표 그림의 재현성과 테스트 가능성이 둘 다 걸려 있다. 이 도메인의
+graph는 구조가 규칙적이므로(zone recon 집합 + incident별 선형 chain) **행 = incident, 열 =
+workflow 단계**의 결정론적 격자로 충분하고, 새 incident가 새 행으로 나타나 online update가
+눈에 띈다.
+
+**DAG가 표시할 것**: task type 축약명, dependency 화살표, `TaskStatus` 5종 고정 색
+(`PENDING` 회색 / `READY` 파랑 / `ASSIGNED` 보라 / `RUNNING` 주황 / `COMPLETED` 초록),
+UAV task와 UGV task의 모양 또는 테두리 구분. **그려진 node·edge 집합은 `TaskGraph`의 것과
+정확히 일치해야 한다** — 이것이 online update가 재렌더에서 즉시 보인다는 보장의 근거다
+(그림 안에 graph hash를 적으라는 뜻이 아니다).
+
+**2D 지도가 표시할 것**: zone·incident 위치, agent 초기 위치, agent별 고정 색, task 위치와
+수행 순서 번호. **UAV 이동은 직선, UGV 이동은 route graph를 따르는 polyline**으로 구분한다
+(§8의 이종 이동 모델이 그림에서 드러나야 한다). plan-time 분석과 실제 실행을 **한 그림에
+겹치지 않고** 분리해 보여준다. 온라인 pause 상태에서는 현재 위치·RUNNING 대상·남은 assignment만,
+완료 후에는 전체 실행 경로를 그린다.
+
+**의존성.** matplotlib은 기존 `viz` extra이며 headless(Agg) 렌더여야 한다(§12 `plots.py`와
+동일). **`viz`가 없으면 UI는 죽지 않고 §18.12의 표로 degrade한다.**
+
+**발표 그림.** 슬라이드용 PNG/PDF는 이 렌더러가 생성한다. UI와 발표 자료가 서로 다른 그리기
+경로를 갖지 않게 하려는 것이며, 이는 §14 재현성의 연장이다.
+
 
 ## 19. Online command injection and selective reallocation (P9, D-039)
 

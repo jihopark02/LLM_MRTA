@@ -1428,3 +1428,44 @@ strict loader는 승인됐고 P9 수치도 그대로다. 그러나 D-041 자체�
 `evaluation/online_reallocation.py`(음수 시간 거부), `allocation/online.py` docstring,
 `docs/P9_RESULTS.md`, `tests/test_online_{session,evaluation}.py`, `tests/test_demo_app.py`.
 P9 실험 수치·결론 불변, `VALIDATOR_VERSION` 1.4 불변.
+
+## D-043: P8.5 시각화 범위 고정 (계약 v1.40)
+
+**배경** P9까지 끝난 뒤 발표 준비 단계. §15의 P8.5 게이트는 "UI graph·2D 실행 시각화 폴리싱"
+한 줄에 기준이 `—`로 비어 있었다. 현재 `demo/app.py`는 **전부 `st.dataframe`과 `st.metric`**
+이라 RQ1의 task graph도, RQ2/RQ4의 이종 UAV/UGV 이동도 그림으로 볼 수 없다. 시연하면
+스프레드시트가 보인다.
+
+순서를 "발표 자료 먼저, 남으면 시각화"에서 **"최소 시각화 먼저, 그다음 발표 구성"**으로
+바꾼다 — 표만 있는 UI로는 발표 흐름 자체를 평가할 수 없기 때문이다.
+
+**결정** 계약 v1.40, §18.14 신설. 범위는 **DAG + 정적 2D 지도까지**로 고정한다.
+
+- **애니메이션 제외.** timestamp로 재구성은 가능하지만 agent별 보간, dwell/travel 분리,
+  online update 전후 assignment history 연결, Streamlit rerun 상태 관리, 발표 환경의 프레임
+  성능이 전부 따라온다. 학부 발표에는 정적 경로 + 순서 번호 + 상태 색으로 충분하다.
+- **순수 view.** `demo/visualization.py`가 matplotlib `Figure`만 반환한다. 연구 로직을
+  복제하지 않고 이미 계산된 값만 그린다. 렌더 전후 `pre_state_hash`·`scene_hash` 불변을
+  테스트로 고정한다 — live `SimExecutor`를 넘기는 경로가 유일한 실질 위험이라 가능하면
+  checkpoint를 입력으로 받는다.
+- **결정론적 layout.** 같은 graph → 같은 그림. force-directed는 쓰지 않는다. 이 도메인의
+  graph는 zone recon 집합 + incident별 선형 chain이라 행=incident, 열=workflow 단계 격자로
+  충분하고, 새 incident가 새 행이 되어 online update가 눈에 띈다. 발표 그림 재현성과 테스트
+  가능성이 여기에 함께 걸려 있다.
+- **DAG의 node·edge 집합 == `TaskGraph`의 것.** 검토 의견의 "graph hash 변화가 그림에 반영"은
+  그림 안에 hash를 적으라는 뜻이 될 수 있어 이렇게 바꿔 적는다. 집합 일치가 곧 "online update가
+  재렌더에서 즉시 보인다"의 근거다.
+- **`viz` 미설치 시 UI degrade.** matplotlib은 기존 optional extra이므로, 없으면 UI가 죽지 않고
+  §18.12의 표로 돌아가야 한다(검토 의견에 없던 항목).
+- **발표 그림도 같은 renderer.** UI와 슬라이드가 서로 다른 그리기 경로를 갖지 않게 한다(§14
+  재현성의 연장). 검토 의견은 "가능하면"이었으나 게이트 항목으로 올린다 — 두 경로가 갈라지면
+  발표에 나가는 그림이 검증 대상 밖이 된다.
+
+함수 분할(`render_task_graph` / map 계열 3종 등)은 계약에 고정하지 않는다. 계약이 요구하는
+것은 **무엇이 구분돼 보여야 하는가**(plan-time / paused runtime / completed execution)이며,
+그것을 함수 3개로 할지 인자 하나로 할지는 §16 "단순함이 먼저다"에 따른 구현 판단이다.
+
+**영향** 신규 `demo/visualization.py`, `demo/app.py`(연결 + degrade 경로),
+`tests/test_visualization.py`(신규), `tests/test_demo_app.py`. `core/`·`allocation/`·
+`execution/`·`interaction/`·`evaluation/` 무변경. 새 지표·새 주장 없음, P9 수치 불변,
+`VALIDATOR_VERSION` 1.4 불변.
