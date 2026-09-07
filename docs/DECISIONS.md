@@ -1675,3 +1675,26 @@ counterfactual Live 평가로 결과가 입력에 민감함을 보인다.
 **영향** interaction intent/session/audit 확장, strict patrol/latent fixture, 공통 incident
 transaction, evaluation과 native UI. 기존 `industrial_park.yaml`, P1 reference fixture,
 Validator 1.4, online policy 1.0, P3/P4/P9 결과는 불변이어야 한다.
+
+## D-052: strict intent repair와 한국어 zone 조사 경계 (계약 v1.48)
+
+**배경** 사전 고정한 P12 첫 Live counterfactual에서 8개 중 4개가 exact match였다. 두
+`NEW_MISSION`은 model이 선택한 kind에 속하지 않는 `note`/`zone_ref`를 비-null로 채워 strict
+wire cross-field validation에서 거부됐고, 두 operator report는 `Warehouse에서`와
+`Tank Farm에서`를 그대로 추출해 deterministic zone grounder가 clarification했다. 이 4/8은
+프롬프트와 한국어 입력 경계의 실제 첫 결과이며 숨기거나 덮어쓰면 안 된다.
+
+**결정** strict schema는 유지한다. live/cached intent wire의 첫 `ValidationError`에만 같은
+발화·context와 오류를 넣은 correction을 정확히 한 번 허용한다. 두 번째 schema 오류와 다른
+예외는 `TURN_ERROR`이며, 코드가 slot을 삭제하거나 reference graph/intent로 대체하지 않는다.
+mock은 exact script wiring을 검증하므로 repair하지 않는다. `normalize_zone_ref`만 끝의 위치 조사
+`에서`/`에` 하나를 제한적으로 제거한 뒤 기존 zone suffix를 처리하며 incident normalization은
+바꾸지 않는다. prompt/cache 의미가 달라지므로 `PROMPT_SCHEMA_VERSION`을 `p12-v2`로 올린다.
+
+첫 Live 4/8 artifact는 역사적 결과로 영구 보존한다. 개선 후 headline은 그 결과를 보기 전에
+커밋한 별도 held-out paraphrase annotation에서만 산출하고, 원 명령 재실행은 regression으로만
+표시한다. 이 변경은 LLM 역할·허용 intent·Validator·CBBA·online release 의미를 넓히지 않는다.
+
+**영향** interaction intent prompt/repair, zone-reference normalization, cache namespace,
+counterfactual evaluation 문서와 테스트. `VALIDATOR_VERSION` 1.4와
+`ONLINE_POLICY_VERSION`, P3/P4/P9 골든은 불변이다.

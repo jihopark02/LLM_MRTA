@@ -1,8 +1,14 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.47 (D-051). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.48 (D-052). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.48 (D-052): P12 첫 Live counterfactual 4/8을 원시 결과로 보존한다. intent wire가
+  kind와 무관한 slot을 채워 strict schema에서 거부되면 live/cached 경로에 한해 같은 발화와
+  context로 **정확히 한 번** error-guided schema repair를 허용한다. 두 번째 schema 오류나 API
+  오류는 그대로 `TURN_ERROR`이며 slot을 삭제하거나 reference 응답으로 대체하지 않는다. zone
+  reference만 한국어 위치 조사 `에서`/`에` 하나를 제한적으로 제거한다. 개선 후 결과는 사전
+  고정한 별도 held-out paraphrase로 평가하고 첫 결과를 덮어쓰지 않는다.
 - v1.47 (D-051): P12 **LLM-driven incident contingency**를 추가한다. LLM은 최초 자연어에서
   초기 task graph와 별도로 `FIRE_DETECTED`/운영자 신고에 적용할 response step을 추출하고,
   실행 중 한 턴의 화재 신고에서는 zone과 명시적 response step을 추출한다. 정찰 완료가 만든
@@ -974,7 +980,7 @@ invariant를 통과해야 한다.
 | P12.1 | strict `MissionDirective`/response policy + 한 턴 REPORT response slot | 같은 scene에서 response step만 다른 명령이 서로 다른 policy를 만들고 future incident workflow prefix가 정확히 달라짐 / policy 없는 단순 REPORT는 scene-only 유지 / resource constraint는 무시하지 않고 UNSUPPORTED |
 | P12.2 | patrol scene + strict latent observation fixture | 초기 known incident 0 / latent data가 LLM context·초기 graph·scene hash에 없음 / 지정 `AREA_RECON` 완료 전 event 0, 완료 checkpoint에서 정확히 1회 / 잘못된 zone·trigger·type 거부 |
 | P12.3 | sensor/operator 공통 atomic incident transaction | 같은 zone·response step이면 두 source가 같은 scene/graph diff를 생성 / planning·paused 모두 성공 후 한 번에 commit / Validator·reallocation 실패 시 scene/state/runtime identity와 hash·시각 불변 / sensor observation 별도 typed audit |
-| P12.4 | Live counterfactual + 두 발표 scenario | 사전 고정 명령/annotation으로 initial graph·policy·report zone·response prefix exact scoring / 같은 scene의 다른 명령이 다른 graph/policy, 다른 zone이 다른 target을 생성 / scripted mock은 정확한 제시 문장 외 입력을 backend 소비 없이 거부 / sensor 시나리오와 operator-report 시나리오 모두 `COMPLETED`, capability/precedence violation 0, P9 selective release 원시값 감사 / 실제 model snapshot 기록 |
+| P12.4 | Live counterfactual + 두 발표 scenario | 사전 고정 명령/annotation으로 initial graph·policy·report zone·response prefix exact scoring / 같은 scene의 다른 명령이 다른 graph/policy, 다른 zone이 다른 target을 생성 / scripted mock은 정확한 제시 문장 외 입력을 backend 소비 없이 거부 / sensor 시나리오와 operator-report 시나리오 모두 `COMPLETED`, capability/precedence violation 0, P9 selective release 원시값 감사 / 실제 model snapshot 기록 / 첫 Live 원시 결과와 개선 후 사전 고정 held-out 결과를 별도 artifact로 보존 |
 | P12.5 | native UI 연결 | scenario는 명시적 선택·seed/fixture id 표시 / Live parsed directive·event source·patch·release/rebid 표시 / sensor observation과 operator report를 구분 / 다음 checkpoint 이후 변경 경로 재생 / cached를 live로 표시 금지 / P3/P4/P9 골든 불변 |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
@@ -1137,6 +1143,12 @@ API 호출에는 평면 `IntentWireEnvelope`를 쓴다. wire 출력은 `kind`와
 않는 slot은 `null`이어야 한다. `extra="forbid"`·`strict=True`와 kind별 cross-field 검증으로
 무관한 slot의 비-null 값을 거부한 뒤, 결정론적 adapter가 해당 `OperatorIntent` 하나로
 변환한다. 이는 LLM 역할이나 허용 intent를 넓히지 않는 transport compatibility 계층이다.
+live/cached backend에서 첫 wire 응답이 이 strict 변환의 `ValidationError`를 내면, 같은 발화와
+같은 deterministic context에 그 오류를 첨부해 **schema correction을 정확히 한 번** 요청한다.
+repair도 동일한 `IntentWireEnvelope`와 cross-field 검증을 통과해야 하며, 코드는 무관 slot을
+삭제·세탁하지 않는다. 두 번째 schema 오류, network/auth/cache miss 등 다른 예외는 재시도하지
+않고 기존 `TURN_ERROR` 경계로 보낸다. mock은 고정 script의 불일치를 숨기지 않도록 이 repair를
+사용하지 않는다. repair prompt/cache 의미가 바뀌면 prompt schema version을 함께 올린다.
 단 `NEW_MISSION`으로 확정된 경우에는 기존 **RQ1 `generate_mission()`**(§12)이 별도로
 task_type·target·dependency edge를 생성한다(이건 P5/P6에서 이미 검증된 경로이며 그대로
 재사용).
@@ -1254,7 +1266,9 @@ payload에 포함한다(§14). 무효 `REPORT` → scene 불변.
 
 정규화 함수는 계층 역전(`scenarios/scene.py`가 `interaction/`을 import)을 피하기 위해
 `scenarios/naming.py`에 둔다: `normalize_identifier()`(대문자화 + 영숫자만),
-`normalize_zone_ref()`(한국어 `구역`/`지역` 접미사 제거 후 `normalize_identifier`). scene
+`normalize_zone_ref()`(끝의 한국어 위치 조사 `에서`/`에` 하나를 먼저 제거하고, 이어서
+`구역`/`지역` 접미사 하나를 제거한 뒤 `normalize_identifier`). 조사는 zone reference에만
+적용하며 incident id나 일반 identifier에는 적용하지 않는다. scene
 loader와 incident grounder는 `normalize_identifier`를, zone grounder는 `normalize_zone_ref`를
 공유한다. incident id 매칭은 더 이상 zone 접미사를 제거하지 않는다(incident id는 접미사를
 갖지 않는다).
@@ -1816,6 +1830,12 @@ reference fixture fallback이 없다. 다음 counterfactual을 사전 annotation
 mock은 UI wiring을 위한 scripted mode일 뿐이다. 현재 기대 문장과 다른 입력을 같은 응답으로
 처리하지 않고, backend item을 소비하지 않은 채 명시적으로 거부한다. 발표의 핵심 결과는 live
 또는 그 live 호출의 exact cached replay로 보여주고 provenance를 항상 표시한다.
+
+첫 P12 Live counterfactual은 engineering feedback을 보기 전에 고정한 annotation과 함께 원시
+artifact로 보존한다. 그 결과를 본 뒤 추가한 prompt repair·정규화 개선은 같은 명령에 다시
+실행한 수치를 새 headline으로 삼지 않는다. 개선 후 일반화 평가는 결과를 보기 전에 별도
+held-out paraphrase annotation을 커밋하고 별도 artifact 이름으로 실행한다. 첫 결과는 삭제하거나
+덮어쓰지 않으며, regression 재실행과 held-out 결과를 보고서에서 명확히 구분한다.
 
 ### 22.5 실행·시각화 의미
 
