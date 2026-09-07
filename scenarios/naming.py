@@ -7,6 +7,7 @@ use the same boundary without reversing the dependency direction.
 """
 
 _ZONE_SUFFIXES = ("구역", "지역")
+_ZONE_LOCATIVE_PARTICLES = ("에서", "에")
 
 
 def normalize_identifier(text: str) -> str:
@@ -15,11 +16,15 @@ def normalize_identifier(text: str) -> str:
 
 
 def normalize_zone_ref(text: str) -> str:
-    """Normalise a zone phrase, accepting a trailing Korean zone word."""
+    """Normalise a zone phrase with one locative and one zone suffix."""
     stripped = text.strip()
+    for particle in _ZONE_LOCATIVE_PARTICLES:
+        if stripped.endswith(particle):
+            stripped = stripped[: -len(particle)].rstrip()
+            break
     for suffix in _ZONE_SUFFIXES:
         if stripped.endswith(suffix):
-            stripped = stripped[: -len(suffix)]
+            stripped = stripped[: -len(suffix)].rstrip()
             break
     return normalize_identifier(stripped)
 

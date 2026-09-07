@@ -72,6 +72,11 @@ def graph_with(scene, incident_id, steps):
         ("B 지역", "ZONE_B"),
         ("Utility Yard", "ZONE_C"),
         ("Tank Farm", "ZONE_D"),
+        ("Warehouse에서", "ZONE_A"),
+        ("Warehouse 에서", "ZONE_A"),
+        ("Tank Farm에서", "ZONE_D"),
+        ("A 구역에", "ZONE_A"),
+        ("B 지역에서", "ZONE_B"),
         ("ZONE_D", "ZONE_D"),
     ],
 )

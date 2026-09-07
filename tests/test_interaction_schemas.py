@@ -274,3 +274,69 @@ def test_classifier_requests_wire_schema_then_returns_internal_intent():
     assert isinstance(result, QueryStatusIntent)
     assert result.about == "agents"
     assert backend.calls[0][2] == "IntentWireEnvelope"
+
+
+class _RepairBackend:
+    def __init__(self, mode, responses):
+        self.mode = mode
+        self.responses = iter(responses)
+        self.calls = []
+
+    def complete(self, system, user, schema):
+        self.calls.append((system, user, schema.__name__))
+        response = next(self.responses)
+        if isinstance(response, Exception):
+            raise response
+        return schema.model_validate(response)
+
+
+def _wire_payload(kind="NEW_MISSION", **changes):
+    payload = wire_intent(kind).model_dump()
+    payload.update(changes)
+    return payload
+
+
+@pytest.mark.parametrize("mode", ["live", "cached"])
+def test_live_and_cached_intent_wire_get_exactly_one_strict_schema_repair(mode):
+    invalid = _wire_payload(note="전체 구역 순찰")
+    valid = _wire_payload(incident_response_up_to="GROUND_SUPPRESSION")
+    backend = _RepairBackend(mode, [invalid, valid])
+    session = MissionSession("REPAIR", load_scene(SCENE))
+
+    result = classify(session, "화재를 발견하면 진압해줘", backend)
+
+    assert isinstance(result, NewMissionIntent)
+    assert result.incident_response_up_to == "GROUND_SUPPRESSION"
+    assert len(backend.calls) == 2
+    assert backend.calls[0][1:] == backend.calls[1][1:]
+    assert "previous JSON response was rejected" in backend.calls[1][0]
+    assert "cannot populate slots" in backend.calls[1][0]
+
+
+def test_second_invalid_live_wire_is_not_repaired_again():
+    invalid = _wire_payload(zone_ref="Warehouse")
+    backend = _RepairBackend("live", [invalid, invalid])
+    session = MissionSession("REPAIR2", load_scene(SCENE))
+
+    with pytest.raises(ValidationError, match="cannot populate slots"):
+        classify(session, "전체 구역 순찰", backend)
+    assert len(backend.calls) == 2
+
+
+def test_non_schema_backend_failure_is_never_retried():
+    backend = _RepairBackend("live", [RuntimeError("network down")])
+    session = MissionSession("NO-RETRY", load_scene(SCENE))
+
+    with pytest.raises(RuntimeError, match="network down"):
+        classify(session, "전체 구역 순찰", backend)
+    assert len(backend.calls) == 1
+
+
+def test_mock_schema_failure_is_not_hidden_by_repair():
+    invalid = _wire_payload(note="bad mock script")
+    backend = _RepairBackend("mock", [invalid, _wire_payload()])
+    session = MissionSession("MOCK-NO-REPAIR", load_scene(SCENE))
+
+    with pytest.raises(ValidationError, match="cannot populate slots"):
+        classify(session, "전체 구역 순찰", backend)
+    assert len(backend.calls) == 1

@@ -9,20 +9,35 @@ history, so the existing ``LLMBackend`` protocol is unchanged (§18.3 — the
 model sees a deterministic summary, never the raw transcript).
 """
 
-from interaction.prompts import intent_system, intent_user
+from pydantic import ValidationError
+
+from interaction.prompts import intent_repair_system, intent_system, intent_user
 from interaction.schemas import IntentWireEnvelope, OperatorIntent
 from interaction.session import MissionSession
 
 
 def classify(session: MissionSession, utterance: str, backend) -> OperatorIntent:
-    """Classify one utterance. A schema-invalid response raises
-    ``pydantic.ValidationError`` — the orchestrator turns it into a recorded
-    turn error rather than letting it abort the session."""
-    wire = backend.complete(
-        intent_system(session.context_for_llm()),
-        intent_user(utterance),
-        IntentWireEnvelope,
-    )
+    """Classify one utterance with the bounded D-052 wire repair.
+
+    Live/cached mode gets one correction attempt after a schema-invalid first
+    response.  A second validation failure (and every mock validation failure)
+    reaches the orchestrator, which records it without aborting the session.
+    """
+    context = session.context_for_llm()
+    user = intent_user(utterance)
+    try:
+        wire = backend.complete(intent_system(context), user, IntentWireEnvelope)
+    except ValidationError as error:
+        # D-052: this is a bounded retry, not schema laundering.  The repaired
+        # response must pass the exact same strict model.  Mock intentionally
+        # stays one-shot so a broken published script cannot be hidden.
+        if getattr(backend, "mode", None) not in {"live", "cached"}:
+            raise
+        wire = backend.complete(
+            intent_repair_system(context, str(error)),
+            user,
+            IntentWireEnvelope,
+        )
     return wire.to_internal().intent
 
 

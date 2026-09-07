@@ -35,12 +35,15 @@ Pick exactly one intent kind:
 Rules:
 - Return exactly these eight top-level keys: kind, zone_ref, target_phrase,
   up_to_step, incident_response_up_to, response_up_to, about, note. Every key
-  is required; use null for every slot that
-  does not belong to the selected kind or is not present in the utterance.
+  is required; use null for every slot that does not belong to the selected
+  kind or is not present in the utterance. In particular, note is non-null
+  only for UNSUPPORTED. Never place the operator utterance in note for another
+  kind.
 - Copy slot phrases verbatim from the utterance. Do NOT resolve them, expand
   them, translate them, or substitute an id you infer from the context.
-- If a slot is not present in the utterance, omit it. A partial extraction is
-  correct and expected; something else decides what is missing.
+- If a slot is not present in the utterance, set it to null. Do not omit any
+  of the eight required keys. A partial extraction with null values is correct
+  and expected; deterministic code decides what is missing.
 - Never emit a clarifying question. If the utterance is ambiguous, still
   classify it and leave the unclear slot out.
 - Never invent an incident, zone, task, agent, priority or coordinate.
@@ -58,6 +61,19 @@ Rules:
 Current session state:
 {context}"""
 
+_REPAIR = """
+
+Your previous JSON response was rejected by the strict intent wire schema.
+Return a corrected JSON object for the SAME operator utterance and session.
+Keep the intended kind, unless the validation error itself shows that kind is
+invalid. Include all eight required keys. Set every slot not owned by the
+selected kind to null; do not preserve text in an unrelated slot. Do not add
+new facts or change the operator's request.
+
+Validation error from the rejected response:
+{error}
+"""
+
 
 def intent_system(context_summary: str) -> str:
     return _SYSTEM.replace("{context}", context_summary)
@@ -67,4 +83,9 @@ def intent_user(utterance: str) -> str:
     return f"Operator: {utterance}"
 
 
-__all__ = ["intent_system", "intent_user"]
+def intent_repair_system(context_summary: str, error_detail: str) -> str:
+    """Build the one permitted D-052 schema-correction prompt."""
+    return intent_system(context_summary) + _REPAIR.replace("{error}", error_detail)
+
+
+__all__ = ["intent_repair_system", "intent_system", "intent_user"]
