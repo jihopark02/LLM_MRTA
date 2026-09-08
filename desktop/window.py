@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import json
 import os
 from dataclasses import asdict
 
@@ -260,6 +261,18 @@ class OperatorWindow(QMainWindow):
             changes = asdict(event.online_reallocation.assignment_changes)
             changed = sum(len(value) for value in changes.values())
             parts.append(f"runtime assignment Δ {changed}")
+        if event.resource_resolution:
+            resources = event.resource_resolution
+            parts.append(
+                "active team "
+                + (", ".join(resources.active_team) if resources.active_team else "none")
+            )
+            if resources.released_tasks:
+                parts.append(f"resource release {len(resources.released_tasks)}")
+            if resources.deferred_exclusions:
+                parts.append(
+                    "deferred " + ", ".join(resources.deferred_exclusions)
+                )
         return "  ·  ".join(parts)
 
     def _refresh_candidates(self) -> None:
@@ -336,6 +349,15 @@ class OperatorWindow(QMainWindow):
         self.scenario_help.setText(
             f"SCENARIO: {self.controller.scenario_label}  ·  fixture: {fixture}  ·  "
             f"active policy: {policy.value if policy is not None else 'none'}\n"
+            "ACTIVE TEAM: "
+            + (", ".join(session.active_team) if session.active_team else "none")
+            + "  ·  RESOURCE: "
+            + json.dumps(
+                session.resource_request.to_dict(),
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+            + "\n"
             + command_help
         )
         self.chat.setHtml(self._chat_html())

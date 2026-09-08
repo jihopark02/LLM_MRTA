@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from interaction.interpret import IntentRepairTrace, classify
 from interaction.prompts import intent_system
+from interaction.resources import CountConstraint, ResourceRequest
 from interaction.schemas import (
     IntentEnvelope,
     IntentWireEnvelope,
@@ -21,6 +22,7 @@ from interaction.schemas import (
     ReportIncidentIntent,
     UnsupportedIntent,
     UpdateMissionIntent,
+    UpdateResourcesIntent,
     wire_intent,
 )
 from interaction.session import MissionSession
@@ -233,9 +235,15 @@ def test_wire_schema_has_no_openai_rejected_one_of_and_requires_every_key():
                 "REPORT_INCIDENT",
                 zone_ref="A 구역",
                 response_up_to="SUPPRESSANT_DROP",
+                uav_exact=1,
             ),
             ReportIncidentIntent,
             {"zone_ref": "A 구역", "response_up_to": "SUPPRESSANT_DROP"},
+        ),
+        (
+            wire_intent("UPDATE_RESOURCES", uav_exact=1, excluded_agents=["R2"]),
+            UpdateResourcesIntent,
+            {},
         ),
         (
             wire_intent(
@@ -275,6 +283,7 @@ def test_wire_converts_deterministically_to_the_internal_discriminated_union(
         ("REPORT_INCIDENT", {"target_phrase": "거기"}),
         ("REPORT_INCIDENT", {"incident_response_up_to": "GROUND_SUPPRESSION"}),
         ("UPDATE_MISSION", {"about": "mission"}),
+        ("UPDATE_RESOURCES", {"target_phrase": "거기"}),
         ("QUERY_STATUS", {"up_to_step": "GROUND_SUPPRESSION"}),
         ("UNSUPPORTED", {"zone_ref": "ZONE_A"}),
     ],
@@ -311,6 +320,24 @@ def test_new_mission_resource_constraints_are_preserved_in_the_prompt():
     assert "excluded_agents" in prompt
     assert "지상 로봇으로 진압" in prompt
     assert "Warehouse 구역에 새 화재" in prompt
+    assert "UPDATE_RESOURCES" in prompt
+
+
+def test_resource_update_and_report_restore_strict_requests():
+    update = wire_intent(
+        "UPDATE_RESOURCES", uav_min=1, uav_max=2, excluded_agents=["R2"]
+    ).to_internal().intent
+    report = wire_intent(
+        "REPORT_INCIDENT", zone_ref="Warehouse", ugv_exact=1
+    ).to_internal().intent
+
+    assert update.resources.to_domain() == ResourceRequest(
+        uav=CountConstraint(minimum=1, maximum=2),
+        excluded_agents=("R2",),
+    )
+    assert report.resources.to_domain() == ResourceRequest(
+        ugv=CountConstraint(exact=1)
+    )
 
 
 def test_recon_only_does_not_imply_a_future_incident_policy_in_the_prompt():

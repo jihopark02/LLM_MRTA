@@ -131,7 +131,7 @@ def test_new_mission_commits_the_resolved_team_and_audits_it(scene):
 
     assert result.outcome is TurnOutcome.COMMITTED
     assert session.active_team == ("S1",)
-    assert set(session.state.agents) == {"S1"}
+    assert set(session.state.agents) == {agent.agent_id for agent in scene.fleet}
     assert set(session.plan.assignments.values()) == {"S1"}
     audit = result.audit.resource_resolution
     assert audit is not None

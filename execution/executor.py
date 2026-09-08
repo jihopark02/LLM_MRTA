@@ -96,6 +96,7 @@ class ExecutionCheckpoint:
     uav_flight: float
     ugv_route: float
     lam: float
+    active_agents: tuple[str, ...]
     started: bool
     epoch_pending: bool
 
@@ -114,7 +115,14 @@ def _preds_done(graph, task_id) -> bool:
 
 
 class SimExecutor:
-    def __init__(self, state: MissionState, scene: Scene, lam: float = DEFAULT_LAMBDA) -> None:
+    def __init__(
+        self,
+        state: MissionState,
+        scene: Scene,
+        lam: float = DEFAULT_LAMBDA,
+        *,
+        active_agent_ids: tuple[str, ...] | list[str] | set[str] | None = None,
+    ) -> None:
         self.work = state.clone()
         self.graph = self.work.graph
         self.agents = self.work.agents
@@ -124,6 +132,11 @@ class SimExecutor:
             aid: node for aid, node in scene.agent_access_nodes.items() if aid in self.agents
         }
         self.sim: dict[str, _Sim] = {aid: _Sim() for aid in self.agents}
+        active = set(self.agents) if active_agent_ids is None else set(active_agent_ids)
+        unknown = active - set(self.agents)
+        if unknown:
+            raise ValueError(f"active agents are not in MissionState: {sorted(unknown)}")
+        self._active_agent_ids = active
 
         for agent in self.agents.values():
             agent.current_task = None
@@ -159,6 +172,7 @@ class SimExecutor:
             uav_flight=self.uav_flight,
             ugv_route=self.ugv_route,
             lam=self.lam,
+            active_agents=tuple(sorted(self._active_agent_ids)),
             started=self._started,
             epoch_pending=self._epoch_pending,
         )
@@ -177,6 +191,9 @@ class SimExecutor:
         executor.agents = executor.work.agents
         executor.scene = scene
         executor.lam = checkpoint.lam
+        executor._active_agent_ids = set(checkpoint.active_agents)
+        if not executor._active_agent_ids <= set(executor.agents):
+            raise ValueError("checkpoint active agents are not in MissionState")
         executor.access_nodes = dict(checkpoint.access_nodes)
         executor.sim = {
             aid: _Sim(value.current, value.finish_at, value.busy)
@@ -208,6 +225,75 @@ class SimExecutor:
         elif self._epoch_pending:
             self._run_epoch()
             self._epoch_pending = False
+
+    @property
+    def active_agent_ids(self) -> tuple[str, ...]:
+        """Agents eligible for new CBBA bids and task dispatch (D-057)."""
+        return tuple(sorted(self._active_agent_ids))
+
+    def replace_active_team(
+        self,
+        agent_ids: tuple[str, ...],
+        *,
+        rebid_agent_ids: tuple[str, ...] = (),
+    ) -> tuple[tuple[str, ...], tuple[str, ...], tuple[int, ...]]:
+        """Replace future bidding eligibility at a safe checkpoint (D-057).
+
+        RUNNING commitments are never released.  For a changed or newly
+        required team, every ASSIGNED task whose eligible bidders overlap a
+        changed agent is directly affected; its owner's remaining bundle
+        suffix is released so path-prefix commitments stay coherent.  The
+        caller performs this on a checkpoint clone and publishes it only after
+        residual feasibility has been proved.
+
+        Returns ``(released, deferred_exclusions, consensus_rounds)``.
+        """
+        desired = set(agent_ids)
+        if len(desired) != len(agent_ids):
+            raise ValueError("active team contains duplicate agent ids")
+        unknown = desired - set(self.agents)
+        if unknown:
+            raise ValueError(f"active agents are not in MissionState: {sorted(unknown)}")
+
+        forced = set(rebid_agent_ids)
+        if not forced <= desired:
+            raise ValueError("rebid agents must belong to the desired active team")
+        changed = (desired ^ self._active_agent_ids) | forced
+        directly_affected = {
+            task.task_id
+            for task in self.graph.tasks
+            if task.status is TaskStatus.ASSIGNED
+            and any(
+                self.agents[aid].platform_kind in task.eligible_platforms
+                and self.agents[aid].has_capabilities(task.required_capabilities)
+                for aid in changed
+            )
+        }
+        released: set[str] = set()
+        for agent in self.agents.values():
+            positions = [
+                index
+                for index, task_id in enumerate(agent.bundle)
+                if task_id in directly_affected
+            ]
+            if not positions:
+                continue
+            for task_id in agent.bundle[min(positions) :]:
+                if self.graph[task_id].status is TaskStatus.ASSIGNED:
+                    released.add(task_id)
+
+        if released:
+            self.release_assignments(tuple(sorted(released)))
+        self._active_agent_ids = desired
+        deferred = tuple(
+            sorted(
+                aid
+                for aid in set(self.agents) - desired
+                if self.sim[aid].current is not None
+            )
+        )
+        rounds = self.auction_ready()
+        return tuple(sorted(released)), deferred, rounds
 
     def replace_state(self, state: MissionState, scene: Scene) -> None:
         """Adopt an atomically validated graph/state without changing time.
@@ -285,6 +371,12 @@ class SimExecutor:
         if not frontier:
             return False
 
+        auction_agents = {
+            aid: self.agents[aid] for aid in sorted(self._active_agent_ids)
+        }
+        if not auction_agents:
+            return False
+
         held = {
             tid: (aid, self.winning_bids[tid])
             for tid, aid in self.assignments.items()
@@ -301,7 +393,7 @@ class SimExecutor:
         # is not double-counted AND its unavailability still costs it.
         saved_ref: dict[str, tuple] = {}
         start_delays: dict[str, float] = {}
-        for aid, agent in self.agents.items():
+        for aid, agent in auction_agents.items():
             running = self.sim[aid].current
             if running is None:
                 continue
@@ -316,7 +408,7 @@ class SimExecutor:
                 self.access_nodes[aid] = landing
 
         result = run_epoch(
-            tasks_dict, self.agents, self._epoch_scene(), lam=self.lam,
+            tasks_dict, auction_agents, self._epoch_scene(), lam=self.lam,
             frontier=frontier, held=held, start_delays=start_delays,
         )
 
@@ -340,7 +432,7 @@ class SimExecutor:
     # -- dispatch / advance ----------------------------------------
     def _dispatch(self) -> bool:
         moved = False
-        for agent_id in sorted(self.agents):
+        for agent_id in sorted(self._active_agent_ids):
             s = self.sim[agent_id]
             agent = self.agents[agent_id]
             if s.current is not None or not agent.path:

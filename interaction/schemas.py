@@ -1,6 +1,6 @@
 """Operator intent schemas for the planning session (RESEARCH_CONTRACT.md §18).
 
-The interaction LLM classifies the utterance into one of the five supported
+The interaction LLM classifies the utterance into one of the six supported
 dialogue acts (§18.2) and extracts bounded slots. P13 permits agent-class,
 count, include and exclude constraints on ``NEW_MISSION``; these are not
 task-to-agent assignments. It never emits a clarification, MissionPatch,
@@ -78,6 +78,14 @@ class ReportIncidentIntent(_StrictModel):
     kind: Literal["REPORT_INCIDENT"]
     zone_ref: str | None = None  # raw phrase; grounder matches zone_id + aliases
     response_up_to: UpToStep | None = None
+    resources: "ResourceRequestSchema | None" = None
+
+
+class UpdateResourcesIntent(_StrictModel):
+    """Atomically replace the active mission's complete resource policy."""
+
+    kind: Literal["UPDATE_RESOURCES"]
+    resources: ResourceRequestSchema
 
 
 class UpdateMissionIntent(_StrictModel):
@@ -107,6 +115,7 @@ class UnsupportedIntent(_StrictModel):
 OperatorIntent = Annotated[
     NewMissionIntent
     | ReportIncidentIntent
+    | UpdateResourcesIntent
     | UpdateMissionIntent
     | QueryStatusIntent
     | UnsupportedIntent,
@@ -133,6 +142,7 @@ class IntentWireEnvelope(_StrictModel):
     kind: Literal[
         "NEW_MISSION",
         "REPORT_INCIDENT",
+        "UPDATE_RESOURCES",
         "UPDATE_MISSION",
         "QUERY_STATUS",
         "UNSUPPORTED",
@@ -167,7 +177,28 @@ class IntentWireEnvelope(_StrictModel):
                 "required_agents",
                 "excluded_agents",
             },
-            "REPORT_INCIDENT": {"zone_ref", "response_up_to"},
+            "REPORT_INCIDENT": {
+                "zone_ref",
+                "response_up_to",
+                "uav_exact",
+                "uav_min",
+                "uav_max",
+                "ugv_exact",
+                "ugv_min",
+                "ugv_max",
+                "required_agents",
+                "excluded_agents",
+            },
+            "UPDATE_RESOURCES": {
+                "uav_exact",
+                "uav_min",
+                "uav_max",
+                "ugv_exact",
+                "ugv_min",
+                "ugv_max",
+                "required_agents",
+                "excluded_agents",
+            },
             "UPDATE_MISSION": {"target_phrase", "up_to_step"},
             "QUERY_STATUS": {"target_phrase", "about"},
             "UNSUPPORTED": {"note"},
@@ -194,7 +225,7 @@ class IntentWireEnvelope(_StrictModel):
         )
         if unexpected:
             raise ValueError(f"{self.kind} cannot populate slots: {', '.join(unexpected)}")
-        if self.kind == "NEW_MISSION":
+        if self.kind in {"NEW_MISSION", "REPORT_INCIDENT", "UPDATE_RESOURCES"}:
             ResourceRequest.from_flat_slots(values)
         return self
 
@@ -202,6 +233,7 @@ class IntentWireEnvelope(_StrictModel):
         allowed = {
             "NEW_MISSION": ("incident_response_up_to",),
             "REPORT_INCIDENT": ("zone_ref", "response_up_to"),
+            "UPDATE_RESOURCES": (),
             "UPDATE_MISSION": ("target_phrase", "up_to_step"),
             "QUERY_STATUS": ("target_phrase", "about"),
             "UNSUPPORTED": ("note",),
@@ -214,7 +246,7 @@ class IntentWireEnvelope(_StrictModel):
                 if (value := getattr(self, key)) is not None
             }
         )
-        if self.kind == "NEW_MISSION":
+        if self.kind in {"NEW_MISSION", "REPORT_INCIDENT", "UPDATE_RESOURCES"}:
             resource_values = {
                 key: getattr(self, key)
                 for key in (
@@ -228,7 +260,9 @@ class IntentWireEnvelope(_StrictModel):
                     "excluded_agents",
                 )
             }
-            if any(value is not None for value in resource_values.values()):
+            if self.kind == "UPDATE_RESOURCES" or any(
+                value is not None for value in resource_values.values()
+            ):
                 payload["resources"] = ResourceRequestSchema.model_validate(
                     {
                         **resource_values,
@@ -268,6 +302,7 @@ __all__ = [
     "NewMissionIntent",
     "ResourceRequestSchema",
     "ReportIncidentIntent",
+    "UpdateResourcesIntent",
     "UpdateMissionIntent",
     "QueryStatusIntent",
     "UnsupportedIntent",

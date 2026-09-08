@@ -35,12 +35,17 @@ and exact live-response caching remain separate in ``interaction.execute`` and
 ``llm.cache`` so neither concern changes turn semantics.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from allocation.allocate import AllocationResult, allocate
 from allocation.online import ReleasePolicy, apply_online_patch
-from allocation.team import ResourceInfeasibleError, resolve_initial_team
+from allocation.team import (
+    ResourceInfeasibleError,
+    RuntimeTeamAllocation,
+    resolve_initial_team,
+    resolve_runtime_team,
+)
 from core.enums import TaskStatus
 from interaction.audit import (
     GenerationAudit,
@@ -49,6 +54,7 @@ from interaction.audit import (
     OnlineReallocationAudit,
     PlanAssignmentChanges,
     ResourceResolutionAudit,
+    RuntimeAssignmentChanges,
     TurnAudit,
 )
 from interaction.audit_builders import online_reallocation_audit, patch_audit
@@ -318,6 +324,51 @@ def _plan_for(state, scene) -> AllocationResult:
     return allocate(state, scene)
 
 
+def _active_assignments(runtime) -> dict[str, str]:
+    return {
+        task.task_id: task.assigned_agent
+        for task in sorted(runtime.graph.tasks, key=lambda item: item.task_id)
+        if task.status in {TaskStatus.ASSIGNED, TaskStatus.RUNNING}
+        and task.assigned_agent is not None
+    }
+
+
+def _runtime_changes(
+    before: dict[str, str], after: dict[str, str]
+) -> RuntimeAssignmentChanges:
+    return RuntimeAssignmentChanges(
+        added={task: after[task] for task in sorted(after.keys() - before.keys())},
+        removed={task: before[task] for task in sorted(before.keys() - after.keys())},
+        changed={
+            task: [before[task], after[task]]
+            for task in sorted(before.keys() & after.keys())
+            if before[task] != after[task]
+        },
+    )
+
+
+def _resource_audit(
+    request: ResourceRequest,
+    previous_team: tuple[str, ...],
+    resolved: RuntimeTeamAllocation,
+    before: dict[str, str],
+) -> ResourceResolutionAudit:
+    after = _active_assignments(resolved.executor)
+    return ResourceResolutionAudit(
+        request=request.to_dict(),
+        active_team=list(resolved.active_agents),
+        previous_active_team=list(previous_team),
+        candidates_tested=resolved.candidates_tested,
+        simulation_time=resolved.executor.now,
+        released_tasks=list(resolved.released_tasks),
+        deferred_exclusions=list(resolved.deferred_exclusions),
+        before_assignments=dict(sorted(before.items())),
+        after_assignments=dict(sorted(after.items())),
+        assignment_changes=_runtime_changes(before, after),
+        consensus_rounds=list(resolved.consensus_rounds),
+    )
+
+
 # -- dialogue acts -----------------------------------------------------
 
 
@@ -395,6 +446,71 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
     )
 
 
+def _do_update_resources(turn: _Turn) -> TurnResult:
+    """Atomically replace the complete resource policy (P13.2)."""
+    session = turn.session
+    if session.state is None:
+        return _clarify(
+            turn,
+            GroundingOutcome(
+                GroundingStatus.CLARIFICATION_REQUIRED,
+                clarification="자원 정책을 바꾸려면 먼저 임무를 생성해 주세요.",
+                reason=ClarificationReason.MISSING_MISSION,
+            ),
+        )
+
+    request = ResourceRequest.from_flat_slots(turn.slots.get("resources") or {})
+    previous_team = session.active_team
+    try:
+        if session.phase is SessionPhase.PLANNING:
+            resolved = resolve_initial_team(
+                session.state, session.scene, request, planner=_plan_for
+            )
+            turn.resource_resolution = ResourceResolutionAudit(
+                request=request.to_dict(),
+                active_team=list(resolved.active_agents),
+                previous_active_team=list(previous_team),
+                candidates_tested=resolved.candidates_tested,
+            )
+            session.plan = resolved.plan
+            session.resource_request = request
+            session.active_team = resolved.active_agents
+        elif session.phase is SessionPhase.EXECUTION_PAUSED:
+            if session.runtime is None:
+                raise ValueError("paused resource update has no runtime")
+            before = _active_assignments(session.runtime)
+            runtime = resolve_runtime_team(session.runtime, session.scene, request)
+            turn.resource_resolution = _resource_audit(
+                request, previous_team, runtime, before
+            )
+            session.runtime = runtime.executor
+            session.state = runtime.executor.work
+            session.resource_request = request
+            session.active_team = runtime.active_agents
+        else:
+            return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
+    except (ResourceInfeasibleError, ResourceRequestError) as exc:
+        turn.resource_resolution = ResourceResolutionAudit(
+            request=request.to_dict(),
+            active_team=list(previous_team),
+            previous_active_team=list(previous_team),
+            error_code=getattr(exc, "code", "RESOURCE_SCHEMA"),
+            simulation_time=session.runtime.now if session.runtime is not None else None,
+        )
+        return _finish(
+            turn,
+            TurnOutcome.REJECTED,
+            f"자원 제약을 만족하는 실행 팀이 없습니다 ({turn.resource_resolution.error_code}).",
+        )
+
+    return _finish(
+        turn,
+        TurnOutcome.COMMITTED,
+        "자원 정책을 교체했습니다. active team: "
+        + (", ".join(session.active_team) if session.active_team else "없음"),
+    )
+
+
 def _do_report_incident(
     turn: _Turn, resolved_zone: GroundingOutcome | None = None
 ) -> TurnResult:
@@ -415,7 +531,8 @@ def _do_report_incident(
         response_up_to = None
         policy_origin = PolicyOrigin.NONE
 
-    if response_up_to is not None and session.state is None:
+    resource_slots = turn.slots.get("resources")
+    if (response_up_to is not None or resource_slots is not None) and session.state is None:
         return _clarify(
             turn,
             GroundingOutcome(
@@ -436,6 +553,65 @@ def _do_report_incident(
     if not transaction.accepted:
         codes = ", ".join(c.value for c in transaction.patch_result.error_codes)
         return _finish(turn, TurnOutcome.REJECTED, f"변경이 거부됐습니다 ({codes}).")
+
+    if resource_slots is not None:
+        request = ResourceRequest.from_flat_slots(resource_slots)
+        previous_team = session.active_team
+        try:
+            if session.phase is SessionPhase.PLANNING:
+                resolved = resolve_initial_team(
+                    transaction.state,
+                    transaction.scene,
+                    request,
+                    planner=_plan_for,
+                )
+                transaction = replace(
+                    transaction,
+                    state=resolved.state,
+                    plan=resolved.plan,
+                )
+                turn.resource_resolution = ResourceResolutionAudit(
+                    request=request.to_dict(),
+                    active_team=list(resolved.active_agents),
+                    previous_active_team=list(previous_team),
+                    candidates_tested=resolved.candidates_tested,
+                )
+                resolved_team = resolved.active_agents
+            else:
+                before = _active_assignments(transaction.runtime)
+                runtime = resolve_runtime_team(
+                    transaction.runtime,
+                    transaction.scene,
+                    request,
+                )
+                transaction = replace(
+                    transaction,
+                    state=runtime.executor.work,
+                    runtime=runtime.executor,
+                )
+                turn.resource_resolution = _resource_audit(
+                    request, previous_team, runtime, before
+                )
+                resolved_team = runtime.active_agents
+        except (ResourceInfeasibleError, ResourceRequestError) as exc:
+            turn.resource_resolution = ResourceResolutionAudit(
+                request=request.to_dict(),
+                active_team=list(previous_team),
+                previous_active_team=list(previous_team),
+                error_code=getattr(exc, "code", "RESOURCE_SCHEMA"),
+                simulation_time=(
+                    session.runtime.now if session.runtime is not None else None
+                ),
+            )
+            return _finish(
+                turn,
+                TurnOutcome.REJECTED,
+                "화재 보고와 자원 변경을 함께 적용할 수 없습니다 "
+                f"({turn.resource_resolution.error_code}).",
+            )
+    else:
+        request = session.resource_request
+        resolved_team = session.active_team
 
     online_audit = (
         online_reallocation_audit(transaction.online)
@@ -458,6 +634,8 @@ def _do_report_incident(
     # Every fallible computation has completed. Publish the prepared candidate
     # as one session transition, then record its now-valid scene referent.
     publish_incident_transaction(session, transaction)
+    session.resource_request = request
+    session.active_team = resolved_team
     _note(turn, ReferentKind.INCIDENT, transaction.incident_id)
 
     response_note = ""
@@ -644,6 +822,11 @@ def _dispatch(turn: _Turn, backend) -> TurnResult:
 
     if intent.kind == "NEW_MISSION" and session.phase is not SessionPhase.PLANNING:
         return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
+    if intent.kind == "UPDATE_RESOURCES" and session.phase not in {
+        SessionPhase.PLANNING,
+        SessionPhase.EXECUTION_PAUSED,
+    }:
+        return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
     if intent.kind in {"REPORT_INCIDENT", "UPDATE_MISSION"} and (
         session.phase not in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}
         and not completed_online_terminal(session)
@@ -652,6 +835,8 @@ def _dispatch(turn: _Turn, backend) -> TurnResult:
 
     if intent.kind == "NEW_MISSION":
         return _do_new_mission(turn, backend)
+    if intent.kind == "UPDATE_RESOURCES":
+        return _do_update_resources(turn)
     if intent.kind == "REPORT_INCIDENT":
         return _do_report_incident(turn)
     if intent.kind == "UPDATE_MISSION":

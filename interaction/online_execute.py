@@ -140,7 +140,11 @@ def advance_online_session(
     started_at = session.online_started_at or _utc_now()
 
     if session.phase is SessionPhase.PLANNING:
-        candidate = SimExecutor(session.state, session.scene)
+        candidate = SimExecutor(
+            session.state,
+            session.scene,
+            active_agent_ids=session.active_team,
+        )
     else:
         candidate = SimExecutor.from_checkpoint(session.runtime.checkpoint(), session.scene)
 

@@ -1,7 +1,7 @@
 """Intent-classifier prompt for the planning session (RESEARCH_CONTRACT.md §18.3, §18.7).
 
 One LLM call per turn picks a dialogue act and extracts bounded slots. P13 lets
-it extract resource *constraints* on a new mission, but never an assignment.
+it extract resource *constraints* on a new or active mission, but never an assignment.
 It never writes a clarification, task list, MissionPatch, priority, coordinate
 or task-to-agent mapping; deterministic code resolves all of those.
 
@@ -22,7 +22,11 @@ Pick exactly one intent kind:
   ugv_exact/ugv_min/ugv_max, required_agents and excluded_agents.
 - REPORT_INCIDENT: the operator reports a NEW fire in a zone. Slot: zone_ref,
   the zone phrase exactly as the operator said it. Optional response_up_to is
-  the last workflow step explicitly requested in the SAME utterance.
+  the last workflow step explicitly requested in the SAME utterance. Resource
+  slots may replace the active resource policy in the same transaction.
+- UPDATE_RESOURCES: the operator changes only the active mission's resource
+  policy. Populate the complete resource request stated in this utterance.
+  Omitted resource fields are null and are NOT copied from previous policy.
 - UPDATE_MISSION: the operator wants an EXISTING mission extended for one
   incident. Slots: target_phrase (the incident phrase exactly as said, e.g.
   "거기", "FIRE_SITE_1") and up_to_step (the last workflow step requested).
@@ -42,7 +46,7 @@ Rules:
 - Copy slot phrases verbatim from the utterance. Do NOT resolve them, expand
   them, translate them, or substitute an id you infer from the context.
 - If a slot is not present in the utterance, set it to null. Do not omit any
-  of the eight required keys. A partial extraction with null values is correct
+  of the sixteen required keys. A partial extraction with null values is correct
   and expected; deterministic code decides what is missing.
 - Never emit a clarifying question. If the utterance is ambiguous, still
   classify it and leave the unclear slot out.
@@ -60,7 +64,8 @@ Rules:
   Example: "전체 구역 항공 정찰만 해줘" is NEW_MISSION with
   incident_response_up_to=null. The word "정찰만" limits the initial graph;
   it does not mean THERMAL_RECON after a future fire.
-- For NEW_MISSION, preserve every stated resource constraint. "UAV 한 대만" is
+- For NEW_MISSION, REPORT_INCIDENT and UPDATE_RESOURCES, preserve every stated
+  resource constraint. "UAV 한 대만" is
   uav_exact=1; "UAV 최소 두 대" is uav_min=2; "UGV 최대 한 대" is ugv_max=1;
   "G1을 포함" puts G1 in required_agents; "R2 제외" puts R2 in
   excluded_agents. Never produce a task-to-agent assignment. Deterministic
@@ -69,9 +74,10 @@ Rules:
   not strings. Do not infer a count from generic platform wording: "UAV로
   정찰" or "지상 로봇으로 진압" describes capability and leaves all
   platform count slots null.
-- Resource changes on an already active mission are not implemented until
-  P13.2. Classify a resource-only follow-up as UNSUPPORTED for now; never
-  silently discard it.
+- A resource-only follow-up on an active mission is UPDATE_RESOURCES. For
+  example, "이제 UAV 한 대만 사용하고 R2는 제외해줘" sets uav_exact=1 and
+  excluded_agents=["R2"]. Do not repeat constraints from context that the
+  operator omitted: each follow-up replaces the whole policy.
 - Example: "Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지
   대응해줘" is REPORT_INCIDENT with zone_ref="Warehouse 구역" and
   response_up_to="GROUND_SUPPRESSION"; it is not UNSUPPORTED.

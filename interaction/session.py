@@ -212,8 +212,8 @@ class MissionSession:
             unknown = set(self.active_team) - {agent.agent_id for agent in self.scene.fleet}
             if unknown:
                 raise ValueError(f"active_team contains unknown agents: {sorted(unknown)}")
-            if self.state is not None and set(self.active_team) != set(self.state.agents):
-                raise ValueError("active_team must match the agents in mission state")
+            if self.state is not None and not set(self.active_team) <= set(self.state.agents):
+                raise ValueError("active_team must be a subset of the mission-state roster")
             self.active_team = tuple(sorted(self.active_team))
         elif self.state is not None:
             # Legacy/test constructors predate P13. Their state already owns

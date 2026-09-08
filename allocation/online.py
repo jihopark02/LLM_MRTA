@@ -82,7 +82,8 @@ def _eligible_bidders(executor: SimExecutor, task_id: str) -> frozenset[str]:
     task = executor.graph[task_id]
     return frozenset(
         aid
-        for aid, agent in executor.agents.items()
+        for aid in executor.active_agent_ids
+        for agent in (executor.agents[aid],)
         if agent.platform_kind in task.eligible_platforms
         and agent.has_capabilities(task.required_capabilities)
     )

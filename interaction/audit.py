@@ -77,22 +77,32 @@ class GenerationAudit:
 
 
 @dataclass(frozen=True, slots=True)
-class ResourceResolutionAudit:
-    """Requested constraints and deterministic P13 active-team result."""
-
-    request: dict[str, object]
-    active_team: list[str] = field(default_factory=list)
-    candidates_tested: int = 0
-    error_code: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
 class RuntimeAssignmentChanges:
     """Assignment delta produced by an in-execution CBBA epoch (§19.4)."""
 
     added: dict[str, str] = field(default_factory=dict)
     removed: dict[str, str] = field(default_factory=dict)
     changed: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceResolutionAudit:
+    """Requested constraints and deterministic P13 active-team result."""
+
+    request: dict[str, object]
+    active_team: list[str] = field(default_factory=list)
+    previous_active_team: list[str] = field(default_factory=list)
+    candidates_tested: int = 0
+    error_code: str | None = None
+    simulation_time: float | None = None
+    released_tasks: list[str] = field(default_factory=list)
+    deferred_exclusions: list[str] = field(default_factory=list)
+    before_assignments: dict[str, str] = field(default_factory=dict)
+    after_assignments: dict[str, str] = field(default_factory=dict)
+    assignment_changes: RuntimeAssignmentChanges = field(
+        default_factory=RuntimeAssignmentChanges
+    )
+    consensus_rounds: list[int] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)

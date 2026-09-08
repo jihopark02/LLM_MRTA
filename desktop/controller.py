@@ -271,7 +271,11 @@ class DesktopController:
         before = (
             session.runtime.checkpoint()
             if session.runtime is not None
-            else SimExecutor(session.state, session.scene).checkpoint()
+            else SimExecutor(
+                session.state,
+                session.scene,
+                active_agent_ids=session.active_team,
+            ).checkpoint()
         )
         audit = advance_online_session(session, mode=self.mode)
         playback = None

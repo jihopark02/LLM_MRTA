@@ -105,7 +105,7 @@ def test_non_completed_result_moves_to_execution_failed_and_is_kept(
     result = replace(result, termination=Termination.STEP_LIMIT, unfinished_tasks=["T"])
 
     class StepLimited:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             pass
 
         def run(self):
@@ -124,7 +124,7 @@ def test_executor_exception_is_isolated_and_audited(planned_session, monkeypatch
     from interaction import execute
 
     class Boom:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             pass
 
         def run(self):
@@ -145,7 +145,7 @@ def test_failed_execution_can_retry_the_same_graph(planned_session, monkeypatch)
     from interaction import execute
 
     class Boom:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             pass
 
         def run(self):

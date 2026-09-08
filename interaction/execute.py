@@ -51,7 +51,11 @@ def execute_session(session: MissionSession, *, mode: str) -> ExecutionAudit:
     started_at = _utc_now()
 
     try:
-        result = SimExecutor(session.state, session.scene).run()
+        result = SimExecutor(
+            session.state,
+            session.scene,
+            active_agent_ids=session.active_team,
+        ).run()
     except Exception as exc:  # noqa: BLE001 - a failed run must remain auditable
         finished_at = _utc_now()
         session.execution = None
