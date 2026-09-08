@@ -1,5 +1,20 @@
 # P12 LLM-driven incident contingency 결과
 
+## D-061 재실행 (3종 vocabulary)
+
+계약 v1.57 이후 `gpt-5-mini-2025-08-07` live 재실행. workflow가 2단계(GROUND_INSPECTION ->
+GROUND_SUPPRESSION)로 줄어 policy depth는 null / GI / GS 3종이다. unsupported 케이스는
+P13(D-056)이 자원 대수 제약을 지원 범위로 바꿔 stale였으므로 "우선순위 변경"으로 교체했다.
+
+- main annotation (`data/p12_counterfactual.yaml`): **exact 6/6**, 응답 case 전부 COMPLETED·위반 0
+- held-out (`data/p12_counterfactual_heldout.yaml`): **exact 6/6**, 전부 COMPLETED·위반 0
+- 정책 없음 -> 0 task, GI -> 1 task, GS -> 2 task (workflow prefix 정확히 반영)
+
+원자료 `data/eval_results/p12_gpt-5-mini{,_heldout}.{json,txt}`. D-061 이전(5종, 첫 Live 4/8 등)
+결과는 `data/eval_results/pre_d061_5type/`에 보존.
+
+---
+
 재현 기준: `feature/operator-interaction`, 계약 v1.49 / D-053. P12는 실제 perception이
 아니라, 자연어로 만든 incident response policy 또는 실행 중 자연어 report를 기존
 Validator → selective CBBA → checkpoint executor 경로에 연결한 실험이다.

@@ -35,6 +35,6 @@ report_cases:
     expected_response_up_to: GROUND_SUPPRESSION
 
 unsupported_cases:
-  - id: U1_SINGLE_UAV
-    command: UAV 한 대만 사용해서 전체 구역을 순찰해줘
+  - id: U1_REPRIORITISE
+    command: FIRE_SITE_1 우선순위를 최고로 올려줘
     expected_outcome: UNSUPPORTED

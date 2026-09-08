@@ -1,12 +1,33 @@
 # P9 실행 중 명령과 선택적 재할당 결과
 
-> **D-060+D-061 주의**: 아래 본문은 D-060 이전 fleet(2/2/2)·5종 어휘 기준이다. 현재
-> fleet은 UAV 3(동일)+UGV 2, 어휘는 3종(`GROUND_INSPECTION → GROUND_SUPPRESSION`).
-> `data/online_reallocation_fixture.yaml`은 3종으로 재작성됐고 `evaluation.online_reallocation`
-> 재실행 시 checkpoint_event=1(t=44.507, `AREA_RECON__ZONE_C` 완료), release
-> no-reset 0 / selective 3(GI__FS2,4,5) / full-reset 4(+AREA_RECON__ZONE_D), suffix_extra 0,
-> 세 정책 모두 COMPLETED·위반 0·makespan 413.981s. 정식 재작성은 P9 재실행 시.
+## D-060+D-061 재실행 (fleet UAV 3 + UGV 2, 3종 vocabulary)
 
+`data/online_reallocation_fixture.yaml`을 3종으로 재작성해 `evaluation.online_reallocation`을
+다시 돌린 결과. 첫 완료 event(t=44.50694s, `AREA_RECON__ZONE_C` 완료)에서 정지하며,
+그 시점 미시작 ASSIGNED는 `AREA_RECON__ZONE_D`(UAV) + `GROUND_INSPECTION__{FIRE_SITE_2,4,5}`(UGV)다.
+online REPORT `ZONE_B` -> `FIRE_SITE_6`의 신규 READY `GROUND_INSPECTION`(UGV bidder)은 미시작
+ground 3개와 bidder를 공유하지만 `AREA_RECON__ZONE_D`(UAV)와는 공유하지 않는다.
+
+| 정책 | release | 보존된 미시작 | 새 epoch rounds | makespan | 종료/위반 |
+|---|---:|---:|---:|---:|---|
+| no-reset | 0 | 4 | 3 | 413.981s | COMPLETED, 0/0 |
+| full-reset | 4 (`ZONE_D` 포함) | 0 | 5 | 413.981s | COMPLETED, 0/0 |
+| selective | 3 (ground만) | 1 (`ZONE_D`) | 5 | 413.981s | COMPLETED, 0/0 |
+
+`suffix_extra_release_count = 0` (selective, `released == directly_affected`). selective는
+full-reset보다 미시작 commitment 1개(`AREA_RECON__ZONE_D`)를 더 보존하면서 무위반 완주했다.
+세 정책 makespan이 같아 성능 우위는 주장하지 않는다 — full-reset 대비 불필요한 release 감소만
+입증한다. 원자료 `data/eval_results/p9_online_reallocation.{json,txt}`. D-061 이전(5종·fleet
+v1) 결과는 `data/eval_results/pre_d061_5type/`에 보존.
+
+**§19.3 bundle-suffix**: D-061 fleet에서 UAV task의 bidder는 항상 `{U1,U2,U3}`, UGV task는
+항상 `{G1,G2}`다. 신규 READY와 bidder가 겹치는 미시작 집합은 곧 그 platform의 미시작 전체이고,
+한 agent bundle은 전부 같은 platform이므로 영향/비영향이 섞이지 않는다 — `suffix_extra = 0`은
+관측이 아니라 구조적 결과다.
+
+---
+
+## fleet v1 / 5종 기록 (아래는 D-060 이전 기준)
 
 재현 기준: 계약 v1.39 / D-042, `ONLINE_POLICY_VERSION=1.0`, `VALIDATOR_VERSION=1.4`.
 

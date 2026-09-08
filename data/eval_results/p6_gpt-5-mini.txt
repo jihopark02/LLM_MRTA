@@ -1,9 +1,9 @@
 P6 LLM mission-decomposition evaluation (RESEARCH_CONTRACT.md §12)
 ==================================================================
 backend        OpenAIBackend (gpt-5-mini)
-scene_hash     0e8f098cd95aba26f1384fc6ad5c89ad047ec84912cf595936a7b56d75672c6d
-validator      1.3  (candidate invariants #1-#12)
-run            2026-09-02T09:39:33+00:00 .. 2026-09-02T09:42:17+00:00
+scene_hash     b2562b69b11b7f2a3da8580f1ccbd553c2b1961285687e6c08a9f848e0a5a21f
+validator      1.4  (candidate invariants #1-#12)
+run            2026-09-08T17:18:55+00:00 .. 2026-09-08T17:20:55+00:00
 
 counts (X/9)
   schema-valid                 9/9
@@ -18,11 +18,11 @@ repair
 
 graph metrics (against best-matching allowed reference)
   raw    scored 9/9   exact-match 9/9
-         task  P/R (macro) 1.00/1.00   micro tp/fp/fn 77/0/0
-         edge  P/R (macro) 1.00/1.00   micro tp/fp/fn 27/0/0
+         task  P/R (macro) 1.00/1.00   micro tp/fp/fn 53/0/0
+         edge  P/R (macro) 1.00/1.00   micro tp/fp/fn 9/0/0
   final  scored 9/9   exact-match 9/9
-         task  P/R (macro) 1.00/1.00   micro tp/fp/fn 77/0/0
-         edge  P/R (macro) 1.00/1.00   micro tp/fp/fn 27/0/0
+         task  P/R (macro) 1.00/1.00   micro tp/fp/fn 53/0/0
+         edge  P/R (macro) 1.00/1.00   micro tp/fp/fn 9/0/0
 
 by family (final)
   A: approved 3/3   raw-valid 3/3   exact 3/3   task P/R 1.00/1.00   edge P/R 1.00/1.00
@@ -30,16 +30,16 @@ by family (final)
   C: approved 3/3   raw-valid 3/3   exact 3/3   task P/R 1.00/1.00   edge P/R 1.00/1.00
 
 failure categories: none
-latency (s): min 10.7  mean 18.2  max 22.7
+latency (s): min 8.6  mean 13.3  max 19.1
 
 per case
   id   fam appr  att rep raw-sv raw-wgv cat        t-P/R(final) e-P/R(final) lat
-  A1   A   True  1   False True   True               1.00/1.00    1.00/1.00    21.9
-  A2   A   True  1   False True   True               1.00/1.00    1.00/1.00    22.1
-  A3   A   True  1   False True   True               1.00/1.00    1.00/1.00    19.1
-  B1   B   True  1   False True   True               1.00/1.00    N/A          10.7
-  B2   B   True  1   False True   True               1.00/1.00    N/A          13.3
-  B3   B   True  1   False True   True               1.00/1.00    N/A          14.0
-  C1   C   True  1   False True   True               1.00/1.00    1.00/1.00    22.7
-  C2   C   True  1   False True   True               1.00/1.00    1.00/1.00    22.4
-  C3   C   True  1   False True   True               1.00/1.00    1.00/1.00    17.9
+  A1   A   True  1   False True   True               1.00/1.00    1.00/1.00    14.8
+  A2   A   True  1   False True   True               1.00/1.00    1.00/1.00    14.8
+  A3   A   True  1   False True   True               1.00/1.00    1.00/1.00    13.8
+  B1   B   True  1   False True   True               1.00/1.00    N/A          8.6
+  B2   B   True  1   False True   True               1.00/1.00    N/A          12.0
+  B3   B   True  1   False True   True               1.00/1.00    N/A          9.8
+  C1   C   True  1   False True   True               1.00/1.00    1.00/1.00    14.8
+  C2   C   True  1   False True   True               1.00/1.00    1.00/1.00    19.1
+  C3   C   True  1   False True   True               1.00/1.00    1.00/1.00    12.3

@@ -1,0 +1,182 @@
+{
+  "assigned_before": {
+    "AREA_RECON__ZONE_C": "S2",
+    "GROUND_INSPECTION__FIRE_SITE_1": "G1"
+  },
+  "checkpoint_event": 10,
+  "checkpoint_state_hash": "1f8472939c4f758881c7537832aadfd655b54c685513563229ab42d5fbc3dec3",
+  "completed_now": [
+    "SUPPRESSANT_DROP__FIRE_SITE_3"
+  ],
+  "completed_prefix": [
+    "AREA_RECON__ZONE_B",
+    "SUPPRESSANT_DROP__FIRE_SITE_1",
+    "SUPPRESSANT_DROP__FIRE_SITE_3",
+    "SUPPRESSANT_DROP__FIRE_SITE_4",
+    "SUPPRESSANT_DROP__FIRE_SITE_5",
+    "THERMAL_RECON__FIRE_SITE_1",
+    "THERMAL_RECON__FIRE_SITE_2",
+    "THERMAL_RECON__FIRE_SITE_3",
+    "THERMAL_RECON__FIRE_SITE_4",
+    "THERMAL_RECON__FIRE_SITE_5"
+  ],
+  "fixture_id": "P9_REPRESENTATIVE_1",
+  "fixture_sha256": "0c6c2701e8f1b81613bb2011a46f0651957323966e25f6ddb48099651acf7676",
+  "graph_hash": "3127cd1f139a5943fc7a7ea53fbe42820f43d22fffb7e231fa080b2f2fdabd1a",
+  "new_incident_id": "FIRE_SITE_6",
+  "policies": [
+    {
+      "additional_consensus_rounds": [
+        3
+      ],
+      "capability_violations": [],
+      "completed_prefix": [
+        "AREA_RECON__ZONE_B",
+        "SUPPRESSANT_DROP__FIRE_SITE_1",
+        "SUPPRESSANT_DROP__FIRE_SITE_3",
+        "SUPPRESSANT_DROP__FIRE_SITE_4",
+        "SUPPRESSANT_DROP__FIRE_SITE_5",
+        "THERMAL_RECON__FIRE_SITE_1",
+        "THERMAL_RECON__FIRE_SITE_2",
+        "THERMAL_RECON__FIRE_SITE_3",
+        "THERMAL_RECON__FIRE_SITE_4",
+        "THERMAL_RECON__FIRE_SITE_5"
+      ],
+      "directly_affected_tasks": [
+        "AREA_RECON__ZONE_C"
+      ],
+      "existing_owner_changes": {},
+      "makespan": 453.8827357517861,
+      "new_task_assignments": {
+        "GROUND_INSPECTION__FIRE_SITE_6": "G2",
+        "GROUND_SUPPRESSION__FIRE_SITE_6": "G2",
+        "SUPPRESSANT_DROP__FIRE_SITE_6": "R1",
+        "THERMAL_RECON__FIRE_SITE_6": "R1"
+      },
+      "policy": "no-reset",
+      "precedence_violations": [],
+      "preserved_assigned_tasks": [
+        "AREA_RECON__ZONE_C",
+        "GROUND_INSPECTION__FIRE_SITE_1"
+      ],
+      "released_tasks": [],
+      "running_commitments": {
+        "AREA_RECON__ZONE_A": "S1",
+        "AREA_RECON__ZONE_D": "S2",
+        "GROUND_INSPECTION__FIRE_SITE_4": "G1",
+        "GROUND_INSPECTION__FIRE_SITE_5": "G2",
+        "SUPPRESSANT_DROP__FIRE_SITE_2": "R2"
+      },
+      "suffix_extra_release_count": null,
+      "termination": "COMPLETED",
+      "uav_flight_distance": 1448.0621303955643,
+      "ugv_route_distance": 761.7030867101714
+    },
+    {
+      "additional_consensus_rounds": [
+        4
+      ],
+      "capability_violations": [],
+      "completed_prefix": [
+        "AREA_RECON__ZONE_B",
+        "SUPPRESSANT_DROP__FIRE_SITE_1",
+        "SUPPRESSANT_DROP__FIRE_SITE_3",
+        "SUPPRESSANT_DROP__FIRE_SITE_4",
+        "SUPPRESSANT_DROP__FIRE_SITE_5",
+        "THERMAL_RECON__FIRE_SITE_1",
+        "THERMAL_RECON__FIRE_SITE_2",
+        "THERMAL_RECON__FIRE_SITE_3",
+        "THERMAL_RECON__FIRE_SITE_4",
+        "THERMAL_RECON__FIRE_SITE_5"
+      ],
+      "directly_affected_tasks": [
+        "AREA_RECON__ZONE_C"
+      ],
+      "existing_owner_changes": {},
+      "makespan": 453.8827357517861,
+      "new_task_assignments": {
+        "GROUND_INSPECTION__FIRE_SITE_6": "G2",
+        "GROUND_SUPPRESSION__FIRE_SITE_6": "G2",
+        "SUPPRESSANT_DROP__FIRE_SITE_6": "R1",
+        "THERMAL_RECON__FIRE_SITE_6": "R1"
+      },
+      "policy": "full-reset",
+      "precedence_violations": [],
+      "preserved_assigned_tasks": [],
+      "released_tasks": [
+        "AREA_RECON__ZONE_C",
+        "GROUND_INSPECTION__FIRE_SITE_1"
+      ],
+      "running_commitments": {
+        "AREA_RECON__ZONE_A": "S1",
+        "AREA_RECON__ZONE_D": "S2",
+        "GROUND_INSPECTION__FIRE_SITE_4": "G1",
+        "GROUND_INSPECTION__FIRE_SITE_5": "G2",
+        "SUPPRESSANT_DROP__FIRE_SITE_2": "R2"
+      },
+      "suffix_extra_release_count": null,
+      "termination": "COMPLETED",
+      "uav_flight_distance": 1448.0621303955643,
+      "ugv_route_distance": 761.7030867101714
+    },
+    {
+      "additional_consensus_rounds": [
+        4
+      ],
+      "capability_violations": [],
+      "completed_prefix": [
+        "AREA_RECON__ZONE_B",
+        "SUPPRESSANT_DROP__FIRE_SITE_1",
+        "SUPPRESSANT_DROP__FIRE_SITE_3",
+        "SUPPRESSANT_DROP__FIRE_SITE_4",
+        "SUPPRESSANT_DROP__FIRE_SITE_5",
+        "THERMAL_RECON__FIRE_SITE_1",
+        "THERMAL_RECON__FIRE_SITE_2",
+        "THERMAL_RECON__FIRE_SITE_3",
+        "THERMAL_RECON__FIRE_SITE_4",
+        "THERMAL_RECON__FIRE_SITE_5"
+      ],
+      "directly_affected_tasks": [
+        "AREA_RECON__ZONE_C"
+      ],
+      "existing_owner_changes": {},
+      "makespan": 453.8827357517861,
+      "new_task_assignments": {
+        "GROUND_INSPECTION__FIRE_SITE_6": "G2",
+        "GROUND_SUPPRESSION__FIRE_SITE_6": "G2",
+        "SUPPRESSANT_DROP__FIRE_SITE_6": "R1",
+        "THERMAL_RECON__FIRE_SITE_6": "R1"
+      },
+      "policy": "selective",
+      "precedence_violations": [],
+      "preserved_assigned_tasks": [
+        "GROUND_INSPECTION__FIRE_SITE_1"
+      ],
+      "released_tasks": [
+        "AREA_RECON__ZONE_C"
+      ],
+      "running_commitments": {
+        "AREA_RECON__ZONE_A": "S1",
+        "AREA_RECON__ZONE_D": "S2",
+        "GROUND_INSPECTION__FIRE_SITE_4": "G1",
+        "GROUND_INSPECTION__FIRE_SITE_5": "G2",
+        "SUPPRESSANT_DROP__FIRE_SITE_2": "R2"
+      },
+      "suffix_extra_release_count": 0,
+      "termination": "COMPLETED",
+      "uav_flight_distance": 1448.0621303955643,
+      "ugv_route_distance": 761.7030867101714
+    }
+  ],
+  "policy_version": "1.0",
+  "running_commitments": {
+    "AREA_RECON__ZONE_A": "S1",
+    "AREA_RECON__ZONE_D": "S2",
+    "GROUND_INSPECTION__FIRE_SITE_4": "G1",
+    "GROUND_INSPECTION__FIRE_SITE_5": "G2",
+    "SUPPRESSANT_DROP__FIRE_SITE_2": "R2"
+  },
+  "scene_hash": "8b45b0f11cef288907fce50b8da5d46d754606b75a11eb5a7e2628ba6b6699ec",
+  "simulation_time": 121.64323236970407,
+  "validator_version": "1.4"
+}

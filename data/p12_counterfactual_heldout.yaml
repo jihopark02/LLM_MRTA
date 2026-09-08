@@ -35,6 +35,6 @@ report_cases:
     expected_response_up_to: GROUND_SUPPRESSION
 
 unsupported_cases:
-  - id: H_U1_NAMED_AGENT
-    command: U1만 투입해서 네 개 구역을 모두 정찰해줘
+  - id: H_U1_REPRIORITISE
+    command: FIRE_SITE_2 대응 우선순위를 가장 높게 조정해줘
     expected_outcome: UNSUPPORTED

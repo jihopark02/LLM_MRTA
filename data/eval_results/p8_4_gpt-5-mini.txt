@@ -2,9 +2,9 @@ P8.4 operator-interaction evaluation (RESEARCH_CONTRACT.md §18.11)
 ========================================================================
 track          end-to-end
 backend        live (gpt-5-mini)
-scene_hash     3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb
+scene_hash     b2562b69b11b7f2a3da8580f1ccbd553c2b1961285687e6c08a9f848e0a5a21f
 validator      1.4
-run            2026-09-06T08:33:45.196574+00:00 .. 2026-09-06T08:38:19.792805+00:00
+run            2026-09-08T17:34:01.541582+00:00 .. 2026-09-08T17:44:18.424394+00:00
 
 sample denominators
   dialogues                    12
@@ -17,31 +17,30 @@ sample denominators
 
 metrics (raw count and ratio)
   dialogue exact               6/12 (0.500)
-  turn exact                   21/36 (0.583)
-  final graph exact            7/12 (0.583)
-  intent accuracy              30/33 (0.909)
-  slot accuracy                26/33 (0.788)
-  referent accuracy            6/16 (0.375)
-  patch exact                  0/5 (0.000)
-  clarification precision      3/11 (0.273)
+  turn exact                   28/36 (0.778)
+  final graph exact            8/12 (0.667)
+  intent accuracy              32/33 (0.970)
+  slot accuracy                27/33 (0.818)
+  referent accuracy            14/16 (0.875)
+  patch exact                  3/5 (0.600)
+  clarification precision      3/4 (0.750)
   clarification recall         3/3 (1.000)
   wrong guesses                0/3 (0.000)
-  clarification no-mutation    11/11 (1.000)
-  candidate selection exact    1/3 (0.333)
-  harness errors               2
+  clarification no-mutation    4/4 (1.000)
+  candidate selection exact    2/3 (0.667)
+  harness errors               1
 
 per dialogue
-  A1 A/NEW_ONLY            turn 2/2  graph=True  exact=True
-  A2 A/REPORT_UPDATE       turn 1/4  graph=False  exact=False
+  A1 A/NEW_ONLY            turn 1/2  graph=True  exact=False
+  A2 A/REPORT_UPDATE       turn 2/4  graph=True  exact=False
   A3 A/QUERY               turn 3/3  graph=True  exact=True
   A4 A/AMBIGUOUS_SELECTION turn 3/3  graph=True  exact=True
-  B1 B/NEW_ONLY            turn 2/2  graph=True  exact=True
-  B2 B/REPORT_UPDATE       turn 1/4  graph=False  exact=False
+  B1 B/NEW_ONLY            turn 1/2  graph=False  exact=False
+  B2 B/REPORT_UPDATE       turn 3/4  graph=False  exact=False
   B3 B/QUERY               turn 3/3  graph=True  exact=True
-  B4 B/AMBIGUOUS_SELECTION turn 0/3  graph=False  exact=False
-       HARNESS turn 3: ValueError: no clarification is pending
+  B4 B/AMBIGUOUS_SELECTION turn 3/3  graph=True  exact=True
   C1 C/NEW_ONLY            turn 2/2  graph=True  exact=True
-  C2 C/REPORT_UPDATE       turn 2/4  graph=False  exact=False
-  C3 C/QUERY               turn 2/3  graph=True  exact=False
-  C4 C/AMBIGUOUS_SELECTION turn 0/3  graph=False  exact=False
+  C2 C/REPORT_UPDATE       turn 3/4  graph=False  exact=False
+  C3 C/QUERY               turn 3/3  graph=True  exact=True
+  C4 C/AMBIGUOUS_SELECTION turn 1/3  graph=False  exact=False
        HARNESS turn 3: ValueError: no clarification is pending

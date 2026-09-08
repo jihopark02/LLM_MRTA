@@ -1,5 +1,22 @@
 # P8.4 Operator–LLM interaction 평가 결과
 
+## D-061 재실행 (3종 vocabulary)
+
+`data/interaction_dialogues/*.yaml` 12개를 3종으로 재작성(Family B의 aerial-only는
+`AREA_RECON`만, incident 응답 chain 없음)해 재실행.
+
+- **grounder-only: dialogue 12/12 exact** — fixture의 intent/grounding/patch 골든이 3종에서
+  내부 일관됨을 확인.
+- **live `gpt-5-mini-2025-08-07` end-to-end: dialogue 6/12 exact** (D-061 이전과 동일).
+  intent accuracy 32/33, wrong-guess 0/3, clarification recall 3/3. 실패는 한국어 조사 포함
+  slot 추출과 모델이 clarification을 내지 않는 경우(harness error 1)로, D-061 이전과 같은
+  성격이다 — 어휘 축소로 인한 회귀 없음.
+
+원자료 `data/eval_results/p8_4_{grounder_only,gpt-5-mini}.{json,txt}`. D-061 이전(5종) 결과는
+`data/eval_results/pre_d061_5type/`에 보존.
+
+---
+
 측정일: 2026-09-06  
 계약: `RESEARCH_CONTRACT.md` v1.35 / D-035~D-037  
 Validator: 1.4  

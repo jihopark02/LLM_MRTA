@@ -2,52 +2,43 @@
   "cases": [
     {
       "approved": true,
-      "command": "We have active fires at FIRE_SITE_1 and FIRE_SITE_2. Run a full disaster response: survey every zone from the air, and take each fire all the way through the response workflow from the thermal check to ground suppression.",
+      "command": "We have active fires at FIRE_SITE_1 and FIRE_SITE_2. Run a full disaster response: survey every zone from the air, and take each fire all the way through the ground response workflow from inspection to suppression.",
       "demo_pass": true,
       "exact_match": true,
       "execution": {
         "assignments": {
-          "AREA_RECON__ZONE_A": "S1",
-          "AREA_RECON__ZONE_B": "S1",
-          "AREA_RECON__ZONE_C": "S2",
-          "AREA_RECON__ZONE_D": "S2",
+          "AREA_RECON__ZONE_A": "U3",
+          "AREA_RECON__ZONE_B": "U2",
+          "AREA_RECON__ZONE_C": "U1",
+          "AREA_RECON__ZONE_D": "U1",
           "GROUND_INSPECTION__FIRE_SITE_1": "G2",
           "GROUND_INSPECTION__FIRE_SITE_2": "G1",
           "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
-          "GROUND_SUPPRESSION__FIRE_SITE_2": "G1",
-          "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
-          "SUPPRESSANT_DROP__FIRE_SITE_2": "R2",
-          "THERMAL_RECON__FIRE_SITE_1": "S1",
-          "THERMAL_RECON__FIRE_SITE_2": "S2"
+          "GROUND_SUPPRESSION__FIRE_SITE_2": "G1"
         },
         "capability_violations": [],
-        "completed": 12,
-        "epochs": 7,
-        "makespan": 257.85045511830117,
+        "completed": 8,
+        "epochs": 3,
+        "makespan": 149.91968774048883,
         "precedence_violations": [],
         "termination": "COMPLETED",
         "unfinished_tasks": [],
         "winning_bids": {
-          "AREA_RECON__ZONE_A": 3.461986486571355,
-          "AREA_RECON__ZONE_B": 3.6537234176486173,
-          "AREA_RECON__ZONE_C": 3.4196112716589173,
-          "AREA_RECON__ZONE_D": 3.6357547392043665,
+          "AREA_RECON__ZONE_A": 3.7616853520403293,
+          "AREA_RECON__ZONE_B": 3.770683196271796,
+          "AREA_RECON__ZONE_C": 3.8257906573038043,
+          "AREA_RECON__ZONE_D": 3.5983496668937653,
           "GROUND_INSPECTION__FIRE_SITE_1": 8.303331643342295,
           "GROUND_INSPECTION__FIRE_SITE_2": 6.302446973455729,
           "GROUND_SUPPRESSION__FIRE_SITE_1": 8.603783620032067,
-          "GROUND_SUPPRESSION__FIRE_SITE_2": 6.691831704469386,
-          "SUPPRESSANT_DROP__FIRE_SITE_1": 8.587335291932053,
-          "SUPPRESSANT_DROP__FIRE_SITE_2": 6.63695831752864,
-          "THERMAL_RECON__FIRE_SITE_1": 8.56793224044323,
-          "THERMAL_RECON__FIRE_SITE_2": 6.627195780463922
+          "GROUND_SUPPRESSION__FIRE_SITE_2": 6.691831704469386
         },
         "workload": {
           "G1": 2,
           "G2": 2,
-          "R1": 1,
-          "R2": 1,
-          "S1": 3,
-          "S2": 3
+          "U1": 2,
+          "U2": 1,
+          "U3": 1
         }
       },
       "failed_stage": null,
@@ -55,24 +46,8 @@
         "accepted": true,
         "edges": [
           [
-            "THERMAL_RECON:FIRE_SITE_1",
-            "SUPPRESSANT_DROP:FIRE_SITE_1"
-          ],
-          [
-            "SUPPRESSANT_DROP:FIRE_SITE_1",
-            "GROUND_INSPECTION:FIRE_SITE_1"
-          ],
-          [
             "GROUND_INSPECTION:FIRE_SITE_1",
             "GROUND_SUPPRESSION:FIRE_SITE_1"
-          ],
-          [
-            "THERMAL_RECON:FIRE_SITE_2",
-            "SUPPRESSANT_DROP:FIRE_SITE_2"
-          ],
-          [
-            "SUPPRESSANT_DROP:FIRE_SITE_2",
-            "GROUND_INSPECTION:FIRE_SITE_2"
           ],
           [
             "GROUND_INSPECTION:FIRE_SITE_2",
@@ -80,19 +55,19 @@
           ]
         ],
         "error_codes": [],
-        "graph_hash": "cba61ff672f8d49fd6b58f85d244350aade3a1fe8bbb78896ff2b5e34e32d92a",
+        "graph_hash": "138cf96c7801cffb607aa98a121bd9b31f089143a09b4f384b8226f629858b18",
         "repaired": false,
         "score": {
           "edge": {
             "fn": 0,
             "fp": 0,
-            "tp": 6
+            "tp": 2
           },
           "ref_index": 0,
           "task": {
             "fn": 0,
             "fp": 0,
-            "tp": 12
+            "tp": 8
           }
         },
         "tasks": [
@@ -119,32 +94,12 @@
           {
             "priority": 9,
             "target": "FIRE_SITE_1",
-            "task_type": "THERMAL_RECON"
-          },
-          {
-            "priority": 9,
-            "target": "FIRE_SITE_1",
-            "task_type": "SUPPRESSANT_DROP"
-          },
-          {
-            "priority": 9,
-            "target": "FIRE_SITE_1",
             "task_type": "GROUND_INSPECTION"
           },
           {
             "priority": 9,
             "target": "FIRE_SITE_1",
             "task_type": "GROUND_SUPPRESSION"
-          },
-          {
-            "priority": 7,
-            "target": "FIRE_SITE_2",
-            "task_type": "THERMAL_RECON"
-          },
-          {
-            "priority": 7,
-            "target": "FIRE_SITE_2",
-            "task_type": "SUPPRESSANT_DROP"
           },
           {
             "priority": 7,
@@ -163,38 +118,31 @@
       "operationally_clean": true,
       "plan_analysis": {
         "assignments": {
-          "AREA_RECON__ZONE_A": "S1",
-          "AREA_RECON__ZONE_B": "S1",
-          "AREA_RECON__ZONE_C": "S2",
-          "AREA_RECON__ZONE_D": "S2",
+          "AREA_RECON__ZONE_A": "U3",
+          "AREA_RECON__ZONE_B": "U2",
+          "AREA_RECON__ZONE_C": "U1",
+          "AREA_RECON__ZONE_D": "U1",
           "GROUND_INSPECTION__FIRE_SITE_1": "G2",
           "GROUND_INSPECTION__FIRE_SITE_2": "G1",
           "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
-          "GROUND_SUPPRESSION__FIRE_SITE_2": "G1",
-          "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
-          "SUPPRESSANT_DROP__FIRE_SITE_2": "R2",
-          "THERMAL_RECON__FIRE_SITE_1": "S1",
-          "THERMAL_RECON__FIRE_SITE_2": "S2"
+          "GROUND_SUPPRESSION__FIRE_SITE_2": "G1"
         },
         "capability_violations": [],
         "consensus_rounds": [
           6,
-          4,
-          4,
           4
         ],
-        "estimated_makespan": 359.83851329477545,
+        "estimated_makespan": 150.76612828394866,
         "precedence_violations": [],
-        "uav_flight_distance": 999.5458160224249,
+        "uav_flight_distance": 529.3705172152818,
         "ugv_route_distance": 346.3414122447589,
         "unassigned": [],
         "workload": {
           "G1": 2,
           "G2": 2,
-          "R1": 1,
-          "R2": 1,
-          "S1": 3,
-          "S2": 3
+          "U1": 2,
+          "U2": 1,
+          "U3": 1
         }
       },
       "resolved_models": [
@@ -204,40 +152,35 @@
     },
     {
       "approved": true,
-      "command": "Aerial assessment only for now. Have the scout UAVs survey all four zones and do a pre-response heat-source check over FIRE_SITE_1 and FIRE_SITE_2. Do not commit any suppressant drop or ground units yet.",
+      "command": "Aerial assessment only for now. Have the UAVs survey all four zones from the air. Do not send any ground units to the fire sites yet.",
       "demo_pass": true,
       "exact_match": true,
       "execution": {
         "assignments": {
-          "AREA_RECON__ZONE_A": "S1",
-          "AREA_RECON__ZONE_B": "S1",
-          "AREA_RECON__ZONE_C": "S2",
-          "AREA_RECON__ZONE_D": "S2",
-          "THERMAL_RECON__FIRE_SITE_1": "S1",
-          "THERMAL_RECON__FIRE_SITE_2": "S2"
+          "AREA_RECON__ZONE_A": "U3",
+          "AREA_RECON__ZONE_B": "U2",
+          "AREA_RECON__ZONE_C": "U1",
+          "AREA_RECON__ZONE_D": "U1"
         },
         "capability_violations": [],
-        "completed": 6,
+        "completed": 4,
         "epochs": 1,
-        "makespan": 156.68908295278675,
+        "makespan": 105.76612828394867,
         "precedence_violations": [],
         "termination": "COMPLETED",
         "unfinished_tasks": [],
         "winning_bids": {
-          "AREA_RECON__ZONE_A": 3.461986486571355,
-          "AREA_RECON__ZONE_B": 3.6537234176486173,
-          "AREA_RECON__ZONE_C": 3.4196112716589173,
-          "AREA_RECON__ZONE_D": 3.6357547392043665,
-          "THERMAL_RECON__FIRE_SITE_1": 8.56793224044323,
-          "THERMAL_RECON__FIRE_SITE_2": 6.627195780463922
+          "AREA_RECON__ZONE_A": 3.7616853520403293,
+          "AREA_RECON__ZONE_B": 3.770683196271796,
+          "AREA_RECON__ZONE_C": 3.8257906573038043,
+          "AREA_RECON__ZONE_D": 3.5983496668937653
         },
         "workload": {
           "G1": 0,
           "G2": 0,
-          "R1": 0,
-          "R2": 0,
-          "S1": 3,
-          "S2": 3
+          "U1": 2,
+          "U2": 1,
+          "U3": 1
         }
       },
       "failed_stage": null,
@@ -245,7 +188,7 @@
         "accepted": true,
         "edges": [],
         "error_codes": [],
-        "graph_hash": "54b08b2f18dab06fdfe58c655a6af4890d9636c9cc6babda195d2146fc0c846d",
+        "graph_hash": "eea5d7120da0205e73e3062bc6da25aca3c3f4df1b5a1ebd1066ba2efed24f57",
         "repaired": false,
         "score": {
           "edge": {
@@ -257,7 +200,7 @@
           "task": {
             "fn": 0,
             "fp": 0,
-            "tp": 6
+            "tp": 4
           }
         },
         "tasks": [
@@ -280,16 +223,6 @@
             "priority": 4,
             "target": "ZONE_D",
             "task_type": "AREA_RECON"
-          },
-          {
-            "priority": 9,
-            "target": "FIRE_SITE_1",
-            "task_type": "THERMAL_RECON"
-          },
-          {
-            "priority": 7,
-            "target": "FIRE_SITE_2",
-            "task_type": "THERMAL_RECON"
           }
         ]
       },
@@ -298,29 +231,26 @@
       "operationally_clean": true,
       "plan_analysis": {
         "assignments": {
-          "AREA_RECON__ZONE_A": "S1",
-          "AREA_RECON__ZONE_B": "S1",
-          "AREA_RECON__ZONE_C": "S2",
-          "AREA_RECON__ZONE_D": "S2",
-          "THERMAL_RECON__FIRE_SITE_1": "S1",
-          "THERMAL_RECON__FIRE_SITE_2": "S2"
+          "AREA_RECON__ZONE_A": "U3",
+          "AREA_RECON__ZONE_B": "U2",
+          "AREA_RECON__ZONE_C": "U1",
+          "AREA_RECON__ZONE_D": "U1"
         },
         "capability_violations": [],
         "consensus_rounds": [
           6
         ],
-        "estimated_makespan": 156.68908295278675,
+        "estimated_makespan": 105.76612828394867,
         "precedence_violations": [],
-        "uav_flight_distance": 648.5492219014134,
+        "uav_flight_distance": 529.3705172152818,
         "ugv_route_distance": 0.0,
         "unassigned": [],
         "workload": {
           "G1": 0,
           "G2": 0,
-          "R1": 0,
-          "R2": 0,
-          "S1": 3,
-          "S2": 3
+          "U1": 2,
+          "U2": 1,
+          "U3": 1
         }
       },
       "resolved_models": [
@@ -330,46 +260,41 @@
     },
     {
       "approved": true,
-      "command": "FIRE_SITE_1 is the priority - take it through the full response workflow to ground suppression. FIRE_SITE_2 only needs a thermal recon for now. Also survey all four zones from the air.",
+      "command": "FIRE_SITE_1 is the priority - take it through the full ground response to suppression. FIRE_SITE_2 only needs a ground inspection for now. Also survey all four zones from the air.",
       "demo_pass": true,
       "exact_match": true,
       "execution": {
         "assignments": {
-          "AREA_RECON__ZONE_A": "S1",
-          "AREA_RECON__ZONE_B": "S1",
-          "AREA_RECON__ZONE_C": "S2",
-          "AREA_RECON__ZONE_D": "S2",
+          "AREA_RECON__ZONE_A": "U3",
+          "AREA_RECON__ZONE_B": "U2",
+          "AREA_RECON__ZONE_C": "U1",
+          "AREA_RECON__ZONE_D": "U1",
           "GROUND_INSPECTION__FIRE_SITE_1": "G2",
-          "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
-          "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
-          "THERMAL_RECON__FIRE_SITE_1": "S1",
-          "THERMAL_RECON__FIRE_SITE_2": "S2"
+          "GROUND_INSPECTION__FIRE_SITE_2": "G1",
+          "GROUND_SUPPRESSION__FIRE_SITE_1": "G2"
         },
         "capability_violations": [],
-        "completed": 9,
-        "epochs": 4,
-        "makespan": 221.61362715046084,
+        "completed": 7,
+        "epochs": 2,
+        "makespan": 125.52744967443081,
         "precedence_violations": [],
         "termination": "COMPLETED",
         "unfinished_tasks": [],
         "winning_bids": {
-          "AREA_RECON__ZONE_A": 3.461986486571355,
-          "AREA_RECON__ZONE_B": 3.6537234176486173,
-          "AREA_RECON__ZONE_C": 3.4196112716589173,
-          "AREA_RECON__ZONE_D": 3.6357547392043665,
+          "AREA_RECON__ZONE_A": 3.7616853520403293,
+          "AREA_RECON__ZONE_B": 3.770683196271796,
+          "AREA_RECON__ZONE_C": 3.8257906573038043,
+          "AREA_RECON__ZONE_D": 3.5983496668937653,
           "GROUND_INSPECTION__FIRE_SITE_1": 8.303331643342295,
-          "GROUND_SUPPRESSION__FIRE_SITE_1": 8.603783620032067,
-          "SUPPRESSANT_DROP__FIRE_SITE_1": 8.587335291932053,
-          "THERMAL_RECON__FIRE_SITE_1": 8.56793224044323,
-          "THERMAL_RECON__FIRE_SITE_2": 6.627195780463922
+          "GROUND_INSPECTION__FIRE_SITE_2": 6.302446973455729,
+          "GROUND_SUPPRESSION__FIRE_SITE_1": 8.603783620032067
         },
         "workload": {
-          "G1": 0,
+          "G1": 1,
           "G2": 2,
-          "R1": 1,
-          "R2": 0,
-          "S1": 3,
-          "S2": 3
+          "U1": 2,
+          "U2": 1,
+          "U3": 1
         }
       },
       "failed_stage": null,
@@ -377,44 +302,46 @@
         "accepted": true,
         "edges": [
           [
-            "THERMAL_RECON:FIRE_SITE_1",
-            "SUPPRESSANT_DROP:FIRE_SITE_1"
-          ],
-          [
-            "SUPPRESSANT_DROP:FIRE_SITE_1",
-            "GROUND_INSPECTION:FIRE_SITE_1"
-          ],
-          [
             "GROUND_INSPECTION:FIRE_SITE_1",
             "GROUND_SUPPRESSION:FIRE_SITE_1"
           ]
         ],
         "error_codes": [],
-        "graph_hash": "6022fe610c399f276fc40e1548bf8b19ad4810b078d93bfb417a1d3f3c42d97b",
+        "graph_hash": "d5321a4c9a4b9733038e32e8df1f24718b44af213524131d40a6df4fb6477a10",
         "repaired": false,
         "score": {
           "edge": {
             "fn": 0,
             "fp": 0,
-            "tp": 3
+            "tp": 1
           },
           "ref_index": 0,
           "task": {
             "fn": 0,
             "fp": 0,
-            "tp": 9
+            "tp": 7
           }
         },
         "tasks": [
           {
-            "priority": 9,
-            "target": "FIRE_SITE_1",
-            "task_type": "THERMAL_RECON"
+            "priority": 4,
+            "target": "ZONE_A",
+            "task_type": "AREA_RECON"
           },
           {
-            "priority": 9,
-            "target": "FIRE_SITE_1",
-            "task_type": "SUPPRESSANT_DROP"
+            "priority": 4,
+            "target": "ZONE_B",
+            "task_type": "AREA_RECON"
+          },
+          {
+            "priority": 4,
+            "target": "ZONE_C",
+            "task_type": "AREA_RECON"
+          },
+          {
+            "priority": 4,
+            "target": "ZONE_D",
+            "task_type": "AREA_RECON"
           },
           {
             "priority": 9,
@@ -429,27 +356,7 @@
           {
             "priority": 7,
             "target": "FIRE_SITE_2",
-            "task_type": "THERMAL_RECON"
-          },
-          {
-            "priority": 4,
-            "target": "ZONE_A",
-            "task_type": "AREA_RECON"
-          },
-          {
-            "priority": 4,
-            "target": "ZONE_B",
-            "task_type": "AREA_RECON"
-          },
-          {
-            "priority": 4,
-            "target": "ZONE_C",
-            "task_type": "AREA_RECON"
-          },
-          {
-            "priority": 4,
-            "target": "ZONE_D",
-            "task_type": "AREA_RECON"
+            "task_type": "GROUND_INSPECTION"
           }
         ]
       },
@@ -458,35 +365,30 @@
       "operationally_clean": true,
       "plan_analysis": {
         "assignments": {
-          "AREA_RECON__ZONE_A": "S1",
-          "AREA_RECON__ZONE_B": "S1",
-          "AREA_RECON__ZONE_C": "S2",
-          "AREA_RECON__ZONE_D": "S2",
+          "AREA_RECON__ZONE_A": "U3",
+          "AREA_RECON__ZONE_B": "U2",
+          "AREA_RECON__ZONE_C": "U1",
+          "AREA_RECON__ZONE_D": "U1",
           "GROUND_INSPECTION__FIRE_SITE_1": "G2",
-          "GROUND_SUPPRESSION__FIRE_SITE_1": "G2",
-          "SUPPRESSANT_DROP__FIRE_SITE_1": "R1",
-          "THERMAL_RECON__FIRE_SITE_1": "S1",
-          "THERMAL_RECON__FIRE_SITE_2": "S2"
+          "GROUND_INSPECTION__FIRE_SITE_2": "G1",
+          "GROUND_SUPPRESSION__FIRE_SITE_1": "G2"
         },
         "capability_violations": [],
         "consensus_rounds": [
           6,
-          4,
-          3,
           3
         ],
-        "estimated_makespan": 329.12916061443354,
+        "estimated_makespan": 150.76612828394866,
         "precedence_violations": [],
-        "uav_flight_distance": 801.9376178119255,
-        "ugv_route_distance": 136.58234902329247,
+        "uav_flight_distance": 529.3705172152818,
+        "ugv_route_distance": 346.3414122447589,
         "unassigned": [],
         "workload": {
-          "G1": 0,
+          "G1": 1,
           "G2": 2,
-          "R1": 1,
-          "R2": 0,
-          "S1": 3,
-          "S2": 3
+          "U1": 2,
+          "U2": 1,
+          "U3": 1
         }
       },
       "resolved_models": [
@@ -496,11 +398,11 @@
     }
   ],
   "meta": {
-    "finished_at": "2026-09-02T11:29:50+00:00",
+    "finished_at": "2026-09-08T17:22:07+00:00",
     "requested_model": "gpt-5-mini",
-    "scene_hash": "0e8f098cd95aba26f1384fc6ad5c89ad047ec84912cf595936a7b56d75672c6d",
-    "started_at": "2026-09-02T11:29:04+00:00",
+    "scene_hash": "b2562b69b11b7f2a3da8580f1ccbd553c2b1961285687e6c08a9f848e0a5a21f",
+    "started_at": "2026-09-08T17:21:20+00:00",
     "structure": "fork: validated graph -> allocate (plan-time) AND SimExecutor (event-driven); allocate result is not fed to the executor",
-    "validator_version": "1.3"
+    "validator_version": "1.4"
   }
 }

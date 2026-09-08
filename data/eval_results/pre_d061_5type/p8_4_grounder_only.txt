@@ -2,9 +2,9 @@ P8.4 operator-interaction evaluation (RESEARCH_CONTRACT.md §18.11)
 ========================================================================
 track          grounder-only
 backend        mock
-scene_hash     b2562b69b11b7f2a3da8580f1ccbd553c2b1961285687e6c08a9f848e0a5a21f
+scene_hash     3141d8d32e04c12fbb6e9927f80440491ff5ace62a6e7264788f4e5d326566bb
 validator      1.4
-run            2026-09-08T17:31:33.417747+00:00 .. 2026-09-08T17:31:33.480076+00:00
+run            2026-09-06T08:39:35.110313+00:00 .. 2026-09-06T08:39:35.208611+00:00
 
 sample denominators
   dialogues                    12

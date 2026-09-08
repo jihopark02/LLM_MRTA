@@ -1,0 +1,9 @@
+P12 incident contingency counterfactual
+backend=live model=gpt-5-mini
+exact=6/6
+P0_RECON_ONLY            exact=True  termination=COMPLETED release=0 error=-
+P1_INSPECTION            exact=True  termination=COMPLETED release=0 error=-
+P2_SUPPRESSION           exact=True  termination=COMPLETED release=0 error=-
+R1_WAREHOUSE             exact=True  termination=COMPLETED release=0 error=-
+R2_TANK_FARM             exact=True  termination=COMPLETED release=0 error=-
+U1_REPRIORITISE          exact=True  termination=n/a       release=0 error=-

@@ -1,0 +1,16 @@
+P9 online selective reallocation comparison
+==================================================
+fixture: P9_REPRESENTATIVE_1
+checkpoint: event 10, t=121.643s
+completed prefix: 10, running: 5
+assigned before: AREA_RECON__ZONE_C, GROUND_INSPECTION__FIRE_SITE_1
+
+no-reset   release=0 preserved_assigned=2 rounds=[3] makespan=453.883 termination=COMPLETED
+  released: none
+  directly affected: AREA_RECON__ZONE_C | suffix_extra_release_count=n/a
+full-reset release=2 preserved_assigned=0 rounds=[4] makespan=453.883 termination=COMPLETED
+  released: AREA_RECON__ZONE_C, GROUND_INSPECTION__FIRE_SITE_1
+  directly affected: AREA_RECON__ZONE_C | suffix_extra_release_count=n/a
+selective  release=1 preserved_assigned=1 rounds=[4] makespan=453.883 termination=COMPLETED
+  released: AREA_RECON__ZONE_C
+  directly affected: AREA_RECON__ZONE_C | suffix_extra_release_count=0

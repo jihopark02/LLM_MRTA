@@ -1,5 +1,23 @@
 # P6 결과 — LLM 임무 분해 평가
 
+## D-061 재실행 (3종 vocabulary, fleet U3+G2)
+
+계약 v1.57 / D-060+D-061 이후 재실행. `gpt-5-mini-2025-08-07`, validator 1.4,
+scene_hash `b2562b69b11b7f2a3da8580f1ccbd553c2b1961285687e6c08a9f848e0a5a21f`.
+어휘가 3종(`AREA_RECON` / `GROUND_INSPECTION` -> `GROUND_SUPPRESSION`)으로 줄었고 Family B는
+`AREA_RECON`만(incident task 없음)으로 재정의됐다. `data/reference_annotations/*.yaml` 9개도
+그에 맞게 재작성.
+
+- **approved 9/9, exact-match 9/9, repair 0회**
+- task P/R (micro) **53/0/0 = 1.00/1.00**, edge P/R (micro) **9/0/0 = 1.00/1.00**
+- family: A 3/3 (edge P/R 1.00/1.00), B 3/3 (edge N/A — 0 edges), C 3/3
+- failure category: none, latency mean 13.3s
+
+원자료 `data/eval_results/p6_gpt-5-mini.{json,txt}`. D-061 이전(5종) 결과는
+`data/eval_results/pre_d061_5type/`에 보존.
+
+---
+
 RESEARCH_CONTRACT.md §12 / §15, D-021 · D-022 · D-023 · D-024. 소표본(9개) 평가이므로
 백분율이 아니라 원시 개수로 보고한다. P6는 D-024 시점에 승인 완료.
 
