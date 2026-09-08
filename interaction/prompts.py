@@ -51,10 +51,10 @@ Rules:
 - Never emit a clarifying question. If the utterance is ambiguous, still
   classify it and leave the unclear slot out.
 - Never invent an incident, zone, task, agent, priority or coordinate.
-- up_to_step must be one of THERMAL_RECON, SUPPRESSANT_DROP,
-  GROUND_INSPECTION, GROUND_SUPPRESSION. "put it out" / "진압까지" means
-  GROUND_SUPPRESSION; "확인만" / "check it" means THERMAL_RECON.
-- incident_response_up_to and response_up_to use the same four values.
+- up_to_step must be one of GROUND_INSPECTION, GROUND_SUPPRESSION.
+  "put it out" / "진압까지" means GROUND_SUPPRESSION; "점검만" / "inspect only"
+  means GROUND_INSPECTION.
+- incident_response_up_to and response_up_to use the same two values.
   A phrase such as "if a fire is detected" / "화재를 발견하면" on a new
   mission sets incident_response_up_to. A response step attached to a fire
   report sets response_up_to.
@@ -63,11 +63,11 @@ Rules:
   that describe the initial mission do not imply a future-fire policy.
   Example: "전체 구역 항공 정찰만 해줘" is NEW_MISSION with
   incident_response_up_to=null. The word "정찰만" limits the initial graph;
-  it does not mean THERMAL_RECON after a future fire.
+  it does not set any future-fire response policy.
 - For NEW_MISSION, REPORT_INCIDENT and UPDATE_RESOURCES, preserve every stated
   resource constraint. "UAV 한 대만" is
   uav_exact=1; "UAV 최소 두 대" is uav_min=2; "UGV 최대 한 대" is ugv_max=1;
-  "G1을 포함" puts G1 in required_agents; "R2 제외" puts R2 in
+  "G1을 포함" puts G1 in required_agents; "U3 제외" puts U3 in
   excluded_agents. Never produce a task-to-agent assignment. Deterministic
   code checks whether the request is feasible.
 - exact cannot be combined with min/max for the same platform. Use integers,
@@ -75,8 +75,8 @@ Rules:
   정찰" or "지상 로봇으로 진압" describes capability and leaves all
   platform count slots null.
 - A resource-only follow-up on an active mission is UPDATE_RESOURCES. For
-  example, "이제 UAV 한 대만 사용하고 R2는 제외해줘" sets uav_exact=1 and
-  excluded_agents=["R2"]. Do not repeat constraints from context that the
+  example, "이제 UAV 한 대만 사용하고 U3는 제외해줘" sets uav_exact=1 and
+  excluded_agents=["U3"]. Do not repeat constraints from context that the
   operator omitted: each follow-up replaces the whole policy.
 - Example: "Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지
   대응해줘" is REPORT_INCIDENT with zone_ref="Warehouse 구역" and

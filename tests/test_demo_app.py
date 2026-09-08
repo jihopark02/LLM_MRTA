@@ -47,7 +47,7 @@ def test_streamlit_mock_path_renders_planning_clarification_and_execution(
     at = at.selectbox[0].select("mock").run()
     at = _submit(at, MOCK_COMMANDS[0])
     assert not at.exception
-    assert ("Estimated makespan", "359.8 s") in [
+    assert ("Estimated makespan", "150.8 s") in [
         (metric.label, metric.value) for metric in at.metric
     ]
     assert not next(button for button in at.button if button.label == "임무 실행").disabled
@@ -268,7 +268,7 @@ def test_the_console_still_runs_without_matplotlib(
     assert list(at.image) == []
     assert any(VIZ_MISSING_NOTE in item.value for item in at.caption)
     assert any("task_id" in str(frame.value) for frame in at.dataframe)
-    assert ("Estimated makespan", "359.8 s") in [
+    assert ("Estimated makespan", "150.8 s") in [
         (metric.label, metric.value) for metric in at.metric
     ]
 
@@ -559,7 +559,7 @@ def test_online_update_is_present_in_the_next_played_segment(tmp_path, monkeypat
     # Only the first workflow step is READY immediately. Its new assignment
     # must already drive this next segment; dependent steps correctly remain
     # PENDING and enter later segments when their predecessors complete.
-    ready_added = {task_id for task_id in added if task_id.startswith("THERMAL_RECON")}
+    ready_added = {task_id for task_id in added if task_id.startswith("GROUND_INSPECTION")}
     assert ready_added and ready_added <= shown
     runtime = at.session_state["mission_session"].runtime
     for task_id in ready_added:

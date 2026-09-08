@@ -9,8 +9,6 @@ from interaction.directive import MissionDirective
 @pytest.mark.parametrize(
     "step",
     [
-        "THERMAL_RECON",
-        "SUPPRESSANT_DROP",
         "GROUND_INSPECTION",
         "GROUND_SUPPRESSION",
     ],

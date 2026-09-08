@@ -43,8 +43,6 @@ STATUS_COLORS: dict[TaskStatus, str] = {
 #: gid, so shortening is presentation-only and never loses the handle.
 TYPE_LABELS: dict[TaskType, str] = {
     TaskType.AREA_RECON: "RECON",
-    TaskType.THERMAL_RECON: "THERMAL",
-    TaskType.SUPPRESSANT_DROP: "DROP",
     TaskType.GROUND_INSPECTION: "INSPECT",
     TaskType.GROUND_SUPPRESSION: "SUPPRESS",
 }
@@ -61,8 +59,8 @@ assert set(STATUS_COLORS) == set(TaskStatus), "STATUS_COLORS must cover every Ta
 assert set(TYPE_LABELS) == set(TaskType), "TYPE_LABELS must cover every TaskType"
 
 #: Column of each workflow step. AREA_RECON is not a workflow step, so it gets
-#: its own column to the left rather than sharing column 0 with THERMAL_RECON —
-#: otherwise zone recon markers sit under a "THERMAL" header and the figure
+#: its own column to the left rather than sharing column 0 with GROUND_INSPECTION —
+#: otherwise zone recon markers sit under an "INSPECT" header and the figure
 #: reads wrongly.
 _STEP_COLUMN: dict[TaskType, int] = {
     step: index for index, step in enumerate(WORKFLOW_CHAIN)

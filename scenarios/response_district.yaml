@@ -1,0 +1,114 @@
+# Extended reference scene (RESEARCH_CONTRACT.md §3.1, D-059).
+#
+# Same world rules as industrial_park — 5 task types, 5 agents (UAV x3 + UGV x2), the §4
+# workflow predecessor, the §8 travel model — but a larger district with 8 named
+# zones, 5 incidents (priority 10/9/8/7/5) and a 12-node route network with
+# cycles, so the CBBA heterogeneous allocation figure (§18.14) reads like a real
+# response map. This scene is NOT a phase gate and produces no evaluation
+# numbers; industrial_park and the P3/P4 golden makespans are unchanged.
+#
+# Task instances (18 tasks / 5 edges under D-061) are in
+# scenarios/response_district_fixture.yaml, mirroring reference_fixture.yaml.
+
+scene_id: response_district
+
+# `reported_incident_*` is the fixed §18.10 response point for an operator-
+# reported incident in this zone. The UGV route node must exist in the graph and
+# be reachable from every UGV start; the loader checks both.
+zones:
+  ZONE_A:
+    name: 물류창고
+    recon_waypoint: [55.0, 300.0]
+    reported_incident_position: [62.0, 288.0]
+    reported_incident_access_node: R_A
+  ZONE_B:
+    name: 정유시설
+    recon_waypoint: [195.0, 325.0]
+    reported_incident_position: [200.0, 308.0]
+    reported_incident_access_node: R_B
+  ZONE_C:
+    name: 화학단지
+    recon_waypoint: [360.0, 290.0]
+    reported_incident_position: [354.0, 280.0]
+    reported_incident_access_node: R_C
+  ZONE_D:
+    name: 화력발전소
+    recon_waypoint: [420.0, 180.0]
+    reported_incident_position: [410.0, 184.0]
+    reported_incident_access_node: R_D
+  ZONE_E:
+    name: 액화가스터미널
+    recon_waypoint: [345.0, 45.0]
+    reported_incident_position: [348.0, 72.0]
+    reported_incident_access_node: R_E
+  ZONE_F:
+    name: 종합병원
+    recon_waypoint: [210.0, 188.0]
+    reported_incident_position: [206.0, 174.0]
+    reported_incident_access_node: R_F
+  ZONE_G:
+    name: 아파트단지
+    recon_waypoint: [68.0, 132.0]
+    reported_incident_position: [82.0, 122.0]
+    reported_incident_access_node: R_G
+  ZONE_H:
+    name: 재래시장
+    recon_waypoint: [242.0, 33.0]
+    reported_incident_position: [232.0, 50.0]
+    reported_incident_access_node: R_H
+
+# Given as RESPONSE_REQUIRED by the scene; nothing in the system decides whether
+# a fire exists (§3). Priority spread 10/9/8/7/5 so CBBA scoring differentiates.
+incidents:
+  FIRE_SITE_1: { zone: ZONE_F, priority: 10, position: [208.0, 178.0], access_node: R_F, status: RESPONSE_REQUIRED }
+  FIRE_SITE_2: { zone: ZONE_G, priority: 9,  position: [78.0, 126.0],  access_node: R_G, status: RESPONSE_REQUIRED }
+  FIRE_SITE_3: { zone: ZONE_B, priority: 8,  position: [198.0, 316.0], access_node: R_B, status: RESPONSE_REQUIRED }
+  FIRE_SITE_4: { zone: ZONE_C, priority: 7,  position: [366.0, 286.0], access_node: R_C, status: RESPONSE_REQUIRED }
+  FIRE_SITE_5: { zone: ZONE_H, priority: 5,  position: [236.0, 44.0],  access_node: R_H, status: RESPONSE_REQUIRED }
+
+# UGV lane/waypoint network. Lane weight defaults to Euclidean node distance
+# (core/route_graph.py). Deliberately not a tree — multiple cycles so the UGV
+# shortest-path polylines bend around the district.
+route_graph:
+  nodes:
+    R_DEPOT: [30.0, 20.0]
+    R_SW:    [120.0, 55.0]
+    R_G:     [82.0, 122.0]
+    R_A:     [62.0, 288.0]
+    R_B:     [200.0, 300.0]
+    R_F:     [206.0, 172.0]
+    R_H:     [232.0, 52.0]
+    R_MID:   [258.0, 150.0]
+    R_SE:    [320.0, 60.0]
+    R_C:     [354.0, 280.0]
+    R_E:     [348.0, 80.0]
+    R_D:     [418.0, 184.0]
+  lanes:
+    - [R_DEPOT, R_SW]
+    - [R_DEPOT, R_G]
+    - [R_SW, R_G]
+    - [R_SW, R_H]
+    - [R_G, R_A]
+    - [R_G, R_F]
+    - [R_A, R_B]
+    - [R_B, R_F]
+    - [R_B, R_C]
+    - [R_F, R_H]
+    - [R_F, R_MID]
+    - [R_H, R_SE]
+    - [R_MID, R_C]
+    - [R_MID, R_E]
+    - [R_SE, R_E]
+    - [R_C, R_D]
+    - [R_E, R_D]
+
+# 5 agents: identical UAV x3 + UGV x2 (§5, D-060).
+# The 3 UAVs sit near the depot on distinct points so the plan/execution figures
+# do not collapse their legs into one overlapping bundle; G2 starts at R_G rather
+# than R_C so the two UGVs cover the district from opposite ends.
+fleet:
+  - { agent_id: U1, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [22.0, 14.0], speed: 8.0 }
+  - { agent_id: U2, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [38.0, 14.0], speed: 8.0 }
+  - { agent_id: U3, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [30.0, 28.0], speed: 8.0 }
+  - { agent_id: G1, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: R_DEPOT, speed: 3.0 }
+  - { agent_id: G2, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: R_G,     speed: 3.0 }

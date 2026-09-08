@@ -68,8 +68,8 @@ def test_a_mock_mission_updates_the_compact_console_and_simulator(windows):
     controller, operator, simulator = windows
     _submit(operator, MOCK_COMMANDS[0])
 
-    assert len(controller.session.state.graph.tasks) == 12
-    assert operator.task_card.value.text() == "12"
+    assert len(controller.session.state.graph.tasks) == 8
+    assert operator.task_card.value.text() == "8"
     assert "COMMITTED" in operator.latest.text()
     assert simulator.canvas.spec.mode == "plan"
     assert "MOCK" in operator.mode_banner.text()
@@ -161,7 +161,7 @@ def test_online_update_changes_the_next_native_playback(windows, qt_app):
         for frame in simulator._frames
         for leg in frame.map_spec.legs
     }
-    ready_added = {task_id for task_id in added if task_id.startswith("THERMAL_RECON")}
+    ready_added = {task_id for task_id in added if task_id.startswith("GROUND_INSPECTION")}
     assert ready_added and ready_added <= shown
     assert operator.command_input.isEnabled()
     _drain_until(qt_app, lambda: not operator._busy)
@@ -221,7 +221,7 @@ def test_sensor_scenario_is_explicit_and_refreshes_after_detection(qt_app, tmp_p
         operator.play_checkpoint()
         _drain_until(qt_app, lambda: not operator._busy)
 
-        assert operator.task_card.value.text() == "8"
+        assert operator.task_card.value.text() == "6"
         assert "SENSOR_SIMULATED" in operator.latest.text()
         assert "FIRE_SITE_1" in {
             point.entity_id for point in simulator.canvas.spec.incidents
@@ -281,12 +281,12 @@ def test_initial_commit_autoplays_and_mid_segment_report_is_applied_once(
         assert controller.queued_command is None
         assert controller.session.turn_count == turns_before + 1
         assert len(backend.calls) == calls_before + 1
-        assert len(controller.session.state.graph) == 8
+        assert len(controller.session.state.graph) == 6
         assert controller.session.phase.value == "EXECUTED"
         assert controller.session.execution.termination.value == "COMPLETED"
         assert any("[QUEUED]" in message.text for message in controller.chat)
         assert any(
-            "THERMAL_RECON__FIRE_SITE_1" in task_ids
+            "GROUND_INSPECTION__FIRE_SITE_1" in task_ids
             for task_ids in played_task_sets[1:]
         )
     finally:
@@ -321,7 +321,7 @@ def test_completed_patrol_report_opens_and_autoplays_a_follow_on_episode(
 
         assert controller.session.phase is SessionPhase.EXECUTED
         assert controller.session.execution.termination.value == "COMPLETED"
-        assert len(controller.session.state.graph) == 8
+        assert len(controller.session.state.graph) == 6
         assert [event.event_type for event in controller.session.event_log].count(
             "EXECUTION"
         ) == 2

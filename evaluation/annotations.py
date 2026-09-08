@@ -9,7 +9,7 @@ A graph is written compactly:
 
     recon_zones: [ZONE_A, ZONE_B]          # -> AREA_RECON tasks, no edges
     incident_chains:
-      FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP]   # contiguous §4 prefix
+      FIRE_SITE_1: [GROUND_INSPECTION, GROUND_SUPPRESSION]   # contiguous §4 prefix
 
 The chain expands to one task per step plus the sequential edges between them.
 An explicit ``tasks:`` / ``edges:`` form is also accepted (unused by the fixed
@@ -39,8 +39,6 @@ _PROFILES = {"FULL_RESPONSE", "AERIAL_ONLY", "SELECTIVE_RESPONSE"}
 
 # §4 incident workflow, head first.
 WORKFLOW_CHAIN: tuple[TaskType, ...] = (
-    TaskType.THERMAL_RECON,
-    TaskType.SUPPRESSANT_DROP,
     TaskType.GROUND_INSPECTION,
     TaskType.GROUND_SUPPRESSION,
 )

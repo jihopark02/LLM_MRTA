@@ -50,8 +50,6 @@ def session(scene, **kw) -> MissionSession:
 def test_workflow_chain_matches_the_validator_rule():
     # interaction/workflow.py asserts this at import; make it an explicit gate.
     assert WORKFLOW_CHAIN == (
-        TaskType.THERMAL_RECON,
-        TaskType.SUPPRESSANT_DROP,
         TaskType.GROUND_INSPECTION,
         TaskType.GROUND_SUPPRESSION,
     )
@@ -66,7 +64,7 @@ def test_fresh_session_state_clones_the_graph(scene, fixture_graph):
     assert len(state.graph) == len(fixture_graph)
 
     tid = next(iter(sorted(t.task_id for t in fixture_graph.tasks)))
-    state.graph[tid].assigned_agent = "S1"
+    state.graph[tid].assigned_agent = "U1"
     assert fixture_graph[tid].assigned_agent is None
 
 
@@ -80,10 +78,10 @@ def test_fresh_session_state_does_not_share_agents_with_the_scene(scene, fixture
         assert agent.bundle is not scene_agents[agent_id].bundle
         assert agent.path is not scene_agents[agent_id].path
 
-    state.agents["S1"].bundle.append("AREA_RECON__ZONE_A")
-    state.agents["S1"].current_task = "AREA_RECON__ZONE_A"
-    assert scene_agents["S1"].bundle == []
-    assert scene_agents["S1"].current_task is None
+    state.agents["U1"].bundle.append("AREA_RECON__ZONE_A")
+    state.agents["U1"].current_task = "AREA_RECON__ZONE_A"
+    assert scene_agents["U1"].bundle == []
+    assert scene_agents["U1"].current_task is None
 
 
 def test_fresh_session_state_starts_unallocated(scene, fixture_graph):
@@ -363,13 +361,10 @@ def test_context_summary_without_a_mission(scene):
 def test_context_summary_shows_chain_progress(scene, fixture_graph):
     s = session(scene, state=fresh_session_state(fixture_graph, scene))
     text = build_context_summary(s)
-    assert "MISSION: 12 tasks, 6 edges" in text
+    assert "MISSION: 8 tasks, 2 edges" in text
     assert "AREA_RECON: ZONE_A, ZONE_B, ZONE_C, ZONE_D" in text
-    assert (
-        "FIRE_SITE_1: THERMAL_RECON -> SUPPRESSANT_DROP -> "
-        "GROUND_INSPECTION -> GROUND_SUPPRESSION" in text
-    )
-    assert "status: PENDING 6, READY 6" in text
+    assert "FIRE_SITE_1: GROUND_INSPECTION -> GROUND_SUPPRESSION" in text
+    assert "status: PENDING 2, READY 6" in text
 
 
 def test_context_summary_reports_an_empty_incident_list(tmp_path):

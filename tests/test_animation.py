@@ -67,10 +67,12 @@ def test_frames_cover_the_exact_interval_and_agent_set():
 
 def test_uav_moves_then_dwells_and_the_completed_agent_ends_at_the_target():
     scene, before, after = _first_segment()
-    spec = build_playback_spec(scene, before, after, frame_count=9)
-    task_id = "THERMAL_RECON__FIRE_SITE_1"
+    (task_id, _), = set(after.task_completion) - set(before.task_completion)
+    agent_id = dict(after.assignments)[task_id]
+    # dense sampling so the travel leg (short for an AREA_RECON hop) is caught.
+    spec = build_playback_spec(scene, before, after, frame_count=60)
     samples = [
-        next(agent for agent in frame.agents if agent.agent_id == "S1")
+        next(agent for agent in frame.agents if agent.agent_id == agent_id)
         for frame in spec.frames
     ]
 
@@ -132,23 +134,26 @@ def test_reference_ugv_really_moves_along_a_checkpoint_playback():
 
 def test_last_frame_matches_completed_pose_and_keeps_other_running_activity():
     scene, before, after = _first_segment()
+    (done_task, _), = set(after.task_completion) - set(before.task_completion)
+    done_agent = dict(after.assignments)[done_task]
     spec = build_playback_spec(scene, before, after, frame_count=4)
     final = {agent.agent_id: agent for agent in spec.frames[-1].agents}
     restored = SimExecutor.from_checkpoint(after, scene)
     static = {agent.agent_id: agent.position for agent in runtime_map_spec(scene, restored).agents}
 
-    # S1 completed at this checkpoint, so its pose is now confirmed and agrees
-    # with the static Runtime map.
-    assert final["S1"].activity == "IDLE"
-    assert final["S1"].position == static["S1"]
-    # S2 is still dwelling. P8.5's static map deliberately leaves it at the
-    # last confirmed position, while P10 shows the recorded schedule pose —
-    # forcing equality here would make the animated marker jump backwards.
-    assert final["S2"].activity == "DWELL"
-    assert final["S2"].task_id == "THERMAL_RECON__FIRE_SITE_2"
-    assert final["S2"].position != static["S2"]
-    assert final["S2"].position == tuple(
-        map(float, after._work.graph[final["S2"].task_id].position)
+    # the agent that completed at this checkpoint has a confirmed pose that
+    # agrees with the static Runtime map.
+    assert final[done_agent].activity == "IDLE"
+    assert final[done_agent].position == static[done_agent]
+    # an agent still dwelling: P8.5's static map leaves it at the last confirmed
+    # position, while P10 shows the recorded schedule pose — forcing equality
+    # here would make the animated marker jump backwards.
+    dweller = next(
+        a for a in final.values() if a.activity == "DWELL" and a.agent_id != done_agent
+    )
+    assert dweller.position != static[dweller.agent_id]
+    assert dweller.position == tuple(
+        map(float, after._work.graph[dweller.task_id].position)
     )
 
 

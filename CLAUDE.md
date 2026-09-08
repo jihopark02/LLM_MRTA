@@ -19,7 +19,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-058, 계약 v1.54)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-061, 계약 v1.57)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
@@ -27,10 +27,17 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.5,
 P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
-`feature/operator-interaction`). 계약 v1.54, 최신 결정 D-058.**
+`feature/operator-interaction`). 계약 v1.57, 최신 결정 D-061.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 898개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 899개 통과, ruff clean.
+
+**D-060+D-061 re-baseline (아래 D-060/D-061 항목 참조)**: fleet 동일 UAV 3대 + UGV 2,
+vocabulary 3종(`AREA_RECON` / `GROUND_INSPECTION` → `GROUND_SUPPRESSION`). 결정론적 골든
+(P3 150.766 / P4 149.920 / P9 0·3·4)과 전체 테스트·계약 커밋 완료(`de61780` = 계약, 후속
+= 코드). LLM 평가(P6 / P8.4 / P12 counterfactual / P13)는 **아직 새 어휘로 재실행하지
+않았다** — 기존 `docs/P6_RESULTS`·`P8_4_RESULTS`·`P12_RESULTS`·`p12_counterfactual*`·
+`P9_RESULTS` 본문은 5종/fleet v1 기록이다.
 
 P12 (§22, D-051/D-052): 자연어 `NEW_MISSION`이 초기 graph와 별도 future-incident response
 policy를 만들고, strict simulated `FIRE_DETECTED` 또는 실행 중 자연어 `REPORT_INCIDENT`가
@@ -69,6 +76,25 @@ P13.2 (§23, D-057): 별도 `UPDATE_RESOURCES` 또는 `REPORT_INCIDENT`와 함�
 RUNNING agent는 현재 commitment를 마치지만 즉시 새 입찰에서 빠지며, 관련 미시작 bundle suffix만
 release/rebid한다. 실패하면 runtime·clock·graph·policy identity가 보존된다. cache namespace는
 `p13-v2`.
+
+D-060 (§5, 계약 v1.56) + D-061 (§4, 계약 v1.57): **대규모 re-baseline**. D-060은 UAV를
+동일 기체 3대로 통합(Scout/Response 분리 폐기, agent id S1/S2/R1/R2 → U1/U2/U3). D-061은
+task vocabulary를 5종 → **3종**으로: `THERMAL_RECON`(승인 게이트가 대체)·`SUPPRESSANT_DROP`
+(UAV는 정찰 전담) 제거. workflow는 `GROUND_INSPECTION → GROUND_SUPPRESSION` 2단계.
+capability: UAV `{AERIAL_RECON}`, UGV 불변. `VALIDATOR_VERSION` 1.4 유지. 이종성 = UAV(공중
+정찰, 직선) vs UGV(지상 대응, route graph). 새 골든: P3 allocate 150.766 / P4 exec 149.920 /
+P9 release no-reset 0·selective 3·full-reset 4. `industrial_park`·`patrol_park`·`reference_fixture`
+·`response_district*`·prompts·schemas·enums·compiler·workflow·whole_graph·P6 annotation 9개·
+P8.4 dialogue 12개·p12 fixture 갱신. pytest 899 green, ruff clean. **P6/P8.4/P12/P13 LLM
+평가는 아직 새 어휘로 재실행하지 않음** — 기존 RESULTS는 5종/fleet v1 기록.
+
+D-059 (§3.1, 계약 v1.55): 발표·CBBA 시각화용 확장 reference scene을 허용한다. 동일
+vocabulary·fleet 2/2/2·workflow·Validator 규칙, zone·incident·route node 수만 증가.
+`scenarios/response_district.yaml`(8 zone / 5 incident) + `_fixture.yaml`(task 28)로 §18.14
+그림을 뽑고(`presentation/render_scene_figures.py`), incident-empty 변형
+`response_district_patrol.yaml`은 native UI의 `dynamic-district` world profile로 라이브 데모에
+쓴다. `industrial_park`·P3/P4 골든·게이트·기본 profile(`patrol_park`)은 불변. 이 scene에서 평가
+수치를 만들지 않는다.
 
 P13.3 (§23.3.1, D-058): native 기본값은 `dynamic-world + live`다. `patrol_park`의 zone·fleet·
 route만 로드하고 incident, initial graph, latent fixture, mock script를 넣지 않는다. scripted
@@ -136,14 +162,13 @@ headline으로 재사용하지 않는다.
 P9 (§19, D-039~D-041): `SimExecutor` task-completion checkpoint/resume, **bidder-connected
 selective release**, paused REPORT/UPDATE/QUERY, typed `CheckpointAudit`/
 `OnlineReallocationAudit`, Streamlit 온라인 실행 버튼, no-reset/full-reset/selective 고정 비교까지
-완료. 대표 fixture의 release 수 0/2/1, 세 정책 모두 COMPLETED·위반 0·makespan 453.883s.
+완료. 대표 fixture의 release 수 no-reset 0 / selective 3 / full-reset 4 (D-060+D-061), 세 정책 모두 COMPLETED·위반 0.
 selective의 성능/최적성 우위가 아니라 **불필요한 release 범위 감소**만 주장한다.
 **D-041/D-042**: §19.3 3단계의 bundle-suffix 확장은 **실증되지 않았다**
-(`suffix_extra_release_count = 0`, `selective`에만 정의). 신규 incident 전체-chain 경로에서는
-즉시 READY가 `THERMAL_RECON`뿐이라 섞인 bundle이 안 나왔지만, **도메인 전체에서 불가능하다고
-단정하지 않는다**(D-042) — 기존 incident의 부분 workflow 연장은 `SUPPRESSANT_DROP`을 새 READY로
-만들 수 있고 그러면 `AREA_RECON`이 비영향이 되어 S-agent bundle이 섞일 여지가 있다(도달 가능성
-미검증). suffix는 보수적 구현 규칙으로 남기고 단위테스트로 **분기만** 고정한다(end-to-end 실증 아님).
+(`suffix_extra_release_count = 0`, `selective`에만 정의). D-061 이후 신규 incident의 즉시
+READY는 `GROUND_INSPECTION`(UGV)뿐이고 recon은 UAV라, 한 agent bundle이 영향/비영향으로
+섞이는 경로가 이 fleet+어휘에선 안 나온다(§19.3 재서술은 P9 재실행 시). suffix는 보수적
+구현 규칙으로 남기고 단위테스트로 **분기만** 고정한다(end-to-end 실증 아님).
 online advance **예외**는 runtime을 보존하므로 재개 가능하지만, `DEADLOCK`/`STEP_LIMIT` **결과**로
 끝난 경우는 terminal이라 재개하지 않는다 — 재시도 조건은 `EXECUTION_FAILED` + runtime 있음 +
 `execution is None`이다(§19.1 표, D-042). 평가 fixture는 strict schema로 읽는다(D-023과 동일).
@@ -202,8 +227,8 @@ P8.3 구조 (D-031~D-034, 계약 v1.32):
   `IntentWireEnvelope`→내부 `OperatorIntent` adapter를 추가. 실제 한국어 3턴 모두 COMMITTED,
   최종 16 tasks / 9 edges, 실행 COMPLETED 404.0321 s, 위반 0/0. cached 재생도 동일.
 
-workflow: `THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION`
-(D-016, symbolic UGV 진압). 골든값 P3 makespan ~359.8 / P4 ~257.9, violation 0.
+workflow: `GROUND_INSPECTION → GROUND_SUPPRESSION` (D-061, 2단계)
+(D-016, symbolic UGV 진압). 골든값 P3 makespan ~150.8 / P4 ~149.9 (D-060+D-061), violation 0.
 
 P5 구조:
 - `llm/schemas.py`: `Step1Output`/`Step2Output`/`RepairOutput` (pydantic,
@@ -246,7 +271,7 @@ P6.5 (D-025, D-026): `evaluation/integration.py` `run_full` — NL → `generate
 `score_graph`) / `operationally_clean` / `demo_pass`. 감사 JSON = `GraphSnapshot`
 (harness에서 공유) + graph_hash + resolved_models + plan·exec assignment(task→agent).
 게이트(`tests/test_integration.py`): A1/B1/C1 demo_pass, A1은 graph_hash가 P1 fixture와
-일치 → makespan P3/P4 골든(359.8/257.9) 일치, wrong-but-valid graph는 op-clean이나
+일치 → makespan P3/P4 골든(150.8/149.9, D-060+D-061) 일치, wrong-but-valid graph는 op-clean이나
 demo_pass 아님. CLI `python3 -m evaluation.integration [--mock]`.
 
 

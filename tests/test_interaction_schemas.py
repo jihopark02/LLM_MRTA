@@ -234,11 +234,11 @@ def test_wire_schema_has_no_openai_rejected_one_of_and_requires_every_key():
             wire_intent(
                 "REPORT_INCIDENT",
                 zone_ref="A 구역",
-                response_up_to="SUPPRESSANT_DROP",
+                response_up_to="GROUND_INSPECTION",
                 uav_exact=1,
             ),
             ReportIncidentIntent,
-            {"zone_ref": "A 구역", "response_up_to": "SUPPRESSANT_DROP"},
+            {"zone_ref": "A 구역", "response_up_to": "GROUND_INSPECTION"},
         ),
         (
             wire_intent("UPDATE_RESOURCES", uav_exact=1, excluded_agents=["R2"]),
@@ -316,7 +316,7 @@ def test_new_mission_resource_constraints_are_preserved_in_the_prompt():
     prompt = intent_system("PHASE: PLANNING")
     assert '"UAV 한 대만" is' in prompt
     assert "uav_exact=1" in prompt
-    assert '"R2 제외"' in prompt
+    assert '"U3 제외"' in prompt
     assert "excluded_agents" in prompt
     assert "지상 로봇으로 진압" in prompt
     assert "Warehouse 구역에 새 화재" in prompt
@@ -344,7 +344,7 @@ def test_recon_only_does_not_imply_a_future_incident_policy_in_the_prompt():
     prompt = intent_system("PHASE: PLANNING")
     assert '"전체 구역 항공 정찰만 해줘"' in prompt
     assert "incident_response_up_to=null" in prompt
-    assert "does not mean THERMAL_RECON after a future fire" in prompt
+    assert "it does not set any future-fire response policy" in prompt
 
 
 def test_classifier_requests_wire_schema_then_returns_internal_intent():

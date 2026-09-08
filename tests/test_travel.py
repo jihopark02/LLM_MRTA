@@ -24,7 +24,7 @@ def agent(scene, agent_id):
 def test_uav_leg_is_euclidean_over_speed(scene):
     from allocation.travel import leg_time, start_ref
 
-    s1 = agent(scene, "S1")
+    s1 = agent(scene, "U1")
     task = compile_task(scene, TaskType.AREA_RECON, "ZONE_A", 4)
     expected = math.dist(s1.position, task.position) / s1.speed
     assert leg_time(s1, start_ref(s1, scene), task, scene) == pytest.approx(expected)

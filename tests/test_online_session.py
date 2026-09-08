@@ -89,7 +89,7 @@ def test_repeated_online_continue_finishes_and_preserves_event_order(planned_ses
         advance_online_session(planned_session, mode="mock")
 
     assert planned_session.execution is not None
-    assert len(planned_session.execution.completed) == 12
+    assert len(planned_session.execution.completed) == 8
     assert planned_session.execution.capability_violations == []
     assert planned_session.execution.precedence_violations == []
     assert all(isinstance(event, CheckpointAudit) for event in planned_session.event_log[:-1])
@@ -111,7 +111,7 @@ def test_completed_online_run_accepts_one_turn_follow_on_response(planned_sessio
         for task in terminal_runtime.graph.tasks
         if task.status.value == "COMPLETED"
     }
-    assert len(completed_before) == 12
+    assert len(completed_before) == 8
     assert isinstance(planned_session.event_log[-1], ExecutionAudit)
 
     result = _turn(
@@ -138,7 +138,7 @@ def test_completed_online_run_accepts_one_turn_follow_on_response(planned_sessio
         for task in planned_session.runtime.graph.tasks
         if task.target == "FIRE_SITE_3"
     }
-    assert len(added) == 4
+    assert len(added) == 2
 
     while planned_session.phase is SessionPhase.EXECUTION_PAUSED:
         advance_online_session(planned_session, mode="mock")
@@ -188,7 +188,7 @@ def test_scene_only_terminal_report_can_be_followed_by_canonical_update(
     assert planned_session.execution is None
     assert len(
         [task for task in planned_session.state.graph.tasks if task.target == "FIRE_SITE_3"]
-    ) == 4
+    ) == 2
 
 
 def test_paused_report_then_update_replaces_only_the_accepted_runtime(planned_session):
@@ -227,7 +227,9 @@ def test_paused_report_then_update_replaces_only_the_accepted_runtime(planned_se
     assert update.audit.online_reallocation is not None
     assert update.audit.online_reallocation.policy == "selective"
     assert update.audit.online_reallocation.patch_added_tasks
-    assert update.audit.online_reallocation.selectively_released_tasks
+    # D-061: a new incident's GI (UGV) shares no bidder with the recon tasks (UAV),
+    # so selective release for a brand-new incident is empty.
+    assert update.audit.online_reallocation.selectively_released_tasks == []
     assert planned_session.runtime is not old_runtime
     assert planned_session.state is planned_session.runtime.work
     assert _runtime_signature(old_runtime) == old_signature
@@ -240,7 +242,7 @@ def test_paused_report_then_update_replaces_only_the_accepted_runtime(planned_se
     while planned_session.phase is SessionPhase.EXECUTION_PAUSED:
         advance_online_session(planned_session, mode="mock")
     assert planned_session.phase is SessionPhase.EXECUTED
-    assert len(planned_session.execution.completed) == 16
+    assert len(planned_session.execution.completed) == 10
     assert planned_session.execution.capability_violations == []
     assert planned_session.execution.precedence_violations == []
 
@@ -350,8 +352,8 @@ def test_paused_validator_rejection_preserves_runtime(planned_session, monkeypat
             patch=MissionPatch(
                 [
                     AddEdge(
-                        (TaskType.THERMAL_RECON, "FIRE_SITE_1"),
-                        (TaskType.THERMAL_RECON, "FIRE_SITE_2"),
+                        (TaskType.GROUND_INSPECTION, "FIRE_SITE_1"),
+                        (TaskType.GROUND_INSPECTION, "FIRE_SITE_2"),
                     )
                 ]
             ),
@@ -475,7 +477,7 @@ def test_a_resumed_run_still_finishes_on_the_golden_makespan(
     assert planned_session.phase is SessionPhase.EXECUTED
     result = planned_session.execution
     assert result.termination.value == "COMPLETED"
-    assert result.makespan == pytest.approx(257.850455, abs=1e-6)  # P4 golden
+    assert result.makespan == pytest.approx(149.919688, abs=1e-6)  # P4 golden (D-060+D-061)
     assert not result.capability_violations and not result.precedence_violations
 
 

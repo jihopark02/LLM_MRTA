@@ -20,10 +20,8 @@ from scenarios.scene import Scene
 from validator.candidate import TaskKey, key_str
 from validator.errors import ErrorCode, ValidationError
 
-_CHAIN_HEADS = frozenset({TaskType.AREA_RECON, TaskType.THERMAL_RECON})
+_CHAIN_HEADS = frozenset({TaskType.AREA_RECON, TaskType.GROUND_INSPECTION})
 WORKFLOW_PREDECESSOR: dict[TaskType, TaskType] = {
-    TaskType.SUPPRESSANT_DROP: TaskType.THERMAL_RECON,
-    TaskType.GROUND_INSPECTION: TaskType.SUPPRESSANT_DROP,
     TaskType.GROUND_SUPPRESSION: TaskType.GROUND_INSPECTION,
 }
 _Edge = tuple[TaskKey, TaskKey]

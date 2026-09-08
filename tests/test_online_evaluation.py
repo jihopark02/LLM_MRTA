@@ -16,14 +16,20 @@ def test_frozen_fixture_distinguishes_all_three_policies_and_finishes_cleanly():
     result = run_comparison()
     runs = {run.policy: run for run in result.policies}
 
-    assert result.checkpoint_event == 10
-    assert result.completed_now == ("SUPPRESSANT_DROP__FIRE_SITE_3",)
+    assert result.checkpoint_event == 1
+    assert result.completed_now == ("AREA_RECON__ZONE_C",)
     assert result.new_incident_id == "FIRE_SITE_6"
     assert runs["no-reset"].released_tasks == ()
-    assert runs["selective"].released_tasks == ("AREA_RECON__ZONE_C",)
+    assert runs["selective"].released_tasks == (
+        "GROUND_INSPECTION__FIRE_SITE_2",
+        "GROUND_INSPECTION__FIRE_SITE_4",
+        "GROUND_INSPECTION__FIRE_SITE_5",
+    )
     assert runs["full-reset"].released_tasks == (
-        "AREA_RECON__ZONE_C",
-        "GROUND_INSPECTION__FIRE_SITE_1",
+        "AREA_RECON__ZONE_D",
+        "GROUND_INSPECTION__FIRE_SITE_2",
+        "GROUND_INSPECTION__FIRE_SITE_4",
+        "GROUND_INSPECTION__FIRE_SITE_5",
     )
     assert len(runs["selective"].preserved_assigned_tasks) > len(
         runs["full-reset"].preserved_assigned_tasks
@@ -89,7 +95,7 @@ def test_a_mistyped_fixture_field_is_refused_at_load(tmp_path, key, value):
         ("simulation_time", float("inf")),
         ("simulation_time", float("nan")),
         ("completed_now", [1]),
-        ("completed_now", "SUPPRESSANT_DROP__FIRE_SITE_3"),
+        ("completed_now", "AREA_RECON__ZONE_C"),
     ],
 )
 def test_a_mistyped_checkpoint_field_is_refused_at_load(tmp_path, key, value):

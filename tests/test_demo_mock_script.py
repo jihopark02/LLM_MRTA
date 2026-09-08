@@ -56,7 +56,7 @@ def test_unknown_mock_text_is_rejected_without_consuming_the_next_item():
 
     accepted = handle_turn(session, MOCK_COMMANDS[0], backend)
     assert accepted.outcome is TurnOutcome.COMMITTED
-    assert len(session.state.graph) == 12
+    assert len(session.state.graph) == 8
 
 
 def test_sensor_script_extracts_patrol_graph_and_future_response_policy():
@@ -82,4 +82,4 @@ def test_operator_script_report_is_one_turn_response_not_a_second_update():
 
     assert report.outcome is TurnOutcome.COMMITTED
     assert report.audit.incident_action.response_up_to == "GROUND_SUPPRESSION"
-    assert len([task for task in session.state.graph.tasks if task.target == "FIRE_SITE_1"]) == 4
+    assert len([task for task in session.state.graph.tasks if task.target == "FIRE_SITE_1"]) == 2

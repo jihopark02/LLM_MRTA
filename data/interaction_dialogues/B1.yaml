@@ -5,7 +5,7 @@ shape: NEW_ONLY
 rationale: 항공 임무만 생성하고 상태 조회가 ground task를 추가하지 않는지 확인한다.
 turns:
   - input_kind: NATURAL_LANGUAGE
-    utterance: 지금은 항공 임무만 수행해. 네 구역을 정찰하고 두 화재의 열원만 확인해줘. 투하와 지상 작업은 하지 마.
+    utterance: 지금은 항공 임무만 수행해. 네 구역을 정찰하고 두 화재에는 아직 지상 대응을 넣지 마.
     intent: {kind: NEW_MISSION}
     outcome: COMMITTED
   - input_kind: NATURAL_LANGUAGE
@@ -15,6 +15,6 @@ turns:
 initial_graph: &initial
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:
-    FIRE_SITE_1: [THERMAL_RECON]
-    FIRE_SITE_2: [THERMAL_RECON]
+    FIRE_SITE_1: []
+    FIRE_SITE_2: []
 final_graph: *initial

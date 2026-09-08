@@ -46,6 +46,7 @@ from scenarios.scene import load_scene
 ROOT = Path(__file__).resolve().parents[1]
 SCENE_PATH = ROOT / "scenarios" / "industrial_park.yaml"
 PATROL_SCENE_PATH = ROOT / "scenarios" / "patrol_park.yaml"
+DISTRICT_SCENE_PATH = ROOT / "scenarios" / "response_district_patrol.yaml"
 SENSOR_FIXTURE_PATH = ROOT / "scenarios" / "patrol_zone_b_fire.yaml"
 DEFAULT_RUNTIME_ROOT = ROOT / "data"
 SUPPORTED_MODES = ("live", "cached", "mock")
@@ -63,6 +64,11 @@ DYNAMIC_LIVE_EXAMPLES = (
     "네 개 구역 전체를 UAV 두 대로 항공 정찰해줘",
     "이제 UAV 한 대만 사용하고 S2는 제외해줘",
     "Warehouse에 화재가 났어. UAV 한 대로 열화상 확인까지 해줘",
+)
+DISTRICT_LIVE_EXAMPLES = (
+    "여덟 개 구역 전체를 UAV로 항공 정찰해줘",
+    "종합병원에 화재가 발생했어. 지상 진압 단계까지 대응해줘",
+    "이제 UAV 두 대만 사용하고 S2는 제외해줘",
 )
 
 
@@ -83,6 +89,13 @@ SCENARIO_PROFILES = {
         PATROL_SCENE_PATH,
         None,
         live_examples=DYNAMIC_LIVE_EXAMPLES,
+    ),
+    "dynamic-district": ScenarioProfile(
+        "dynamic-district",
+        "Dynamic Live · 8-zone district (no mission fixture)",
+        DISTRICT_SCENE_PATH,
+        None,
+        live_examples=DISTRICT_LIVE_EXAMPLES,
     ),
     "sensor-detection": ScenarioProfile(
         "sensor-detection",

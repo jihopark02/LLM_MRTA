@@ -1,0 +1,48 @@
+# Canonical full-response graph for the extended presentation scene
+# (RESEARCH_CONTRACT.md §3.1, D-059). Hand-authored, mirrors reference_fixture.yaml.
+#
+# Shape (D-061): 18 tasks, 5 edges.
+#   AREA_RECON 8 (ZONE_A..H) + incident workflow 2 steps x 5 incidents = 10
+#   edge: 1 per incident chain (§4 workflow) x 5
+#   initial READY 13  = AREA_RECON 8 + GROUND_INSPECTION 5
+#   initial PENDING 5  = GROUND_SUPPRESSION 5
+# READY/PENDING are recomputed from predecessor state, not written here.
+#
+# priority is scene-derived (D-022): incident tasks inherit the incident priority
+# (10/9/8/7/5), AREA_RECON gets AREA_RECON_PRIORITY (4).
+# Edge endpoints are "TASK_TYPE:target"; task_id is "TASK_TYPE__target".
+
+fixture_id: response_district_full_response
+scene: response_district
+
+tasks:
+  - { type: AREA_RECON, target: ZONE_A }
+  - { type: AREA_RECON, target: ZONE_B }
+  - { type: AREA_RECON, target: ZONE_C }
+  - { type: AREA_RECON, target: ZONE_D }
+  - { type: AREA_RECON, target: ZONE_E }
+  - { type: AREA_RECON, target: ZONE_F }
+  - { type: AREA_RECON, target: ZONE_G }
+  - { type: AREA_RECON, target: ZONE_H }
+
+  - { type: GROUND_INSPECTION,  target: FIRE_SITE_1 }
+  - { type: GROUND_SUPPRESSION, target: FIRE_SITE_1 }
+
+  - { type: GROUND_INSPECTION,  target: FIRE_SITE_2 }
+  - { type: GROUND_SUPPRESSION, target: FIRE_SITE_2 }
+
+  - { type: GROUND_INSPECTION,  target: FIRE_SITE_3 }
+  - { type: GROUND_SUPPRESSION, target: FIRE_SITE_3 }
+
+  - { type: GROUND_INSPECTION,  target: FIRE_SITE_4 }
+  - { type: GROUND_SUPPRESSION, target: FIRE_SITE_4 }
+
+  - { type: GROUND_INSPECTION,  target: FIRE_SITE_5 }
+  - { type: GROUND_SUPPRESSION, target: FIRE_SITE_5 }
+
+edges:
+  - [GROUND_INSPECTION:FIRE_SITE_1, GROUND_SUPPRESSION:FIRE_SITE_1]
+  - [GROUND_INSPECTION:FIRE_SITE_2, GROUND_SUPPRESSION:FIRE_SITE_2]
+  - [GROUND_INSPECTION:FIRE_SITE_3, GROUND_SUPPRESSION:FIRE_SITE_3]
+  - [GROUND_INSPECTION:FIRE_SITE_4, GROUND_SUPPRESSION:FIRE_SITE_4]
+  - [GROUND_INSPECTION:FIRE_SITE_5, GROUND_SUPPRESSION:FIRE_SITE_5]

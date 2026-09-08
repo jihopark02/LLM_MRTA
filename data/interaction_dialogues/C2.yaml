@@ -5,7 +5,7 @@ shape: REPORT_UPDATE
 rationale: 비대칭 초기 계획에 새 incident 전체 chain을 최근 referent로 추가한다.
 turns:
   - input_kind: NATURAL_LANGUAGE
-    utterance: 모든 구역을 정찰해. FIRE_SITE_2는 지상 진압까지 처리하고 FIRE_SITE_1은 열원만 확인해줘.
+    utterance: 모든 구역을 정찰해. FIRE_SITE_2는 지상 진압까지 처리하고 FIRE_SITE_1은 지상 점검까지만 해줘.
     intent: {kind: NEW_MISSION}
     outcome: COMMITTED
   - input_kind: NATURAL_LANGUAGE
@@ -20,10 +20,8 @@ turns:
     grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_3, via: referent}
     patch:
       accepted: true
-      added_tasks: [THERMAL_RECON__FIRE_SITE_3, SUPPRESSANT_DROP__FIRE_SITE_3, GROUND_INSPECTION__FIRE_SITE_3, GROUND_SUPPRESSION__FIRE_SITE_3]
+      added_tasks: [GROUND_INSPECTION__FIRE_SITE_3, GROUND_SUPPRESSION__FIRE_SITE_3]
       added_edges:
-        - [THERMAL_RECON__FIRE_SITE_3, SUPPRESSANT_DROP__FIRE_SITE_3]
-        - [SUPPRESSANT_DROP__FIRE_SITE_3, GROUND_INSPECTION__FIRE_SITE_3]
         - [GROUND_INSPECTION__FIRE_SITE_3, GROUND_SUPPRESSION__FIRE_SITE_3]
       directly_released_tasks: []
   - input_kind: NATURAL_LANGUAGE
@@ -34,11 +32,11 @@ turns:
 initial_graph:
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:
-    FIRE_SITE_1: [THERMAL_RECON]
-    FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+    FIRE_SITE_1: []
+    FIRE_SITE_2: [GROUND_INSPECTION, GROUND_SUPPRESSION]
 final_graph:
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:
-    FIRE_SITE_1: [THERMAL_RECON]
-    FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
-    FIRE_SITE_3: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+    FIRE_SITE_1: []
+    FIRE_SITE_2: [GROUND_INSPECTION, GROUND_SUPPRESSION]
+    FIRE_SITE_3: [GROUND_INSPECTION, GROUND_SUPPRESSION]

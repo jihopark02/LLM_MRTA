@@ -11,7 +11,7 @@ from scenarios.compiler import TASK_TABLE
 from scenarios.scene import Scene
 
 _TASK_TYPES = ", ".join(t.value for t in TaskType)
-_WORKFLOW = "THERMAL_RECON -> SUPPRESSANT_DROP -> GROUND_INSPECTION -> GROUND_SUPPRESSION"
+_WORKFLOW = "GROUND_INSPECTION -> GROUND_SUPPRESSION"
 
 # Meaning + responsible platform per task_type (contract §4). Without this the
 # model has to guess from the English name alone — "check ground conditions"
@@ -19,22 +19,14 @@ _WORKFLOW = "THERMAL_RECON -> SUPPRESSANT_DROP -> GROUND_INSPECTION -> GROUND_SU
 # GROUND_SUPPRESSION are different steps done by the same UGV.
 _GLOSSARY = {
     "AREA_RECON": (
-        "Scout UAV aerial reconnaissance of a zone. Independent of any incident workflow."
-    ),
-    "THERMAL_RECON": (
-        "A UAV approaches an already-reported incident to perform a symbolic pre-response "
-        "heat-source check. Produces no thermal map, new coordinates, or sensor data."
-    ),
-    "SUPPRESSANT_DROP": (
-        "Response UAV drops a pre-loaded response payload at the incident. Completion does "
-        "NOT mean the fire is physically extinguished."
+        "UAV aerial reconnaissance of a zone. Independent of any incident workflow."
     ),
     "GROUND_INSPECTION": (
-        "Ground Response UGV moves to the incident's ground access point to inspect ground "
-        "conditions, after SUPPRESSANT_DROP completes."
+        "A UGV moves to an already-reported incident's ground access point to "
+        "inspect ground conditions. First step of the incident response chain."
     ),
     "GROUND_SUPPRESSION": (
-        "Ground Response UGV performs a symbolic ground suppression action at the incident, "
+        "A UGV performs a symbolic ground suppression action at the incident, "
         "after GROUND_INSPECTION completes. Completion does NOT mean the fire is physically "
         "extinguished or measure suppression time."
     ),
@@ -66,7 +58,7 @@ def _scene_facts(scene: Scene) -> str:
 _STEP1_SYSTEM = """You decompose a disaster-response command into a task list.
 Output ONLY a JSON object {"tasks": [{"task_type", "target"}, ...]}.
 - task_type is one of the listed types.
-- target is a zone id (for AREA_RECON) or an incident id (for the others).
+- target is a zone id (for AREA_RECON) or an incident id (for the ground steps).
 Do not invent coordinates, priority, capabilities, durations, or ids. Priority is
 assigned later from the scene. Do not add edges here. A conditional clause about
 a FUTURE detected/reported incident is stored separately as a session policy:

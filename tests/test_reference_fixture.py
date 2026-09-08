@@ -18,10 +18,10 @@ def loaded():
 
 def test_gate3_fixture_matches_fixed_shape(loaded):
     g = loaded.graph
-    assert len(g) == 12
-    assert len(g.edges) == 6
+    assert len(g) == 8
+    assert len(g.edges) == 2
     assert len(g.ids_with_status(TaskStatus.READY)) == 6
-    assert len(g.ids_with_status(TaskStatus.PENDING)) == 6
+    assert len(g.ids_with_status(TaskStatus.PENDING)) == 2
 
 
 def test_gate3_frontier_composition(loaded):
@@ -32,8 +32,8 @@ def test_gate3_frontier_composition(loaded):
         TaskType.AREA_RECON,
         TaskType.AREA_RECON,
         TaskType.AREA_RECON,
-        TaskType.THERMAL_RECON,
-        TaskType.THERMAL_RECON,
+        TaskType.GROUND_INSPECTION,
+        TaskType.GROUND_INSPECTION,
     ]
 
 
@@ -55,7 +55,7 @@ def test_gate4_edges_reference_existing_tasks_and_no_self_loop(loaded):
 def test_gate4_graph_is_acyclic(loaded):
     assert not loaded.graph.has_cycle()
     # topological_order raises on a cycle; here it must succeed over all 12 tasks.
-    assert len(loaded.graph.topological_order()) == 12
+    assert len(loaded.graph.topological_order()) == 8
 
 
 def test_gate5_all_ugv_task_access_nodes_reachable(loaded):
@@ -66,9 +66,7 @@ def test_gate5_all_ugv_task_access_nodes_reachable(loaded):
 def test_eligible_bidder_counts_are_at_least_two(loaded):
     counts = eligible_bidder_counts(loaded.scene)
     assert counts == {
-        TaskType.AREA_RECON: 2,
-        TaskType.THERMAL_RECON: 4,
-        TaskType.SUPPRESSANT_DROP: 2,
+        TaskType.AREA_RECON: 3,
         TaskType.GROUND_INSPECTION: 2,
         TaskType.GROUND_SUPPRESSION: 2,
     }
@@ -82,7 +80,7 @@ def test_priority_is_scene_derived(loaded):
 
     g = loaded.graph
     for iid, want in (("FIRE_SITE_1", 9), ("FIRE_SITE_2", 7)):
-        for tt in ("THERMAL_RECON", "SUPPRESSANT_DROP", "GROUND_INSPECTION", "GROUND_SUPPRESSION"):
+        for tt in ("GROUND_INSPECTION", "GROUND_SUPPRESSION"):
             assert g[f"{tt}__{iid}"].priority == want
     for zid in ("ZONE_A", "ZONE_B", "ZONE_C", "ZONE_D"):
         assert g[f"AREA_RECON__{zid}"].priority == AREA_RECON_PRIORITY
@@ -94,7 +92,7 @@ def test_retired_task_type_is_rejected():
 
     _, errors = MissionCandidate.from_raw(
         {
-            "tasks": [{"task_type": "HAZARD_MARKER_DEPLOY", "target": "FIRE_SITE_1"}],
+            "tasks": [{"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"}],
             "edges": [],
         }
     )

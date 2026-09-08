@@ -58,12 +58,6 @@ TASK_TABLE: dict[TaskType, TaskSpec] = {
     TaskType.AREA_RECON: TaskSpec(
         frozenset({Capability.AERIAL_RECON}), UAV, 40.0, "zone"
     ),
-    TaskType.THERMAL_RECON: TaskSpec(
-        frozenset({Capability.THERMAL_SENSOR}), UAV, 30.0, "incident"
-    ),
-    TaskType.SUPPRESSANT_DROP: TaskSpec(
-        frozenset({Capability.SUPPRESSANT_PAYLOAD}), UAV, 25.0, "incident"
-    ),
     TaskType.GROUND_INSPECTION: TaskSpec(
         frozenset({Capability.GROUND_MOBILITY}), UGV, 35.0, "incident"
     ),

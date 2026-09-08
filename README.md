@@ -32,7 +32,7 @@ P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/r
 P6.5 통합 runner(D-025, D-026): 대표 명령 A1/B1/C1. NL → `generate_mission`(RQ1) →
 검증된 graph가 `allocate`(plan-time CBBA)와 `SimExecutor`(event-driven 실행)로 **각각**
 들어간다(fork — allocate 결과는 executor에 전달 안 됨). 3/3 demo_pass(annotation
-exact-match + 무위반 완주), A1(=P1 fixture graph)은 P3/P4 골든 makespan(359.8/257.9)과
+exact-match + 무위반 완주), A1(=P1 fixture graph)은 P3/P4 골든 makespan(150.8/149.9, D-060+D-061)과
 graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —

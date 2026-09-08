@@ -11,7 +11,7 @@ def make_agent(**overrides) -> Agent:
     base = dict(
         agent_id="S1",
         platform_kind=PlatformKind.UAV,
-        capabilities=frozenset({Capability.AERIAL_RECON, Capability.THERMAL_SENSOR}),
+        capabilities=frozenset({Capability.AERIAL_RECON}),
         initial_position=(0.0, 0.0),
         position=(0.0, 0.0),
         speed=5.0,
@@ -23,7 +23,7 @@ def make_agent(**overrides) -> Agent:
 def test_enums_are_plain_strings():
     # Python 3.10 str-mixin pattern: value compares equal to the bare string.
     assert Capability.AERIAL_RECON == "AERIAL_RECON"
-    assert TaskType.SUPPRESSANT_DROP == "SUPPRESSANT_DROP"
+    assert TaskType.GROUND_INSPECTION == "GROUND_INSPECTION"
     assert PlatformKind.UGV == "UGV"
 
 

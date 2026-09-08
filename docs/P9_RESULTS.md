@@ -1,5 +1,13 @@
 # P9 실행 중 명령과 선택적 재할당 결과
 
+> **D-060+D-061 주의**: 아래 본문은 D-060 이전 fleet(2/2/2)·5종 어휘 기준이다. 현재
+> fleet은 UAV 3(동일)+UGV 2, 어휘는 3종(`GROUND_INSPECTION → GROUND_SUPPRESSION`).
+> `data/online_reallocation_fixture.yaml`은 3종으로 재작성됐고 `evaluation.online_reallocation`
+> 재실행 시 checkpoint_event=1(t=44.507, `AREA_RECON__ZONE_C` 완료), release
+> no-reset 0 / selective 3(GI__FS2,4,5) / full-reset 4(+AREA_RECON__ZONE_D), suffix_extra 0,
+> 세 정책 모두 COMPLETED·위반 0·makespan 413.981s. 정식 재작성은 P9 재실행 시.
+
+
 재현 기준: 계약 v1.39 / D-042, `ONLINE_POLICY_VERSION=1.0`, `VALIDATOR_VERSION=1.4`.
 
 ## 구현 범위

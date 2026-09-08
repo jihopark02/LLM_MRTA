@@ -79,8 +79,8 @@ def test_one_uav_constraint_changes_the_active_team_and_assignment(scene):
         ResourceRequest(uav=CountConstraint(exact=1), ugv=CountConstraint(exact=0)),
     )
 
-    assert resolved.active_agents == ("S1",)
-    assert set(resolved.plan.assignments.values()) == {"S1"}
+    assert resolved.active_agents == ("U1",)
+    assert set(resolved.plan.assignments.values()) == {"U1"}
     assert len(resolved.plan.assignments) == 4
 
 
@@ -130,12 +130,12 @@ def test_new_mission_commits_the_resolved_team_and_audits_it(scene):
     result = handle_turn(session, "UAV 한 대로 전체 구역을 정찰해줘", backend)
 
     assert result.outcome is TurnOutcome.COMMITTED
-    assert session.active_team == ("S1",)
+    assert session.active_team == ("U1",)
     assert set(session.state.agents) == {agent.agent_id for agent in scene.fleet}
-    assert set(session.plan.assignments.values()) == {"S1"}
+    assert set(session.plan.assignments.values()) == {"U1"}
     audit = result.audit.resource_resolution
     assert audit is not None
-    assert audit.active_team == ["S1"]
+    assert audit.active_team == ["U1"]
     assert audit.error_code is None
 
 

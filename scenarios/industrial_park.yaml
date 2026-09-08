@@ -57,11 +57,10 @@ route_graph:
     - [R_MID, R_B]
     - [R_MID, R_D]
 
-# 6 agents, fixed 2/2/2 (contract §5).
+# 5 agents: identical UAV x3 {AERIAL_RECON} + UGV x2 (§5, D-060/D-061).
 fleet:
-  - { agent_id: S1, platform_kind: UAV, capabilities: [AERIAL_RECON, THERMAL_SENSOR],       position: [10.0, 10.0], speed: 8.0 }
-  - { agent_id: S2, platform_kind: UAV, capabilities: [AERIAL_RECON, THERMAL_SENSOR],       position: [10.0, 10.0], speed: 8.0 }
-  - { agent_id: R1, platform_kind: UAV, capabilities: [THERMAL_SENSOR, SUPPRESSANT_PAYLOAD], position: [10.0, 10.0], speed: 7.0 }
-  - { agent_id: R2, platform_kind: UAV, capabilities: [THERMAL_SENSOR, SUPPRESSANT_PAYLOAD], position: [10.0, 10.0], speed: 7.0 }
+  - { agent_id: U1, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [10.0, 10.0], speed: 8.0 }
+  - { agent_id: U2, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [10.0, 10.0], speed: 8.0 }
+  - { agent_id: U3, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [10.0, 10.0], speed: 8.0 }
   - { agent_id: G1, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR],   access_node: R_DEPOT, speed: 3.0 }
   - { agent_id: G2, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR],   access_node: R_C,     speed: 3.0 }

@@ -23,8 +23,6 @@ def test_precommitted_counterfactual_has_all_policy_depths_and_two_zones():
 
     assert [case.expected_policy for case in annotation.policy_cases] == [
         None,
-        "THERMAL_RECON",
-        "SUPPRESSANT_DROP",
         "GROUND_INSPECTION",
         "GROUND_SUPPRESSION",
     ]
@@ -32,8 +30,6 @@ def test_precommitted_counterfactual_has_all_policy_depths_and_two_zones():
         0,
         1,
         2,
-        3,
-        4,
     ]
     assert {case.expected_zone for case in annotation.report_cases} == {
         "ZONE_A",
@@ -50,7 +46,7 @@ def test_mock_self_test_is_eight_of_eight_and_retains_raw_session_audits():
         requested_model=None,
     )
 
-    assert run.exact_count == len(run.cases) == 8
+    assert run.exact_count == len(run.cases) == 6
     assert {case.termination for case in run.cases if case.family != "unsupported"} == {
         "COMPLETED"
     }
@@ -62,8 +58,6 @@ def test_mock_self_test_is_eight_of_eight_and_retains_raw_session_audits():
     ]
     assert policies == [
         None,
-        "THERMAL_RECON",
-        "SUPPRESSANT_DROP",
         "GROUND_INSPECTION",
         "GROUND_SUPPRESSION",
     ]
@@ -89,7 +83,7 @@ def test_heldout_paraphrases_were_precommitted_and_do_not_repeat_first_pass():
         return values
 
     assert commands(first).isdisjoint(commands(heldout))
-    assert len(heldout.policy_cases) == 5
+    assert len(heldout.policy_cases) == 3
     assert len(heldout.report_cases) == 2
     assert len(heldout.unsupported_cases) == 1
 
@@ -102,7 +96,7 @@ def test_heldout_annotation_mock_self_test_is_eight_of_eight():
         requested_model=None,
     )
 
-    assert run.exact_count == len(run.cases) == 8
+    assert run.exact_count == len(run.cases) == 6
     assert all(not case.capability_violations for case in run.cases)
     assert all(not case.precedence_violations for case in run.cases)
 
@@ -112,7 +106,7 @@ def test_report_case_scores_the_requested_workflow_prefix_not_always_full_chain(
 ):
     raw = yaml.safe_load(HELDOUT.read_text(encoding="utf-8"))
     raw["report_cases"] = [raw["report_cases"][0]]
-    raw["report_cases"][0]["expected_response_up_to"] = "THERMAL_RECON"
+    raw["report_cases"][0]["expected_response_up_to"] = "GROUND_INSPECTION"
     path = tmp_path / "short-report.yaml"
     path.write_text(yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
     annotation = load_annotation(path)
@@ -125,8 +119,8 @@ def test_report_case_scores_the_requested_workflow_prefix_not_always_full_chain(
     report = next(case for case in run.cases if case.family == "operator-report")
 
     assert report.exact
-    assert report.expected["response_tasks"] == ["THERMAL_RECON"]
-    assert report.actual["response_tasks"] == ["THERMAL_RECON"]
+    assert report.expected["response_tasks"] == ["GROUND_INSPECTION"]
+    assert report.actual["response_tasks"] == ["GROUND_INSPECTION"]
 
 
 @pytest.mark.parametrize(

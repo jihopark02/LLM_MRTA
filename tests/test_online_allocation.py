@@ -86,7 +86,7 @@ def test_online_patch_is_atomic_and_preserves_completed_and_running_tasks():
     assert _assignment_invariant_errors(result.executor.work) == []
 
 
-def test_selective_policy_releases_affected_uav_suffix_and_not_running_task():
+def test_selective_policy_does_not_touch_running_or_bidder_disjoint_tasks():
     executor, scene = _paused_reference()
     updated_scene, patch = _new_fire_patch(executor, scene)
     running = {
@@ -97,13 +97,13 @@ def test_selective_policy_releases_affected_uav_suffix_and_not_running_task():
 
     result = apply_online_patch(executor, patch, updated_scene)
 
-    assert result.new_ready_tasks == ("THERMAL_RECON__FIRE_SITE_3",)
-    assert result.directly_affected_tasks
-    assert result.released_tasks
+    assert result.new_ready_tasks == ("GROUND_INSPECTION__FIRE_SITE_3",)
+    # D-061: the new incident's GROUND_INSPECTION (UGV) shares no bidder with the
+    # unstarted AREA_RECON (UAV), so selective release touches nothing here.
+    assert result.released_tasks == ()
     assert running.isdisjoint(result.released_tasks)
     assert running <= result.preserved_active_assignments.keys()
-    assert set(result.released_tasks).isdisjoint(result.preserved_active_assignments)
-    assert "THERMAL_RECON__FIRE_SITE_3" in result.after_assignments
+    assert "GROUND_INSPECTION__FIRE_SITE_3" in result.after_assignments
 
 
 def test_no_reset_full_reset_and_selective_have_distinct_release_contracts():
@@ -123,6 +123,10 @@ def test_no_reset_full_reset_and_selective_have_distinct_release_contracts():
     assert no_reset.released_tasks == ()
     assert set(selective.released_tasks) <= set(full.released_tasks)
     assert set(full.released_tasks) == {
+        task.task_id for task in executor.graph.tasks if task.status is TaskStatus.ASSIGNED
+    }
+    # full-reset drops the unstarted AREA_RECON; selective keeps it (bidder-disjoint)
+    assert set(full.released_tasks) - set(selective.released_tasks) == {
         task.task_id for task in executor.graph.tasks if task.status is TaskStatus.ASSIGNED
     }
 
@@ -149,7 +153,7 @@ def test_online_selective_execution_resumes_and_finishes_without_violations():
     result = resumed.run()
 
     assert result.termination is Termination.COMPLETED
-    assert len(result.completed) == 16
+    assert len(result.completed) == 10
     assert result.capability_violations == []
     assert result.precedence_violations == []
     assert _assignment_invariant_errors(resumed.work) == []
@@ -166,17 +170,23 @@ def test_online_selective_execution_resumes_and_finishes_without_violations():
 
 
 def _hand_built_mixed_bundle():
-    """An agent holding an affected task ahead of an unaffected one."""
+    """An agent holding an affected task ahead of an unaffected one.
+
+    D-060's identical UAVs never produce a mixed bundle on a reachable path
+    (every aerial task shares the same bidder union), so this state is forced
+    by hand purely to exercise the suffix helper's branch.
+    """
     executor, _ = _paused_reference()
-    assigned = sorted(
-        task.task_id
-        for task in executor.graph.tasks
-        if task.status is TaskStatus.ASSIGNED
-    )
-    owner = next(
-        aid for aid, agent in executor.agents.items() if len(agent.bundle) >= 2
-    )
-    return executor, owner, assigned
+    owner = "U3"
+    head, tail = "AREA_RECON__ZONE_A", "AREA_RECON__ZONE_C"
+    for task_id in (head, tail):
+        executor.graph[task_id].status = TaskStatus.ASSIGNED
+        executor.graph[task_id].assigned_agent = owner
+        executor.assignments[task_id] = owner
+        executor.winning_bids[task_id] = 1.0
+    executor.agents[owner].bundle = [head, tail]
+    executor.agents[owner].path = [head, tail]
+    return executor, owner, [head, tail]
 
 
 def test_suffix_releases_an_unaffected_task_queued_behind_an_affected_one():
@@ -224,6 +234,6 @@ def test_the_frozen_path_never_reaches_the_suffix_extension():
 
     result = apply_online_patch(executor, patch, updated_scene)
 
-    assert result.new_ready_tasks == ("THERMAL_RECON__FIRE_SITE_3",)
+    assert result.new_ready_tasks == ("GROUND_INSPECTION__FIRE_SITE_3",)
     assert set(result.released_tasks) == set(result.directly_affected_tasks)
     assert not set(result.released_tasks) - set(result.directly_affected_tasks)

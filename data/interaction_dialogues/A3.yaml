@@ -5,7 +5,7 @@ shape: QUERY
 rationale: Full-response 계획에서 명시 incident 조회와 전체 incident 목록 조회를 구분한다.
 turns:
   - input_kind: NATURAL_LANGUAGE
-    utterance: 모든 구역을 살피고 두 화재 모두 열원 확인부터 지상 진압까지 전부 수행해줘.
+    utterance: 모든 구역을 살피고 두 화재 모두 지상 점검부터 지상 진압까지 수행해줘.
     intent: {kind: NEW_MISSION}
     outcome: COMMITTED
   - input_kind: NATURAL_LANGUAGE
@@ -20,6 +20,6 @@ turns:
 initial_graph: &initial
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:
-    FIRE_SITE_1: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
-    FIRE_SITE_2: [THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION]
+    FIRE_SITE_1: [GROUND_INSPECTION, GROUND_SUPPRESSION]
+    FIRE_SITE_2: [GROUND_INSPECTION, GROUND_SUPPRESSION]
 final_graph: *initial

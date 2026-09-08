@@ -33,6 +33,20 @@ def test_native_default_is_scenario_free_live_world(tmp_path):
     assert controller.mock_commands == ()
 
 
+def test_dynamic_district_is_an_incident_empty_eight_zone_live_world(tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="dynamic-district"
+    )
+
+    assert controller.mode == "live"
+    assert controller.fixture_id is None
+    assert controller.mock_commands == ()
+    assert controller.session.scene.scene_id == "response_district_patrol"
+    assert controller.session.scene.incidents == {}
+    assert len(controller.session.scene.zones) == 8
+    assert controller.session.state is None
+
+
 def test_dynamic_world_never_falls_back_to_a_mock_mission(tmp_path):
     controller = DesktopController(runtime_root=tmp_path, frame_count=4)
     controller.set_mode("mock")
@@ -114,8 +128,8 @@ def test_mock_mission_uses_the_existing_orchestrator_and_writes_audit(tmp_path):
 
     assert controller.session is session
     assert result.outcome.value == "COMMITTED"
-    assert len(session.state.graph.tasks) == 12
-    assert len(session.state.graph.edges) == 6
+    assert len(session.state.graph.tasks) == 8
+    assert len(session.state.graph.edges) == 2
     assert session.plan.allocation_success
     audit = controller.audit_directory / f"{session.session_id}.json"
     assert audit.is_file()
@@ -152,14 +166,14 @@ def test_structured_candidate_and_online_update_enter_the_next_segment(tmp_path)
         for task in controller.session.state.graph.tasks
         if task.target == "FIRE_SITE_3"
     }
-    assert len(added) == 4
+    assert len(added) == 2
     presentation = controller.advance_checkpoint()
     shown = {
         leg.task_id
         for frame in presentation.playback.frames
         for leg in frame.map_spec.legs
     }
-    ready_added = {task_id for task_id in added if task_id.startswith("THERMAL_RECON")}
+    ready_added = {task_id for task_id in added if task_id.startswith("GROUND_INSPECTION")}
     assert ready_added <= shown
     assert controller.current_map_spec().mode == "runtime"
 
@@ -206,7 +220,7 @@ def test_queued_command_does_not_call_backend_until_safe_checkpoint(tmp_path):
     assert controller.queued_command is None
     assert len(backend.calls) == calls_before + 1
     assert controller.session.turn_count == turns_before + 1
-    assert len(controller.session.state.graph) == 8
+    assert len(controller.session.state.graph) == 6
 
 
 @pytest.mark.parametrize("mode", ["", "LIVE", "fake", None])
@@ -247,7 +261,7 @@ def test_sensor_scenario_reveals_fixture_once_and_adds_response_in_one_event(tmp
     assert observation.outcome == "COMMITTED"
     assert observation.zone_id == "ZONE_B"
     assert observation.online_reallocation is not None
-    assert len(controller.session.state.graph) == 8
+    assert len(controller.session.state.graph) == 6
     assert {task.target for task in controller.session.state.graph.tasks} >= {
         "FIRE_SITE_1"
     }
@@ -298,7 +312,7 @@ def test_operator_scenario_changes_online_assignment_from_one_natural_turn(tmp_p
     assert result.audit.incident_action.response_up_to == "GROUND_SUPPRESSION"
     assert result.audit.online_reallocation is not None
     assert controller.session.runtime is not runtime_before
-    assert len(controller.session.state.graph) == 8
+    assert len(controller.session.state.graph) == 6
 
 
 def test_switching_scenario_replaces_scene_fixture_backend_and_session(tmp_path):

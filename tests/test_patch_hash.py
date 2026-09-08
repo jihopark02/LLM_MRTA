@@ -22,9 +22,8 @@ from validator.patch_apply import apply_patch
 
 SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
 
-TR_F1 = (TaskType.THERMAL_RECON, "FIRE_SITE_1")
-SD_F1 = (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1")
 GI_F1 = (TaskType.GROUND_INSPECTION, "FIRE_SITE_1")
+GS_F1 = (TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1")
 
 
 @pytest.fixture(scope="module")
@@ -56,23 +55,25 @@ def test_validator_version_is_1_4():
 
 
 def test_accepted_patch_records_both_hashes(scene):
-    st = state_of(scene, [TR_F1])
-    _, r = apply_patch(st, MissionPatch([AddTask(*SD_F1), AddEdge(TR_F1, SD_F1)]), scene)
+    st = state_of(scene, [GI_F1])
+    _, r = apply_patch(st, MissionPatch([AddTask(*GS_F1), AddEdge(GI_F1, GS_F1)]), scene)
     assert r.accepted
     assert len(r.patch_hash) == 64 and len(r.pre_state_hash) == 64
 
 
 def test_patch_hash_is_independent_of_operation_order(scene):
-    st = state_of(scene, [TR_F1])
-    ops = [AddTask(*SD_F1), AddEdge(TR_F1, SD_F1)]
+    st = state_of(scene, [GI_F1])
+    ops = [AddTask(*GS_F1), AddEdge(GI_F1, GS_F1)]
     _, a = apply_patch(st, MissionPatch(list(ops)), scene)
     _, b = apply_patch(st, MissionPatch(list(reversed(ops))), scene)
     assert a.patch_hash == b.patch_hash
 
 
 def test_different_operations_hash_differently(scene):
-    st = state_of(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
-    _, a = apply_patch(st, MissionPatch([AddTask(*GI_F1), AddEdge(SD_F1, GI_F1)]), scene)
+    st = state_of(scene, [GI_F1], [])
+    _, a = apply_patch(
+        st, MissionPatch([AddTask(*GS_F1), AddEdge(GI_F1, GS_F1)]), scene
+    )
     _, b = apply_patch(st, MissionPatch([AddTask(TaskType.AREA_RECON, "ZONE_A")]), scene)
     assert a.accepted and b.accepted
     assert a.patch_hash != b.patch_hash
@@ -80,7 +81,7 @@ def test_different_operations_hash_differently(scene):
 
 def test_same_patch_on_a_different_base_graph_hashes_differently(scene):
     patch = MissionPatch([AddTask(TaskType.AREA_RECON, "ZONE_A")])
-    _, a = apply_patch(state_of(scene, [TR_F1]), patch, scene)
+    _, a = apply_patch(state_of(scene, [GI_F1]), patch, scene)
     _, b = apply_patch(state_of(scene, [(TaskType.AREA_RECON, "ZONE_B")]), patch, scene)
     assert a.patch_hash != b.patch_hash
 
@@ -90,7 +91,7 @@ def test_same_patch_on_a_different_base_graph_hashes_differently(scene):
 
 def test_field_schema_failure_has_no_patch_hash(scene):
     # A malformed op has no safe canonical serialization.
-    st = state_of(scene, [TR_F1])
+    st = state_of(scene, [GI_F1])
     _, r = apply_patch(st, MissionPatch([AddTask("NOT_A_TYPE", "ZONE_A")]), scene)
     assert not r.accepted and ErrorCode.E_SCHEMA in r.error_codes
     assert r.patch_hash is None
@@ -98,15 +99,15 @@ def test_field_schema_failure_has_no_patch_hash(scene):
 
 
 def test_conflict_rejection_records_both_hashes(scene):
-    st = state_of(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
-    _, r = apply_patch(st, MissionPatch([AddEdge(TR_F1, SD_F1)]), scene)
+    st = state_of(scene, [GI_F1, GS_F1], [(GI_F1, GS_F1)])
+    _, r = apply_patch(st, MissionPatch([AddEdge(GI_F1, GS_F1)]), scene)
     assert not r.accepted and ErrorCode.E_PATCH_CONFLICT in r.error_codes
     assert len(r.patch_hash) == 64 and len(r.pre_state_hash) == 64
 
 
 def test_whole_graph_rejection_records_both_hashes(scene):
-    st = state_of(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
-    _, r = apply_patch(st, MissionPatch([RemoveEdge(TR_F1, SD_F1)]), scene)
+    st = state_of(scene, [GI_F1, GS_F1], [(GI_F1, GS_F1)])
+    _, r = apply_patch(st, MissionPatch([RemoveEdge(GI_F1, GS_F1)]), scene)
     assert not r.accepted and ErrorCode.E_WORKFLOW in r.error_codes
     assert len(r.patch_hash) == 64 and len(r.pre_state_hash) == 64
 
@@ -115,11 +116,11 @@ def test_whole_graph_rejection_records_both_hashes(scene):
 
 
 def test_same_graph_and_patch_but_different_status_hash_differently(scene):
-    a = state_of(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
-    b = state_of(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
-    b.graph[tid(SD_F1)].status = TaskStatus.COMPLETED
+    a = state_of(scene, [GI_F1, GS_F1], [(GI_F1, GS_F1)])
+    b = state_of(scene, [GI_F1, GS_F1], [(GI_F1, GS_F1)])
+    b.graph[tid(GS_F1)].status = TaskStatus.COMPLETED
 
-    patch = MissionPatch([AddTask(*GI_F1), AddEdge(SD_F1, GI_F1)])
+    patch = MissionPatch([AddTask(*GI_F1), AddEdge(GS_F1, GI_F1)])
     _, ra = apply_patch(a, patch, scene)
     _, rb = apply_patch(b, patch, scene)
 
@@ -129,15 +130,15 @@ def test_same_graph_and_patch_but_different_status_hash_differently(scene):
 
 def test_pre_state_hash_preserves_bundle_and_path_order(scene):
     # [A, B] and [B, A] are different CBBA execution orders and must not collide.
-    a = state_of(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
-    a.agents["R1"].path = [tid(TR_F1), tid(SD_F1)]
-    b = state_of(scene, [TR_F1, SD_F1], [(TR_F1, SD_F1)])
-    b.agents["R1"].path = [tid(SD_F1), tid(TR_F1)]
+    a = state_of(scene, [GI_F1, GS_F1], [(GI_F1, GS_F1)])
+    a.agents["U1"].path = [tid(GI_F1), tid(GS_F1)]
+    b = state_of(scene, [GI_F1, GS_F1], [(GI_F1, GS_F1)])
+    b.agents["U1"].path = [tid(GS_F1), tid(GI_F1)]
     assert pre_state_hash(a) != pre_state_hash(b)
 
-    a.agents["R1"].bundle = [tid(TR_F1), tid(SD_F1)]
-    b.agents["R1"].bundle = [tid(SD_F1), tid(TR_F1)]
-    b.agents["R1"].path = [tid(TR_F1), tid(SD_F1)]
+    a.agents["U1"].bundle = [tid(GI_F1), tid(GS_F1)]
+    b.agents["U1"].bundle = [tid(GS_F1), tid(GI_F1)]
+    b.agents["U1"].path = [tid(GI_F1), tid(GS_F1)]
     assert pre_state_hash(a) != pre_state_hash(b)
 
 
@@ -145,11 +146,11 @@ def test_pre_state_hash_separates_the_agent_key_from_the_agent_id(scene):
     # §10 rule 6 rejects a state whose agents dict key disagrees with the
     # Agent's own id. Hashing only the key would give that rejected state the
     # same audit hash as the accepted one (§14).
-    ok = state_of(scene, [TR_F1])
-    broken = state_of(scene, [TR_F1])
+    ok = state_of(scene, [GI_F1])
+    broken = state_of(scene, [GI_F1])
     broken.agents["G1"] = replace(broken.agents["G1"], agent_id="BROKEN")
 
-    patch = MissionPatch([AddTask(*SD_F1), AddEdge(TR_F1, SD_F1)])
+    patch = MissionPatch([AddTask(*GS_F1), AddEdge(GI_F1, GS_F1)])
     _, ra = apply_patch(ok, patch, scene)
     _, rb = apply_patch(broken, patch, scene)
 
@@ -160,39 +161,39 @@ def test_pre_state_hash_separates_the_agent_key_from_the_agent_id(scene):
 
 
 def test_pre_state_hash_ignores_agent_dict_order(scene):
-    a = state_of(scene, [TR_F1])
-    b = state_of(scene, [TR_F1])
+    a = state_of(scene, [GI_F1])
+    b = state_of(scene, [GI_F1])
     b.agents = dict(reversed(list(b.agents.items())))
     assert pre_state_hash(a) == pre_state_hash(b)
 
 
 def test_pre_state_hash_tracks_assignment_and_bids(scene):
-    base = state_of(scene, [TR_F1])
+    base = state_of(scene, [GI_F1])
     before = pre_state_hash(base)
 
-    base.graph[tid(TR_F1)].status = TaskStatus.ASSIGNED
-    base.graph[tid(TR_F1)].assigned_agent = "S1"
+    base.graph[tid(GI_F1)].status = TaskStatus.ASSIGNED
+    base.graph[tid(GI_F1)].assigned_agent = "U1"
     assert pre_state_hash(base) != before
 
     with_bid = pre_state_hash(base)
-    base.winning_bids[tid(TR_F1)] = 3.5
+    base.winning_bids[tid(GI_F1)] = 3.5
     assert pre_state_hash(base) != with_bid
 
 
 @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
 def test_non_finite_bid_is_not_auditable(scene, bad):
-    st = state_of(scene, [TR_F1])
-    st.winning_bids[tid(TR_F1)] = bad
+    st = state_of(scene, [GI_F1])
+    st.winning_bids[tid(GI_F1)] = bad
     with pytest.raises(ValueError, match="finite"):
         pre_state_hash(st)
 
 
 def test_float_bids_round_trip_losslessly(scene):
     # float.hex() keeps bids that differ below repr precision distinguishable.
-    a = state_of(scene, [TR_F1])
-    b = state_of(scene, [TR_F1])
-    a.winning_bids[tid(TR_F1)] = 0.1 + 0.2
-    b.winning_bids[tid(TR_F1)] = 0.3
+    a = state_of(scene, [GI_F1])
+    b = state_of(scene, [GI_F1])
+    a.winning_bids[tid(GI_F1)] = 0.1 + 0.2
+    b.winning_bids[tid(GI_F1)] = 0.3
     assert pre_state_hash(a) != pre_state_hash(b)
 
 
@@ -200,7 +201,7 @@ def test_float_bids_round_trip_losslessly(scene):
 
 
 def test_add_task_priority_is_derived_from_the_scene(scene):
-    st = state_of(scene, [TR_F1, SD_F1, GI_F1], [(TR_F1, SD_F1), (SD_F1, GI_F1)])
+    st = state_of(scene, [GI_F1], [])
     new, r = apply_patch(
         st,
         MissionPatch(
@@ -218,20 +219,20 @@ def test_add_task_priority_is_derived_from_the_scene(scene):
 
 
 def test_add_task_on_the_lower_priority_incident_derives_7(scene):
-    tr2 = (TaskType.THERMAL_RECON, "FIRE_SITE_2")
-    st = state_of(scene, [tr2])
+    gi2 = (TaskType.GROUND_INSPECTION, "FIRE_SITE_2")
+    st = state_of(scene, [gi2])
     new, r = apply_patch(
         st,
         MissionPatch(
             [
-                AddTask(TaskType.SUPPRESSANT_DROP, "FIRE_SITE_2"),
-                AddEdge(tr2, (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_2")),
+                AddTask(TaskType.GROUND_SUPPRESSION, "FIRE_SITE_2"),
+                AddEdge(gi2, (TaskType.GROUND_SUPPRESSION, "FIRE_SITE_2")),
             ]
         ),
         scene,
     )
     assert r.accepted, r.rejection_errors
-    assert new.graph["SUPPRESSANT_DROP__FIRE_SITE_2"].priority == 7
+    assert new.graph["GROUND_SUPPRESSION__FIRE_SITE_2"].priority == 7
 
 
 def test_add_task_to_an_operator_style_zone_incident_uses_the_response_point(scene):
@@ -255,21 +256,23 @@ def test_add_task_to_an_operator_style_zone_incident_uses_the_response_point(sce
             ),
         },
     )
-    tr3 = (TaskType.THERMAL_RECON, "FIRE_SITE_3")
-    st = state_of(extended, [tr3])
+    gi3 = (TaskType.GROUND_INSPECTION, "FIRE_SITE_3")
+    st = state_of(extended, [gi3])
     new, r = apply_patch(
         st,
         MissionPatch(
             [
-                AddTask(TaskType.SUPPRESSANT_DROP, "FIRE_SITE_3"),
-                AddEdge(tr3, (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_3")),
+                AddTask(TaskType.GROUND_SUPPRESSION, "FIRE_SITE_3"),
+                AddEdge(gi3, (TaskType.GROUND_SUPPRESSION, "FIRE_SITE_3")),
             ]
         ),
         extended,
     )
     assert r.accepted, r.rejection_errors
-    assert new.graph["SUPPRESSANT_DROP__FIRE_SITE_3"].priority == 7
-    assert new.graph["THERMAL_RECON__FIRE_SITE_3"].position == zone.reported_incident_position
+    assert new.graph["GROUND_SUPPRESSION__FIRE_SITE_3"].priority == 7
+    assert new.graph["GROUND_INSPECTION__FIRE_SITE_3"].position == scene.route_graph.position(
+        zone.reported_incident_access_node
+    )
 
 
 # -- operation dispatch is by type, not by class name -----------------
@@ -281,13 +284,13 @@ def test_canonical_op_handles_a_subclassed_operation(scene):
     class TaggedAddTask(AddTask):
         pass
 
-    st = state_of(scene, [TR_F1])
-    patch = MissionPatch([TaggedAddTask(*SD_F1), AddEdge(TR_F1, SD_F1)])
+    st = state_of(scene, [GI_F1])
+    patch = MissionPatch([TaggedAddTask(*GS_F1), AddEdge(GI_F1, GS_F1)])
     _, r = apply_patch(st, patch, scene)
     assert r.accepted, r.rejection_errors
     assert len(r.patch_hash) == 64
 
-    _, plain = apply_patch(st, MissionPatch([AddTask(*SD_F1), AddEdge(TR_F1, SD_F1)]), scene)
+    _, plain = apply_patch(st, MissionPatch([AddTask(*GS_F1), AddEdge(GI_F1, GS_F1)]), scene)
     assert r.patch_hash == plain.patch_hash  # same operation, same identity
 
 

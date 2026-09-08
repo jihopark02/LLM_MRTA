@@ -1,19 +1,17 @@
 # Canonical reference annotation — fixed BEFORE any LLM call (RESEARCH_CONTRACT.md
-# §12, D-021).
+# §12, D-021, D-061). A `*_chain` is a contiguous prefix of the §4 workflow
+# GROUND_INSPECTION -> GROUND_SUPPRESSION and expands to those tasks plus the
+# sequential edges between them. AREA_RECON is not part of the chain.
 
 id: B2
 family: B
 profile: AERIAL_ONLY
 command: >-
   I only want eyes in the sky right now. Aerial recon across the whole park -
-  every zone - and a thermal pass over each fire site. Nothing on the ground,
-  no drops.
+  every zone. Nothing on the ground.
 rationale: >-
-  "Eyes in the sky", "nothing on the ground, no drops" -> only AREA_RECON
-  (all zones) and THERMAL_RECON (both fires). Same target graph as B1:
-  6 tasks, 0 edges.
+  "Eyes in the sky", "nothing on the ground" -> only AREA_RECON of all four
+  zones. Same target graph as B1: 4 tasks, 0 edges.
 allowed_graphs:
   - recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
-    incident_chains:
-      FIRE_SITE_1: [THERMAL_RECON]
-      FIRE_SITE_2: [THERMAL_RECON]
+    incident_chains: {}

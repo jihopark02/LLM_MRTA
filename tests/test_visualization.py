@@ -147,7 +147,7 @@ def test_rows_are_targets_and_columns_are_workflow_steps(graph):
     assert spec.row_labels[:4] == ("ZONE_A", "ZONE_B", "ZONE_C", "ZONE_D")
     assert spec.row_labels[4:] == ("FIRE_SITE_1", "FIRE_SITE_2")
     chain = [n for n in spec.nodes if n.target == "FIRE_SITE_1"]
-    assert sorted(n.x for n in chain) == [0.0, 1.0, 2.0, 3.0]
+    assert sorted(n.x for n in chain) == [0.0, 1.0]
 
 
 def test_incident_rows_sort_naturally_not_lexicographically(scene):
@@ -159,7 +159,7 @@ def test_incident_rows_sort_naturally_not_lexicographically(scene):
     from core.mission_state import MissionState
     from scenarios.compiler import compile_reference_graph
 
-    specs = [(TaskType.THERMAL_RECON, iid) for iid in scene.incidents]
+    specs = [(TaskType.GROUND_INSPECTION, iid) for iid in scene.incidents]
     built = compile_reference_graph(scene, specs, [])
     spec = dag_render_spec(MissionState(built, {}).graph)
     assert spec.row_labels[-3:] == ("FIRE_SITE_9", "FIRE_SITE_10", "FIRE_SITE_11")
@@ -243,7 +243,7 @@ def test_row_order_does_not_depend_on_the_hash_seed():
         "i=dict(s.incidents);"
         "i['FIRE_SITE_02']=dataclasses.replace(i['FIRE_SITE_2'],incident_id='FIRE_SITE_02');"
         "s=dataclasses.replace(s,incidents=i);"
-        "g=compile_reference_graph(s,[(TaskType.THERMAL_RECON,x) "
+        "g=compile_reference_graph(s,[(TaskType.GROUND_INSPECTION,x) "
         "for x in ('FIRE_SITE_2','FIRE_SITE_02')],[]);"
         "print(dag_render_spec(g).row_labels)"
     )
@@ -377,7 +377,7 @@ def test_a_large_scene_stays_within_the_height_cap(scene):
     for _ in range(40):
         scene, _ = register_incident(scene, "ZONE_A")
     built = compile_reference_graph(
-        scene, [(TaskType.THERMAL_RECON, iid) for iid in scene.incidents], []
+        scene, [(TaskType.GROUND_INSPECTION, iid) for iid in scene.incidents], []
     )
     figure = render_task_graph(dag_render_spec(MissionState(built, {}).graph))
     try:
@@ -649,7 +649,7 @@ def _hand_built_map(mode="execution", legs=None):
             AgentMapSpec("A1", PlatformKind.UAV, "#111111", (0.0, 0.0)),
             AgentMapSpec("A2", PlatformKind.UGV, "#222222", (10.0, 0.0)),
         ),
-        task_points=(MapPointSpec("T1", 10.0, 10.0, "task", "THERMAL"),),
+        task_points=(MapPointSpec("T1", 10.0, 10.0, "task", "INSPECT"),),
         legs=(
             (MapLegSpec("A1", "T1", 0, ((0.0, 0.0), (10.0, 10.0)), "completed"),)
             if legs is None

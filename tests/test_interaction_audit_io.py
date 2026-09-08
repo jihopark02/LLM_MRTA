@@ -25,7 +25,7 @@ from llm.schemas import LLMEdge, LLMTask, Step1Output, Step2Output
 from scenarios.scene import load_scene
 
 SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
-CHAIN = ["THERMAL_RECON", "SUPPRESSANT_DROP", "GROUND_INSPECTION", "GROUND_SUPPRESSION"]
+CHAIN = ["GROUND_INSPECTION", "GROUND_SUPPRESSION"]
 
 
 @pytest.fixture
@@ -54,8 +54,8 @@ def seven_turn_session(scene):
             intent("NEW_MISSION"),
             Step1Output(tasks=[LLMTask(task_type=t, target="FIRE_SITE_1") for t in steps]),
             Step2Output(edges=[LLMEdge(
-                predecessor="THERMAL_RECON:FIRE_SITE_1",
-                successor="SUPPRESSANT_DROP:FIRE_SITE_1",
+                predecessor="GROUND_INSPECTION:FIRE_SITE_1",
+                successor="GROUND_SUPPRESSION:FIRE_SITE_1",
             )]),
         ])),
         ("그 화재 진압까지", MockBackend([

@@ -18,14 +18,14 @@ def scene():
 def test_scene_loads_expected_vocabulary(scene):
     assert set(scene.zones) == {"ZONE_A", "ZONE_B", "ZONE_C", "ZONE_D"}
     assert set(scene.incidents) == {"FIRE_SITE_1", "FIRE_SITE_2"}
-    assert {a.agent_id for a in scene.fleet} == {"S1", "S2", "R1", "R2", "G1", "G2"}
+    assert {a.agent_id for a in scene.fleet} == {"U1", "U2", "U3", "G1", "G2"}
 
 
-def test_fleet_is_two_two_two(scene):
+def test_fleet_is_three_uav_two_ugv(scene):
     by_kind: dict[PlatformKind, int] = {}
     for a in scene.fleet:
         by_kind[a.platform_kind] = by_kind.get(a.platform_kind, 0) + 1
-    assert by_kind == {PlatformKind.UAV: 4, PlatformKind.UGV: 2}
+    assert by_kind == {PlatformKind.UAV: 3, PlatformKind.UGV: 2}
 
 
 def test_ugv_position_is_taken_from_its_route_node(scene):
@@ -130,9 +130,9 @@ def test_non_positive_agent_speed_is_rejected(tmp_path):
 
 def test_eligible_agents_filters_by_platform_and_capability(scene):
     responders = scene.eligible_agents(
-        frozenset({Capability.SUPPRESSANT_PAYLOAD}), frozenset({PlatformKind.UAV})
+        frozenset({Capability.AERIAL_RECON}), frozenset({PlatformKind.UAV})
     )
-    assert {a.agent_id for a in responders} == {"R1", "R2"}
+    assert {a.agent_id for a in responders} == {"U1", "U2", "U3"}
 
 
 def test_incident_referencing_unknown_zone_is_rejected(tmp_path):

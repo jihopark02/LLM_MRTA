@@ -4,8 +4,8 @@ Release the unstarted assignments whose eligible bidders overlap the new READY
 tasks', then rebid them together.  Step 3 also carries any assignment queued
 *behind* an affected one in the same bundle — a conservative rule that protects
 bundle prefix commitments, and **not a demonstrated result**: on the paths the
-fixture and tests cover (a new incident's whole chain, so only THERMAL_RECON is
-immediately READY and its bidders are every UAV) no mixed affected/unaffected
+fixture and tests cover (a new incident's whole chain, so only GROUND_INSPECTION
+is immediately READY and its bidders are every UGV) no mixed affected/unaffected
 bundle arose and ``released == directly_affected``.  Whether some other update —
 extending an existing incident's partial workflow, say — can reach a mixed
 bundle is untested, not disproved (§19.3, D-041/D-042).

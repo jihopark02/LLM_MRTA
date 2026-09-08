@@ -93,11 +93,11 @@ def _fingerprint(executor: SimExecutor):
 
 def test_checkpoint_preserves_active_team_separately_from_full_roster(scene):
     state = _paused_patrol(scene).work
-    executor = SimExecutor(state, scene, active_agent_ids=("S1",))
+    executor = SimExecutor(state, scene, active_agent_ids=("U1",))
 
     restored = SimExecutor.from_checkpoint(executor.checkpoint(), scene)
 
-    assert restored.active_agent_ids == ("S1",)
+    assert restored.active_agent_ids == ("U1",)
     assert set(restored.agents) == {agent.agent_id for agent in scene.fleet}
 
 
@@ -115,7 +115,7 @@ def test_runtime_update_excludes_running_agent_only_after_its_commitment(scene):
         ResourceRequest(
             uav=CountConstraint(exact=1),
             ugv=CountConstraint(exact=0),
-            excluded_agents=("S2",),
+            excluded_agents=("U2",),
         ),
     )
 
@@ -167,17 +167,16 @@ def test_planning_turn_replaces_policy_and_plan_but_keeps_full_roster(scene):
     )
 
     assert result.outcome is TurnOutcome.COMMITTED
-    assert session.active_team == ("S1",)
+    assert session.active_team == ("U1",)
     assert set(session.state.agents) == {agent.agent_id for agent in scene.fleet}
-    assert set(session.plan.assignments.values()) == {"S1"}
+    assert set(session.plan.assignments.values()) == {"U1"}
     assert session.resource_request.uav.exact == 1
     assert result.audit.resource_resolution.previous_active_team == [
         "G1",
         "G2",
-        "R1",
-        "R2",
-        "S1",
-        "S2",
+        "U1",
+        "U2",
+        "U3",
     ]
 
 
@@ -193,14 +192,14 @@ def test_paused_turn_replaces_team_without_changing_running_commitment(scene):
 
     result = handle_turn(
         session,
-        "이제 UAV 한 대만 사용하고 S2는 제외해줘",
+        "이제 UAV 한 대만 사용하고 U2는 제외해줘",
         MockBackend(
             [
                 wire_intent(
                     "UPDATE_RESOURCES",
                     uav_exact=1,
                     ugv_exact=0,
-                    excluded_agents=["S2"],
+                    excluded_agents=["U2"],
                 )
             ]
         ),
@@ -208,8 +207,8 @@ def test_paused_turn_replaces_team_without_changing_running_commitment(scene):
 
     assert result.outcome is TurnOutcome.COMMITTED
     assert session.runtime is not runtime_before
-    assert session.active_team == ("S1",)
-    assert result.audit.resource_resolution.deferred_exclusions == ["S2"]
+    assert session.active_team == ("U1",)
+    assert result.audit.resource_resolution.deferred_exclusions == ["U2", "U3"]
     for aid, task_id in running_before.items():
         task = session.runtime.graph[task_id]
         assert task.status is TaskStatus.RUNNING
@@ -262,7 +261,7 @@ def test_one_shot_execution_obeys_selected_team_not_full_roster(scene):
     audit = execute_session(session, mode="mock")
 
     assert audit.execution_termination == "COMPLETED"
-    assert set(audit.execution_assignments.values()) == {"S1"}
+    assert set(audit.execution_assignments.values()) == {"U1"}
 
 
 def test_report_and_resource_request_commit_as_one_planning_transaction(scene):
@@ -270,15 +269,14 @@ def test_report_and_resource_request_commit_as_one_planning_transaction(scene):
 
     result = handle_turn(
         session,
-        "Warehouse에 화재가 났어. UAV 한 대로 열화상 확인까지 해줘",
+        "Warehouse에 화재가 났어. UGV 한 대로 지상 점검까지 해줘",
         MockBackend(
             [
                 wire_intent(
                     "REPORT_INCIDENT",
                     zone_ref="Warehouse",
-                    response_up_to="THERMAL_RECON",
-                    uav_exact=1,
-                    ugv_exact=0,
+                    response_up_to="GROUND_INSPECTION",
+                    ugv_exact=1,
                 )
             ]
         ),
@@ -286,10 +284,10 @@ def test_report_and_resource_request_commit_as_one_planning_transaction(scene):
 
     assert result.outcome is TurnOutcome.COMMITTED
     assert "FIRE_SITE_3" in session.scene.incidents
-    assert "THERMAL_RECON__FIRE_SITE_3" in session.state.graph
-    assert session.active_team == ("S1",)
-    assert set(session.plan.assignments.values()) == {"S1"}
-    assert result.audit.resource_resolution.active_team == ["S1"]
+    assert "GROUND_INSPECTION__FIRE_SITE_3" in session.state.graph
+    ugvs = {a for a in session.active_team if a.startswith("G")}
+    assert len(ugvs) == 1
+    assert "GROUND_INSPECTION__FIRE_SITE_3" in session.plan.assignments
 
 
 def test_report_and_resource_request_commit_as_one_paused_transaction(scene):
@@ -303,26 +301,24 @@ def test_report_and_resource_request_commit_as_one_paused_transaction(scene):
 
     result = handle_turn(
         session,
-        "Warehouse에 화재가 났어. UAV 한 대로 열화상 확인까지 해줘",
+        "Warehouse에 화재가 났어. UGV 한 대로 지상 점검까지 해줘. G2는 제외해",
         MockBackend(
             [
                 wire_intent(
                     "REPORT_INCIDENT",
                     zone_ref="Warehouse",
-                    response_up_to="THERMAL_RECON",
-                    uav_exact=1,
-                    ugv_exact=0,
-                    excluded_agents=["S2"],
+                    response_up_to="GROUND_INSPECTION",
+                    ugv_exact=1,
+                    excluded_agents=["G2"],
                 )
             ]
         ),
     )
 
     assert result.outcome is TurnOutcome.COMMITTED
-    assert session.active_team == ("S1",)
+    assert "G1" in session.active_team and "G2" not in session.active_team
     assert "FIRE_SITE_3" in session.scene.incidents
-    assert "THERMAL_RECON__FIRE_SITE_3" in session.runtime.graph
-    assert result.audit.resource_resolution.deferred_exclusions == ["S2"]
+    assert "GROUND_INSPECTION__FIRE_SITE_3" in session.runtime.graph
     for aid, task_id in running_before.items():
         assert session.runtime.sim[aid].current == task_id
         assert session.runtime.graph[task_id].status is TaskStatus.RUNNING

@@ -2,10 +2,10 @@ id: B2
 family: B
 profile: AERIAL_ONLY
 shape: REPORT_UPDATE
-rationale: 항공-only 계획 중 새 화재를 보고하고 그 지점에는 THERMAL_RECON까지만 추가한다.
+rationale: 항공-only 계획 중 새 화재를 보고하고 그 지점에는 GROUND_INSPECTION까지만 추가한다.
 turns:
   - input_kind: NATURAL_LANGUAGE
-    utterance: 전체 구역 항공 정찰과 기존 화재 두 곳의 열원 확인만 계획해줘. 지상 대응은 제외해.
+    utterance: 전체 구역 항공 정찰과 기존 화재 두 곳에는 아직 지상 대응을 계획하지 마.
     intent: {kind: NEW_MISSION}
     outcome: COMMITTED
   - input_kind: NATURAL_LANGUAGE
@@ -14,13 +14,13 @@ turns:
     outcome: COMMITTED
     grounding: {status: RESOLVED, entity_kind: zone, entity_id: ZONE_C, via: explicit}
   - input_kind: NATURAL_LANGUAGE
-    utterance: 거기는 열원 확인까지만 계획에 넣어줘.
-    intent: {kind: UPDATE_MISSION, target_phrase: 거기, up_to_step: THERMAL_RECON}
+    utterance: 거기는 지상 점검까지만 계획에 넣어줘.
+    intent: {kind: UPDATE_MISSION, target_phrase: 거기, up_to_step: GROUND_INSPECTION}
     outcome: COMMITTED
     grounding: {status: RESOLVED, entity_kind: incident, entity_id: FIRE_SITE_3, via: referent}
     patch:
       accepted: true
-      added_tasks: [THERMAL_RECON__FIRE_SITE_3]
+      added_tasks: [GROUND_INSPECTION__FIRE_SITE_3]
       added_edges: []
       directly_released_tasks: []
   - input_kind: NATURAL_LANGUAGE
@@ -31,11 +31,11 @@ turns:
 initial_graph:
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:
-    FIRE_SITE_1: [THERMAL_RECON]
-    FIRE_SITE_2: [THERMAL_RECON]
+    FIRE_SITE_1: []
+    FIRE_SITE_2: []
 final_graph:
   recon_zones: [ZONE_A, ZONE_B, ZONE_C, ZONE_D]
   incident_chains:
-    FIRE_SITE_1: [THERMAL_RECON]
-    FIRE_SITE_2: [THERMAL_RECON]
-    FIRE_SITE_3: [THERMAL_RECON]
+    FIRE_SITE_1: []
+    FIRE_SITE_2: []
+    FIRE_SITE_3: [GROUND_INSPECTION]

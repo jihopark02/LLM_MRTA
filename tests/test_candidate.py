@@ -13,10 +13,10 @@ from validator.errors import ErrorCode
 
 GOOD_RAW = {
     "tasks": [
-        {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"},
-        {"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1"},
+        {"task_type": "GROUND_INSPECTION", "target": "FIRE_SITE_1"},
+        {"task_type": "GROUND_SUPPRESSION", "target": "FIRE_SITE_1"},
     ],
-    "edges": [["THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_1"]],
+    "edges": [["GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_1"]],
 }
 
 
@@ -27,9 +27,9 @@ def codes(errs):
 def test_parse_good_candidate():
     cand, errors = MissionCandidate.from_raw(GOOD_RAW)
     assert errors == []
-    assert cand.tasks[0] == CandidateTask(TaskType.THERMAL_RECON, "FIRE_SITE_1")
+    assert cand.tasks[0] == CandidateTask(TaskType.GROUND_INSPECTION, "FIRE_SITE_1")
     assert cand.edges[0] == CandidateEdge(
-        (TaskType.THERMAL_RECON, "FIRE_SITE_1"), (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1")
+        (TaskType.GROUND_INSPECTION, "FIRE_SITE_1"), (TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1")
     )
     assert cand.consistency_errors() == []
 
@@ -78,7 +78,7 @@ def test_unknown_task_type_is_type_not_allowed():
 
 def test_malformed_edge_endpoint_is_schema_error():
     _, errors = MissionCandidate.from_raw(
-        {"tasks": [], "edges": [["THERMAL_RECON_FIRE_SITE_1", "x:y"]]}
+        {"tasks": [], "edges": [["GROUND_INSPECTION_FIRE_SITE_1", "x:y"]]}
     )
     assert ErrorCode.E_SCHEMA in codes(errors)
 
@@ -98,11 +98,11 @@ def test_duplicate_task_key_is_duplicate_id():
 
 def test_duplicate_edge_and_self_loop_and_unknown_endpoint():
     raw = {
-        "tasks": [{"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"}],
+        "tasks": [{"task_type": "GROUND_INSPECTION", "target": "FIRE_SITE_1"}],
         "edges": [
-            ["THERMAL_RECON:FIRE_SITE_1", "THERMAL_RECON:FIRE_SITE_1"],  # self-loop
-            ["THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_1"],  # unknown endpoint
-            ["THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_1"],  # + duplicate
+            ["GROUND_INSPECTION:FIRE_SITE_1", "GROUND_INSPECTION:FIRE_SITE_1"],  # self-loop
+            ["GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_1"],  # unknown endpoint
+            ["GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_1"],  # + duplicate
         ],
     }
     cand, errors = MissionCandidate.from_raw(raw)

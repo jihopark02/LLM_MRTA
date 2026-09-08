@@ -88,7 +88,7 @@ def test_registered_incident_priority_is_the_fixed_constant(scene):
     new_scene, iid = register_incident(scene, "ZONE_A")
     assert new_scene.incidents[iid].priority == REPORTED_INCIDENT_PRIORITY == 7
     # and the compiler derives the same number for its tasks
-    assert derive_priority(new_scene, TaskType.THERMAL_RECON, iid) == 7
+    assert derive_priority(new_scene, TaskType.GROUND_INSPECTION, iid) == 7
 
 
 def test_two_reports_in_the_same_zone_are_both_registered(scene):
@@ -218,7 +218,7 @@ def test_registration_is_deterministic(scene):
 
 def test_a_full_chain_on_the_new_incident_passes_the_validator(scene):
     new_scene, iid = register_incident(scene, "ZONE_A")
-    chain = ["THERMAL_RECON", "SUPPRESSANT_DROP", "GROUND_INSPECTION", "GROUND_SUPPRESSION"]
+    chain = ["GROUND_INSPECTION", "GROUND_SUPPRESSION"]
     cand, errors = MissionCandidate.from_raw(
         {
             "tasks": [{"task_type": t, "target": iid} for t in chain],
@@ -238,13 +238,11 @@ def test_ugv_tasks_on_a_report_in_any_zone_are_reachable(zone_id, scene):
     cand, errors = MissionCandidate.from_raw(
         {
             "tasks": [
-                {"task_type": "THERMAL_RECON", "target": iid},
-                {"task_type": "SUPPRESSANT_DROP", "target": iid},
                 {"task_type": "GROUND_INSPECTION", "target": iid},
+                {"task_type": "GROUND_SUPPRESSION", "target": iid},
             ],
             "edges": [
-                [f"THERMAL_RECON:{iid}", f"SUPPRESSANT_DROP:{iid}"],
-                [f"SUPPRESSANT_DROP:{iid}", f"GROUND_INSPECTION:{iid}"],
+                [f"GROUND_INSPECTION:{iid}", f"GROUND_SUPPRESSION:{iid}"],
             ],
         }
     )
@@ -255,7 +253,7 @@ def test_ugv_tasks_on_a_report_in_any_zone_are_reachable(zone_id, scene):
 def test_existing_incidents_still_validate_after_a_registration(scene):
     new_scene, _ = register_incident(scene, "ZONE_C")
     cand, errors = MissionCandidate.from_raw(
-        {"tasks": [{"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"}], "edges": []}
+        {"tasks": [{"task_type": "GROUND_INSPECTION", "target": "FIRE_SITE_1"}], "edges": []}
     )
     assert errors == []
     assert validate_candidate(cand, new_scene).accepted

@@ -68,8 +68,8 @@ def test_graph_hash_ignores_task_order(scene):
 def test_graph_hash_reflects_derived_priority(scene):
     # Same structure, different incident target -> different derived priority
     # (F1=9, F2=7) -> different audit hash.
-    f1 = {"tasks": [{"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"}], "edges": []}
-    f2 = {"tasks": [{"task_type": "THERMAL_RECON", "target": "FIRE_SITE_2"}], "edges": []}
+    f1 = {"tasks": [{"task_type": "GROUND_INSPECTION", "target": "FIRE_SITE_1"}], "edges": []}
+    f2 = {"tasks": [{"task_type": "GROUND_INSPECTION", "target": "FIRE_SITE_2"}], "edges": []}
     assert validate_raw(f1, scene).graph_hash != validate_raw(f2, scene).graph_hash
 
 
@@ -93,32 +93,32 @@ def test_unknown_target_is_flagged(scene):
 def test_cycle_is_flagged(scene):
     raw = {
         "tasks": [
-            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"},
-            {"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1"},
+            {"task_type": "GROUND_INSPECTION", "target": "FIRE_SITE_1"},
+            {"task_type": "GROUND_SUPPRESSION", "target": "FIRE_SITE_1"},
         ],
         "edges": [
-            ["THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_1"],
-            ["SUPPRESSANT_DROP:FIRE_SITE_1", "THERMAL_RECON:FIRE_SITE_1"],
+            ["GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_1"],
+            ["GROUND_SUPPRESSION:FIRE_SITE_1", "GROUND_INSPECTION:FIRE_SITE_1"],
         ],
     }
     assert ErrorCode.E_CYCLE in codes(validate_raw(raw, scene))
 
 
 def test_missing_workflow_predecessor_is_flagged(scene):
-    # SUPPRESSANT_DROP without its THERMAL_RECON predecessor (§4 conditional chain).
+    # GROUND_SUPPRESSION without its GROUND_INSPECTION predecessor (§4 conditional chain).
     raw = {
-        "tasks": [{"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1"}],
+        "tasks": [{"task_type": "GROUND_SUPPRESSION", "target": "FIRE_SITE_1"}],
         "edges": [],
     }
     assert ErrorCode.E_WORKFLOW in codes(validate_raw(raw, scene))
 
 
 def test_partial_aerial_only_graph_is_accepted(scene):
-    # THERMAL_RECON alone is a valid partial graph (Family B): chain head, no predecessor.
+    # GROUND_INSPECTION alone is a valid partial graph: chain head, no predecessor.
     raw = {
         "tasks": [
             {"task_type": "AREA_RECON", "target": "ZONE_A"},
-            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"},
+            {"task_type": "GROUND_INSPECTION", "target": "FIRE_SITE_1"},
         ],
         "edges": [],
     }
@@ -129,9 +129,9 @@ def test_chain_head_with_predecessor_is_flagged(scene):
     raw = {
         "tasks": [
             {"task_type": "AREA_RECON", "target": "ZONE_A"},
-            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"},
+            {"task_type": "GROUND_INSPECTION", "target": "FIRE_SITE_1"},
         ],
-        "edges": [["AREA_RECON:ZONE_A", "THERMAL_RECON:FIRE_SITE_1"]],
+        "edges": [["AREA_RECON:ZONE_A", "GROUND_INSPECTION:FIRE_SITE_1"]],
     }
     assert ErrorCode.E_WORKFLOW in codes(validate_raw(raw, scene))
 
@@ -139,14 +139,14 @@ def test_chain_head_with_predecessor_is_flagged(scene):
 def test_cross_incident_edge_is_flagged(scene):
     raw = {
         "tasks": [
-            {"task_type": "THERMAL_RECON", "target": "FIRE_SITE_1"},
-            {"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_2"},
+            {"task_type": "GROUND_INSPECTION", "target": "FIRE_SITE_1"},
+            {"task_type": "GROUND_SUPPRESSION", "target": "FIRE_SITE_2"},
         ],
-        "edges": [["THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_2"]],
+        "edges": [["GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_2"]],
     }
     got = codes(validate_raw(raw, scene))
     assert ErrorCode.E_CROSS_INCIDENT in got
-    assert ErrorCode.E_WORKFLOW in got  # SUPPRESSANT_DROP:F2 lacks THERMAL_RECON:F2
+    assert ErrorCode.E_WORKFLOW in got  # GROUND_SUPPRESSION:F2 lacks GROUND_INSPECTION:F2
 
 
 def test_unreachable_ugv_task_is_flagged(tmp_path):
@@ -165,7 +165,7 @@ def test_unreachable_ugv_task_is_flagged(tmp_path):
         "  - {agent_id: G1, platform_kind: UGV,"
         " capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: DEPOT, speed: 3}\n"
         "  - {agent_id: R1, platform_kind: UAV,"
-        " capabilities: [THERMAL_SENSOR, SUPPRESSANT_PAYLOAD], position: [0, 0], speed: 7}\n"
+        " capabilities: [AERIAL_RECON], position: [0, 0], speed: 7}\n"
     )
     scene = load_scene(bad)
     raw = {
@@ -195,7 +195,7 @@ def test_infeasible_when_no_agent_has_capability(tmp_path):
     )
     scene = load_scene(bad)
     raw = {
-        "tasks": [{"task_type": "SUPPRESSANT_DROP", "target": "F1"}],
+        "tasks": [{"task_type": "GROUND_INSPECTION", "target": "F1"}],
         "edges": [],
     }
     cand, _ = MissionCandidate.from_raw(raw)

@@ -89,7 +89,7 @@ from llm.pipeline import GenerationResult, generate_mission
 from validator.hashing import scene_hash
 from validator.patch_apply import PatchResult, apply_patch
 
-_WORKFLOW_STEPS = "THERMAL_RECON, SUPPRESSANT_DROP, GROUND_INSPECTION, GROUND_SUPPRESSION"
+_WORKFLOW_STEPS = "GROUND_INSPECTION, GROUND_SUPPRESSION"
 
 _UNSUPPORTED_TEMPLATE = (
     "이 세션은 임무 생성·화재 보고·대응 단계 확장·상태 질문만 지원합니다. "

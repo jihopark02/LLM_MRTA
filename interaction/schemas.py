@@ -34,8 +34,6 @@ class _StrictModel(BaseModel):
 #: The four §4 workflow steps an UPDATE may ask for. ``AREA_RECON`` is not a
 #: workflow step (§4) and is rejected at the schema level.
 UpToStep = Literal[
-    "THERMAL_RECON",
-    "SUPPRESSANT_DROP",
     "GROUND_INSPECTION",
     "GROUND_SUPPRESSION",
 ]

@@ -37,7 +37,7 @@ def test_every_frontier_task_gets_exactly_one_winner(scene):
         [
             (TaskType.AREA_RECON, "ZONE_A", 4),
             (TaskType.AREA_RECON, "ZONE_B", 5),
-            (TaskType.THERMAL_RECON, "FIRE_SITE_1", 9),
+            (TaskType.GROUND_INSPECTION, "FIRE_SITE_1", 9),
         ],
     )
     result = run_epoch(tasks, fresh_agents(scene), scene)
@@ -47,16 +47,16 @@ def test_every_frontier_task_gets_exactly_one_winner(scene):
         assert result.winners[task_id] is not None
 
 
-def test_aerial_recon_only_won_by_scout_uavs(scene):
+def test_aerial_recon_only_won_by_a_uav(scene):
     tasks = ready_tasks(scene, [(TaskType.AREA_RECON, "ZONE_A", 5)])
     result = run_epoch(tasks, fresh_agents(scene), scene)
-    assert result.winners["AREA_RECON__ZONE_A"] in {"S1", "S2"}
+    assert result.winners["AREA_RECON__ZONE_A"] in {"U1", "U2", "U3"}
 
 
-def test_suppressant_drop_only_won_by_response_uavs(scene):
-    tasks = ready_tasks(scene, [(TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1", 9)])
+def test_ground_inspection_only_won_by_a_ugv(scene):
+    tasks = ready_tasks(scene, [(TaskType.GROUND_INSPECTION, "FIRE_SITE_1", 9)])
     result = run_epoch(tasks, fresh_agents(scene), scene)
-    assert result.winners["SUPPRESSANT_DROP__FIRE_SITE_1"] in {"R1", "R2"}
+    assert result.winners["GROUND_INSPECTION__FIRE_SITE_1"] in {"G1", "G2"}
 
 
 def test_ground_task_only_won_by_ground_response_ugvs(scene):
@@ -87,10 +87,10 @@ def test_run_epoch_is_deterministic(scene):
 
 
 def test_converges_and_reports_round_count(scene):
-    tasks = ready_tasks(scene, [(TaskType.THERMAL_RECON, "FIRE_SITE_1", 9)])
+    tasks = ready_tasks(scene, [(TaskType.GROUND_INSPECTION, "FIRE_SITE_1", 9)])
     result = run_epoch(tasks, fresh_agents(scene), scene)
     assert result.rounds >= 1
-    assert result.winners["THERMAL_RECON__FIRE_SITE_1"] in {"S1", "S2", "R1", "R2"}
+    assert result.winners["GROUND_INSPECTION__FIRE_SITE_1"] in {"G1", "G2"}
 
 
 def test_tie_break_is_1e_minus_9_tolerance_then_agent_id(scene):
@@ -117,15 +117,15 @@ def test_held_tasks_are_not_re_contested(scene):
     agents = fresh_agents(scene)
     x = "AREA_RECON__ZONE_A"
     y = "AREA_RECON__ZONE_B"
-    agents["S2"].bundle.append(x)
-    agents["S2"].path.append(x)
+    agents["U2"].bundle.append(x)
+    agents["U2"].path.append(x)
 
     result = run_epoch(
-        tasks, agents, scene, frontier=[y], held={x: ("S2", 3.14)}
+        tasks, agents, scene, frontier=[y], held={x: ("U2", 3.14)}
     )
-    assert x not in result.winners            # held, not re-auctioned
-    assert result.winners[y] in {"S1", "S2"}  # the new task still gets a winner
-    assert x in agents["S2"].path             # S2 keeps it
+    assert x not in result.winners                  # held, not re-auctioned
+    assert result.winners[y] in {"U1", "U2", "U3"}  # the new task still gets a winner
+    assert x in agents["U2"].path                   # U2 keeps it
 
 
 def test_idle_agents_are_allowed(scene):

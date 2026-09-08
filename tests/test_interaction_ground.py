@@ -29,8 +29,6 @@ from validator.patch_apply import apply_patch
 SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
 
 CHAIN = [
-    TaskType.THERMAL_RECON,
-    TaskType.SUPPRESSANT_DROP,
     TaskType.GROUND_INSPECTION,
     TaskType.GROUND_SUPPRESSION,
 ]
@@ -371,10 +369,8 @@ def test_grounding_never_mutates_the_session(scene):
 @pytest.mark.parametrize(
     ("step", "length"),
     [
-        ("THERMAL_RECON", 1),
-        ("SUPPRESSANT_DROP", 2),
-        ("GROUND_INSPECTION", 3),
-        ("GROUND_SUPPRESSION", 4),
+        ("GROUND_INSPECTION", 1),
+        ("GROUND_SUPPRESSION", 2),
     ],
 )
 def test_chain_prefix_is_contiguous(step, length):
@@ -386,7 +382,7 @@ def test_chain_prefix_is_contiguous(step, length):
 # -- patch builder: extending a new incident -------------------------
 
 
-@pytest.mark.parametrize("upto_index", range(4))
+@pytest.mark.parametrize("upto_index", range(2))
 def test_builds_the_missing_prefix_from_an_empty_graph(scene, upto_index):
     step = CHAIN[upto_index].value
     graph = compile_reference_graph(scene, [], [])
@@ -400,22 +396,22 @@ def test_builds_the_missing_prefix_from_an_empty_graph(scene, upto_index):
 
 
 def test_extends_only_what_is_missing(scene):
-    graph = graph_with(scene, "FIRE_SITE_1", CHAIN[:2])
+    graph = graph_with(scene, "FIRE_SITE_1", CHAIN[:1])
     plan = build_chain_patch(graph, "FIRE_SITE_1", "GROUND_SUPPRESSION")
-    assert list(plan.added_steps) == [TaskType.GROUND_INSPECTION, TaskType.GROUND_SUPPRESSION]
-    assert len(plan.added_edges) == 2  # SD->GI and GI->GS
+    assert list(plan.added_steps) == [TaskType.GROUND_SUPPRESSION]
+    assert len(plan.added_edges) == 1  # GI->GS
 
 
 def test_built_patch_is_accepted_by_the_validator(scene):
     from interaction.session import fresh_session_state
 
-    graph = graph_with(scene, "FIRE_SITE_1", CHAIN[:1])
+    graph = compile_reference_graph(scene, [], [])
     state = fresh_session_state(graph, scene)
     plan = build_chain_patch(state.graph, "FIRE_SITE_1", "GROUND_SUPPRESSION")
 
     new_state, result = apply_patch(state, plan.patch, scene)
     assert result.accepted, result.rejection_errors
-    assert len(new_state.graph) == 4
+    assert len(new_state.graph) == 2
     assert result.directly_released_tasks == ()  # canonical extension releases nothing
 
 
@@ -434,7 +430,7 @@ def test_built_patch_for_a_reported_incident_is_accepted(scene):
 
 def test_other_incidents_are_untouched(scene):
     graph = graph_with(scene, "FIRE_SITE_1", CHAIN[:1])
-    plan = build_chain_patch(graph, "FIRE_SITE_2", "SUPPRESSANT_DROP")
+    plan = build_chain_patch(graph, "FIRE_SITE_2", "GROUND_INSPECTION")
     targets = {
         op.target for op in plan.patch.operations if isinstance(op, AddTask)
     }
@@ -453,7 +449,7 @@ def test_repeating_a_completed_request_is_no_change(scene):
     assert "이미 계획에 포함" in plan.note
 
 
-@pytest.mark.parametrize("step", ["THERMAL_RECON", "SUPPRESSANT_DROP", "GROUND_INSPECTION"])
+@pytest.mark.parametrize("step", ["GROUND_INSPECTION"])
 def test_a_lower_step_than_planned_is_no_change_not_a_shrink(scene, step):
     # §18.6: nothing is removed in this scope.
     graph = graph_with(scene, "FIRE_SITE_1", CHAIN)
@@ -465,14 +461,14 @@ def test_no_change_never_produces_a_duplicate_add_task(scene):
     from interaction.session import fresh_session_state
     from validator.patch import MissionPatch
 
-    graph = graph_with(scene, "FIRE_SITE_1", CHAIN[:2])
-    plan = build_chain_patch(graph, "FIRE_SITE_1", "SUPPRESSANT_DROP")
+    graph = graph_with(scene, "FIRE_SITE_1", CHAIN)
+    plan = build_chain_patch(graph, "FIRE_SITE_1", "GROUND_INSPECTION")
     assert plan.no_change
 
     # The alternative the builder must never take: re-adding what exists.
     state = fresh_session_state(graph, scene)
     _, rejected = apply_patch(
-        state, MissionPatch([AddTask(TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1")]), scene
+        state, MissionPatch([AddTask(TaskType.GROUND_INSPECTION, "FIRE_SITE_1")]), scene
     )
     assert not rejected.accepted  # which is exactly why NO_CHANGE is returned
 
@@ -481,13 +477,13 @@ def test_missing_edge_alone_is_still_a_change(scene):
     # Defensive: tasks present but an edge absent is a real repair, not NO_CHANGE.
     graph = compile_reference_graph(
         scene,
-        [(TaskType.THERMAL_RECON, "FIRE_SITE_1"), (TaskType.SUPPRESSANT_DROP, "FIRE_SITE_1")],
+        [(TaskType.GROUND_INSPECTION, "FIRE_SITE_1"), (TaskType.GROUND_SUPPRESSION, "FIRE_SITE_1")],
         [],
     )
-    plan = build_chain_patch(graph, "FIRE_SITE_1", "SUPPRESSANT_DROP")
+    plan = build_chain_patch(graph, "FIRE_SITE_1", "GROUND_SUPPRESSION")
     assert not plan.no_change
     assert plan.added_steps == ()
-    assert plan.added_edges == ((TaskType.THERMAL_RECON, TaskType.SUPPRESSANT_DROP),)
+    assert plan.added_edges == ((TaskType.GROUND_INSPECTION, TaskType.GROUND_SUPPRESSION),)
 
 
 def test_builder_does_not_mutate_the_graph(scene):

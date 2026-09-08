@@ -32,7 +32,7 @@ def e(pred, succ):
 
 
 def test_valid_mission_is_approved_and_compiled(scene):
-    step1 = Step1Output(tasks=[t("AREA_RECON", "ZONE_A"), t("THERMAL_RECON", "FIRE_SITE_1")])
+    step1 = Step1Output(tasks=[t("AREA_RECON", "ZONE_A"), t("GROUND_INSPECTION", "FIRE_SITE_1")])
     step2 = Step2Output(edges=[])
     backend = MockBackend([step1, step2])
 
@@ -49,19 +49,13 @@ def test_valid_mission_is_approved_and_compiled(scene):
 
 def test_full_incident_workflow_is_approved(scene):
     chain = [
-        t("THERMAL_RECON", "FIRE_SITE_1"),
-        t("SUPPRESSANT_DROP", "FIRE_SITE_1"),
         t("GROUND_INSPECTION", "FIRE_SITE_1"),
         t("GROUND_SUPPRESSION", "FIRE_SITE_1"),
     ]
-    edges = [
-        e("THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_1"),
-        e("SUPPRESSANT_DROP:FIRE_SITE_1", "GROUND_INSPECTION:FIRE_SITE_1"),
-        e("GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_1"),
-    ]
+    edges = [e("GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_1")]
     backend = MockBackend([Step1Output(tasks=chain), Step2Output(edges=edges)])
     r = generate_mission("Full response to FIRE_SITE_1.", scene, backend)
-    assert r.approved and len(r.graph) == 4 and len(r.graph.edges) == 3
+    assert r.approved and len(r.graph) == 2 and len(r.graph.edges) == 1
 
 
 # -- Step 1 schema gate blocks Step 2 --------------------------------
@@ -136,12 +130,12 @@ def test_extra_top_level_field_is_rejected(scene):
 
 
 def test_workflow_error_is_repaired_then_approved(scene):
-    # Step 1 forgets THERMAL_RECON -> SUPPRESSANT_DROP fails #10 (E_WORKFLOW).
-    step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1")])
+    # Step 1 forgets GROUND_INSPECTION -> GROUND_SUPPRESSION fails #10 (E_WORKFLOW).
+    step1 = Step1Output(tasks=[t("GROUND_SUPPRESSION", "FIRE_SITE_1")])
     step2 = Step2Output(edges=[])
     repair = RepairOutput(
-        tasks=[t("THERMAL_RECON", "FIRE_SITE_1"), t("SUPPRESSANT_DROP", "FIRE_SITE_1")],
-        edges=[e("THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_1")],
+        tasks=[t("GROUND_INSPECTION", "FIRE_SITE_1"), t("GROUND_SUPPRESSION", "FIRE_SITE_1")],
+        edges=[e("GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_1")],
     )
     backend = MockBackend([step1, step2, repair])
 
@@ -163,17 +157,17 @@ def test_workflow_error_is_repaired_then_approved(scene):
     # the repair prompt actually carried the structured errors and the raw graph
     repair_call_user = backend.calls[2][1]
     assert "E_WORKFLOW" in repair_call_user
-    assert "SUPPRESSANT_DROP" in repair_call_user
+    assert "GROUND_SUPPRESSION" in repair_call_user
 
 
 # -- explicit rejection, no silent fallback -----------------------
 
 
 def test_repair_output_itself_failing_schema_is_explicit_schema_rejection(scene):
-    step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1")])
+    step1 = Step1Output(tasks=[t("GROUND_SUPPRESSION", "FIRE_SITE_1")])
     step2 = Step2Output(edges=[])
     bad_repair = {  # repair's own output violates the schema (extra field)
-        "tasks": [{"task_type": "SUPPRESSANT_DROP", "target": "FIRE_SITE_1"}],
+        "tasks": [{"task_type": "GROUND_SUPPRESSION", "target": "FIRE_SITE_1"}],
         "edges": [],
         "notes": "fixed it",
     }
@@ -191,9 +185,9 @@ def test_repair_output_itself_failing_schema_is_explicit_schema_rejection(scene)
 
 
 def test_repair_that_still_fails_is_explicitly_rejected(scene):
-    step1 = Step1Output(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1")])
+    step1 = Step1Output(tasks=[t("GROUND_SUPPRESSION", "FIRE_SITE_1")])
     step2 = Step2Output(edges=[])
-    repair = RepairOutput(tasks=[t("SUPPRESSANT_DROP", "FIRE_SITE_1")], edges=[])  # still broken
+    repair = RepairOutput(tasks=[t("GROUND_SUPPRESSION", "FIRE_SITE_1")], edges=[])  # still broken
     backend = MockBackend([step1, step2, repair])
 
     r = generate_mission("Drop on FIRE_SITE_1.", scene, backend)
@@ -208,10 +202,10 @@ def test_repair_that_still_fails_is_explicitly_rejected(scene):
 
 def test_cross_incident_edge_is_rejected_when_repair_fails(scene):
     step1 = Step1Output(
-        tasks=[t("THERMAL_RECON", "FIRE_SITE_1"), t("SUPPRESSANT_DROP", "FIRE_SITE_2")]
+        tasks=[t("GROUND_INSPECTION", "FIRE_SITE_1"), t("GROUND_SUPPRESSION", "FIRE_SITE_2")]
     )
     step2 = Step2Output(
-        edges=[e("THERMAL_RECON:FIRE_SITE_1", "SUPPRESSANT_DROP:FIRE_SITE_2")]
+        edges=[e("GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_2")]
     )
     repair = RepairOutput(tasks=step1.tasks, edges=step2.edges)  # unchanged -> still fails
     r = generate_mission("...", scene, MockBackend([step1, step2, repair]))

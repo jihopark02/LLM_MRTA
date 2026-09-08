@@ -11,24 +11,31 @@ initial_graph:
   area_recon_all_zones: true
   incident_workflow_up_to: GROUND_SUPPRESSION
 
-# Pause immediately after the tenth deterministic completion event.
-checkpoint_event: 10
+# Pause immediately after the first deterministic completion event (D-061 fleet:
+# by the 1st completion one AREA_RECON and three GROUND_INSPECTION are still
+# ASSIGNED, so the two release policies can be told apart).
+checkpoint_event: 1
 expected_checkpoint:
-  simulation_time: 121.64323236970407
+  simulation_time: 44.50693909432999
   completed_now:
-    - SUPPRESSANT_DROP__FIRE_SITE_3
+    - AREA_RECON__ZONE_C
 
 # The online command is represented deterministically as REPORT + UPDATE.
 online_report_zone: ZONE_B  # creates FIRE_SITE_6
 online_update_up_to: GROUND_SUPPRESSION
 expected_new_incident_id: FIRE_SITE_6
 
-# Identification gate from contract §19.5. These are release decisions, not
-# final owner changes: a released task may be won again by the same agent.
+# Identification gate from contract §19.5. The new incident's GROUND_INSPECTION
+# (UGV bidders) is bidder-connected to every unstarted ground assignment but not
+# to the unstarted AREA_RECON (UAV): selective keeps ZONE_D, full-reset drops it.
 expected_release:
   no-reset: []
   selective:
-    - AREA_RECON__ZONE_C
+    - GROUND_INSPECTION__FIRE_SITE_2
+    - GROUND_INSPECTION__FIRE_SITE_4
+    - GROUND_INSPECTION__FIRE_SITE_5
   full-reset:
-    - AREA_RECON__ZONE_C
-    - GROUND_INSPECTION__FIRE_SITE_1
+    - AREA_RECON__ZONE_D
+    - GROUND_INSPECTION__FIRE_SITE_2
+    - GROUND_INSPECTION__FIRE_SITE_4
+    - GROUND_INSPECTION__FIRE_SITE_5

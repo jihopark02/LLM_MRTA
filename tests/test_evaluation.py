@@ -41,13 +41,13 @@ def test_all_nine_annotations_load_and_self_check(annotations):
     assert [a.family for a in annotations] == list("AAABBBCCC")
     for a in (x for x in annotations if x.family == "A"):  # == the P1 reference fixture shape
         g = a.allowed_graphs[0]
-        assert len(g.tasks) == 12 and len(g.edges) == 6
+        assert len(g.tasks) == 8 and len(g.edges) == 2
 
 
 def test_family_b_has_no_edges(annotations):
     for a in (x for x in annotations if x.family == "B"):
         g = a.allowed_graphs[0]
-        assert len(g.tasks) == 6 and len(g.edges) == 0
+        assert len(g.tasks) == 4 and len(g.edges) == 0
 
 
 def test_non_prefix_chain_is_rejected(scene, tmp_path):
@@ -57,21 +57,21 @@ def test_non_prefix_chain_is_rejected(scene, tmp_path):
         "command: x\nrationale: x\n"
         "allowed_graphs:\n"
         "  - incident_chains:\n"
-        "      FIRE_SITE_1: [THERMAL_RECON, GROUND_INSPECTION]\n"
+        "      FIRE_SITE_1: [GROUND_SUPPRESSION]\n"
     )
     with pytest.raises(ValueError, match="contiguous prefix"):
         load_annotation(bad, scene)
 
 
 def test_reference_that_fails_validator_is_rejected(scene, tmp_path):
-    # SUPPRESSANT_DROP with no THERMAL_RECON predecessor -> E_WORKFLOW
+    # GROUND_SUPPRESSION with no GROUND_INSPECTION predecessor -> E_WORKFLOW
     bad = tmp_path / "X2.yaml"
     bad.write_text(
         "id: X2\nfamily: C\nprofile: SELECTIVE_RESPONSE\n"
         "command: x\nrationale: x\n"
         "allowed_graphs:\n"
         "  - tasks:\n"
-        "      - {task_type: SUPPRESSANT_DROP, target: FIRE_SITE_1}\n"
+        "      - {task_type: GROUND_SUPPRESSION, target: FIRE_SITE_1}\n"
         "    edges: []\n"
     )
     with pytest.raises(ValueError, match="fails the Validator"):
@@ -85,7 +85,7 @@ def test_annotation_explicit_task_with_priority_key_is_rejected(scene, tmp_path)
         "command: x\nrationale: x\n"
         "allowed_graphs:\n"
         "  - tasks:\n"
-        "      - {task_type: THERMAL_RECON, target: FIRE_SITE_1, priority: 9}\n"
+        "      - {task_type: GROUND_SUPPRESSION, target: FIRE_SITE_1, priority: 9}\n"
         "    edges: []\n"
     )
     with pytest.raises(ValueError, match=r"\{task_type, target\}"):
@@ -122,10 +122,10 @@ def test_prf_empty_is_undefined():
 
 def test_score_graph_exact_match():
     ref = RefGraph(
-        tasks=frozenset({_k("AREA_RECON", "ZONE_A"), _k("THERMAL_RECON", "FIRE_SITE_1")}),
+        tasks=frozenset({_k("AREA_RECON", "ZONE_A"), _k("GROUND_INSPECTION", "FIRE_SITE_1")}),
         edges=frozenset(),
     )
-    s = score_graph(_cand(("AREA_RECON", "ZONE_A"), ("THERMAL_RECON", "FIRE_SITE_1")), (ref,))
+    s = score_graph(_cand(("AREA_RECON", "ZONE_A"), ("GROUND_INSPECTION", "FIRE_SITE_1")), (ref,))
     assert s.exact_match
     assert s.tasks.precision == 1.0 and s.tasks.recall == 1.0
 
@@ -156,8 +156,8 @@ def test_score_graph_picks_best_matching_allowed_reference():
 
 
 def test_score_graph_edge_prf_is_undefined_when_no_edges_either_side():
-    ref = RefGraph(tasks=frozenset({_k("THERMAL_RECON", "FIRE_SITE_1")}), edges=frozenset())
-    s = score_graph(_cand(("THERMAL_RECON", "FIRE_SITE_1")), (ref,))
+    ref = RefGraph(tasks=frozenset({_k("GROUND_INSPECTION", "FIRE_SITE_1")}), edges=frozenset())
+    s = score_graph(_cand(("GROUND_INSPECTION", "FIRE_SITE_1")), (ref,))
     assert not s.edges.defined
 
 
@@ -205,10 +205,10 @@ def test_harness_audit_snapshot_has_recomputable_contents(scene, annotations):
     run = run_all(scene, MockBackend(_perfect_script([a1])), annotations=[a1])
     case = run.cases[0]
     assert case.final is not None
-    assert len(case.final.tasks) == 12 and len(case.final.edges) == 6
+    assert len(case.final.tasks) == 8 and len(case.final.edges) == 2
     # priority is carried in the audit snapshot, scene-derived
     prio = {(t["task_type"], t["target"]): t["priority"] for t in case.final.tasks}
-    assert prio[("THERMAL_RECON", "FIRE_SITE_1")] == 9
+    assert prio[("GROUND_INSPECTION", "FIRE_SITE_1")] == 9
     assert prio[("GROUND_INSPECTION", "FIRE_SITE_2")] == 7
     assert prio[("AREA_RECON", "ZONE_A")] == 4
     assert case.final.accepted and case.final.error_codes == []

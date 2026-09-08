@@ -54,8 +54,6 @@ def test_report_uses_session_policy_and_commits_scene_graph_and_plan_together():
     assert _target_steps(session, "FIRE_SITE_3") == sorted(
         step.value
         for step in (
-            TaskType.THERMAL_RECON,
-            TaskType.SUPPRESSANT_DROP,
             TaskType.GROUND_INSPECTION,
             TaskType.GROUND_SUPPRESSION,
         )
@@ -75,15 +73,14 @@ def test_report_uses_session_policy_and_commits_scene_graph_and_plan_together():
 def test_explicit_report_step_overrides_session_policy():
     session = _planned(policy="GROUND_SUPPRESSION")
 
-    result = _report(session, response_up_to="SUPPRESSANT_DROP")
+    result = _report(session, response_up_to="GROUND_INSPECTION")
 
     assert result.outcome is TurnOutcome.COMMITTED
     assert _target_steps(session, "FIRE_SITE_3") == [
-        "SUPPRESSANT_DROP",
-        "THERMAL_RECON",
+        "GROUND_INSPECTION",
     ]
     assert result.audit.incident_action.policy_origin == "EXPLICIT"
-    assert result.audit.incident_action.response_up_to == "SUPPRESSANT_DROP"
+    assert result.audit.incident_action.response_up_to == "GROUND_INSPECTION"
 
 
 def test_report_without_any_policy_remains_scene_only():
@@ -118,8 +115,6 @@ def test_paused_report_and_policy_are_one_online_transaction():
     assert _target_steps(session, "FIRE_SITE_3") == sorted(
         step.value
         for step in (
-            TaskType.THERMAL_RECON,
-            TaskType.SUPPRESSANT_DROP,
             TaskType.GROUND_INSPECTION,
             TaskType.GROUND_SUPPRESSION,
         )

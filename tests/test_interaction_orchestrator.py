@@ -26,7 +26,7 @@ from scenarios.scene import load_scene
 
 SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
 
-CHAIN = ["THERMAL_RECON", "SUPPRESSANT_DROP", "GROUND_INSPECTION", "GROUND_SUPPRESSION"]
+CHAIN = ["GROUND_INSPECTION", "GROUND_SUPPRESSION"]
 
 
 @pytest.fixture
@@ -75,7 +75,7 @@ def test_new_mission_commits_the_llm_extracted_incident_policy_with_the_graph(sc
                 "NEW_MISSION",
                 incident_response_up_to="GROUND_SUPPRESSION",
             ),
-            *mission_steps("FIRE_SITE_1", steps=["THERMAL_RECON"]),
+            *mission_steps("FIRE_SITE_1", steps=["GROUND_INSPECTION"]),
         ]
     )
 
@@ -95,7 +95,7 @@ def test_new_mission_commits_the_llm_extracted_incident_policy_with_the_graph(sc
 
 def test_new_mission_without_a_conditional_clause_has_no_incident_policy(scene):
     s = sess(scene)
-    start_mission(s, steps=["THERMAL_RECON"])
+    start_mission(s, steps=["GROUND_INSPECTION"])
     assert s.directive == MissionDirective()
 
 
@@ -152,7 +152,7 @@ def test_i2_report_then_deixis_extends_the_new_incident(scene):
     assert r2.outcome is TurnOutcome.COMMITTED
     assert r2.grounding.entity_id == "FIRE_SITE_3"  # the new one, not FIRE_SITE_1
     assert r2.patch_result.accepted
-    assert [t.target for t in s.state.graph.tasks].count("FIRE_SITE_3") == 4
+    assert [t.target for t in s.state.graph.tasks].count("FIRE_SITE_3") == 2
     # canonical extension releases nothing (D-006), observed not argued
     assert r2.patch_result.directly_released_tasks == ()
 
@@ -171,7 +171,7 @@ def test_i3_query_status_answers_without_touching_anything(scene):
         MockBackend([intent("QUERY_STATUS", about="agents")]),
     )
     assert r.outcome is TurnOutcome.ANSWERED
-    assert r.audit.answer and "THERMAL_RECON__FIRE_SITE_1" in r.audit.answer
+    assert r.audit.answer and "GROUND_INSPECTION__FIRE_SITE_1" in r.audit.answer
     assert s.scene is scene_before and s.state is state_before
     assert s.plan is plan_before  # no re-allocation for a read
     assert not r.audit.state_changed and not r.audit.scene_changed
@@ -282,7 +282,7 @@ def test_valid_candidate_resumes_update_without_an_llm_call(scene):
     assert r.audit.selected_entity_id == "FIRE_SITE_1"
     assert r.audit.grounding.via == "explicit"
     assert r.audit.referent_noted == "FIRE_SITE_1"
-    assert len([t for t in s.state.graph.tasks if t.target == "FIRE_SITE_1"]) == 4
+    assert len([t for t in s.state.graph.tasks if t.target == "FIRE_SITE_1"]) == 2
 
 
 def test_invalid_candidate_is_audited_and_keeps_the_pending_request(scene):
@@ -409,8 +409,8 @@ def test_clarification_actions_require_a_pending_request(scene):
 
 def test_i5_extends_a_partial_chain(scene):
     s = sess(scene)
-    start_mission(s, steps=CHAIN[:2])
-    assert len(s.state.graph) == 2
+    start_mission(s, steps=CHAIN[:1])
+    assert len(s.state.graph) == 1
 
     r = handle_turn(
         s,
@@ -420,11 +420,8 @@ def test_i5_extends_a_partial_chain(scene):
         ),
     )
     assert r.outcome is TurnOutcome.COMMITTED
-    assert len(s.state.graph) == 4
-    assert r.audit.patch.added_tasks == [
-        "GROUND_INSPECTION__FIRE_SITE_1",
-        "GROUND_SUPPRESSION__FIRE_SITE_1",
-    ]
+    assert len(s.state.graph) == 2
+    assert r.audit.patch.added_tasks == ["GROUND_SUPPRESSION__FIRE_SITE_1"]
 
 
 # -- I6: an update the Validator refuses ---------------------------------
@@ -447,8 +444,8 @@ def test_i6_rejected_patch_leaves_the_state_untouched(scene, monkeypatch):
             patch=MissionPatch(
                 [
                     AddEdge(
-                        (TaskType.THERMAL_RECON, "FIRE_SITE_1"),
-                        (TaskType.THERMAL_RECON, "FIRE_SITE_2"),
+                        (TaskType.GROUND_INSPECTION, "FIRE_SITE_1"),
+                        (TaskType.GROUND_INSPECTION, "FIRE_SITE_2"),
                     )
                 ]
             ),
@@ -559,7 +556,7 @@ def test_a_lower_step_request_is_no_change_not_a_shrink(scene):
         s,
         "FIRE_SITE_1은 확인만 해",
         MockBackend(
-            [intent("UPDATE_MISSION", target_phrase="FIRE_SITE_1", up_to_step="THERMAL_RECON")]
+            [intent("UPDATE_MISSION", target_phrase="FIRE_SITE_1", up_to_step="GROUND_INSPECTION")]
         ),
     )
     assert r.outcome is TurnOutcome.NO_CHANGE
@@ -613,7 +610,7 @@ def test_planning_acts_are_unsupported_after_execution(scene, kind, phase):
     scene_before, state_before = s.scene, s.state
     slots = {"zone_ref": "A"} if kind == "REPORT_INCIDENT" else {}
     if kind == "UPDATE_MISSION":
-        slots = {"target_phrase": "FIRE_SITE_1", "up_to_step": "THERMAL_RECON"}
+        slots = {"target_phrase": "FIRE_SITE_1", "up_to_step": "GROUND_INSPECTION"}
     r = handle_turn(s, "뭔가 해줘", MockBackend([intent(kind, **slots)]))
     assert r.outcome is TurnOutcome.UNSUPPORTED
     assert "새 세션" in r.message
@@ -646,7 +643,7 @@ def test_turn_count_advances_exactly_once_per_turn(scene):
     [
         ("UNSUPPORTED", {}),
         ("QUERY_STATUS", {}),
-        ("UPDATE_MISSION", {"target_phrase": "그 화재", "up_to_step": "THERMAL_RECON"}),
+        ("UPDATE_MISSION", {"target_phrase": "그 화재", "up_to_step": "GROUND_INSPECTION"}),
         ("REPORT_INCIDENT", {"zone_ref": "없는구역"}),
     ],
 )
@@ -703,7 +700,7 @@ def test_allocate_runs_only_when_the_graph_changed(scene, monkeypatch):
         s,
         "FIRE_SITE_1 확인만",
         MockBackend(
-            [intent("UPDATE_MISSION", target_phrase="FIRE_SITE_1", up_to_step="THERMAL_RECON")]
+            [intent("UPDATE_MISSION", target_phrase="FIRE_SITE_1", up_to_step="GROUND_INSPECTION")]
         ),
     )
     assert len(calls) == 1                                    # NO_CHANGE
@@ -760,11 +757,7 @@ def test_audit_records_plan_assignment_changes_as_a_plan_diff(scene):
         ),
     )
     changes = r.audit.plan_assignment_changes
-    assert set(changes.added) == {
-        "SUPPRESSANT_DROP__FIRE_SITE_1",
-        "GROUND_INSPECTION__FIRE_SITE_1",
-        "GROUND_SUPPRESSION__FIRE_SITE_1",
-    }
+    assert set(changes.added) == {"GROUND_SUPPRESSION__FIRE_SITE_1"}
     assert changes.removed == {}
 
 

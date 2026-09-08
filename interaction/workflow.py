@@ -12,8 +12,6 @@ from core.enums import TaskType
 from validator.whole_graph import WORKFLOW_PREDECESSOR
 
 WORKFLOW_CHAIN: tuple[TaskType, ...] = (
-    TaskType.THERMAL_RECON,
-    TaskType.SUPPRESSANT_DROP,
     TaskType.GROUND_INSPECTION,
     TaskType.GROUND_SUPPRESSION,
 )

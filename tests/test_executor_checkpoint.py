@@ -53,7 +53,7 @@ def test_checkpoint_restore_finishes_identically_to_uninterrupted_execution():
     resumed = restored.run()
 
     assert _result_signature(resumed) == _result_signature(uninterrupted)
-    assert resumed.makespan == pytest.approx(257.9, abs=0.1)
+    assert resumed.makespan == pytest.approx(149.9, abs=0.1)  # P4 golden (D-060+D-061)
 
 
 def test_repeated_completion_pauses_equal_uninterrupted_execution():
@@ -71,7 +71,7 @@ def test_repeated_completion_pauses_equal_uninterrupted_execution():
         executor = SimExecutor.from_checkpoint(advance.checkpoint, scene)
 
     assert all(events)
-    assert sum(len(event) for event in events) == 12
+    assert sum(len(event) for event in events) == 8
     assert _result_signature(actual) == _result_signature(expected)
 
 

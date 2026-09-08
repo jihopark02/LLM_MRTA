@@ -131,9 +131,9 @@ def test_audit_json_carries_graph_hash_and_both_assignment_maps(scene, annotatio
     assert d["meta"]["validator_version"] == "1.4"
     assert d["meta"]["scene_hash"]
     a1 = d["cases"][0]
-    assert len(a1["generation"]["tasks"]) == 12 and len(a1["generation"]["edges"]) == 6
+    assert len(a1["generation"]["tasks"]) == 8 and len(a1["generation"]["edges"]) == 2
     assert len(a1["generation"]["graph_hash"]) == 64
-    assert a1["generation"]["score"]["task"] == {"tp": 12, "fp": 0, "fn": 0}
+    assert a1["generation"]["score"]["task"] == {"tp": 8, "fp": 0, "fn": 0}
     # MRTA outputs: task -> agent for both the plan and the execution
     assert set(a1["plan_analysis"]["assignments"]) == {
         f"{t['task_type']}__{t['target']}" for t in a1["generation"]["tasks"]
@@ -148,7 +148,7 @@ def test_rejected_mission_stops_before_allocation(scene, annotations):
     from llm.schemas import RepairOutput, Step1Output, Step2Output
 
     (a1,) = _by_id(annotations, "A1")
-    drop = [T(task_type="SUPPRESSANT_DROP", target="FIRE_SITE_1")]
+    drop = [T(task_type="GROUND_SUPPRESSION", target="FIRE_SITE_1")]
     broken = MockBackend([
         Step1Output(tasks=drop),
         Step2Output(edges=[]),
