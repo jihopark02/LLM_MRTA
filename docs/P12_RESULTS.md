@@ -1,0 +1,98 @@
+# P12 LLM-driven incident contingency 결과
+
+재현 기준: `feature/operator-interaction`, 계약 v1.49 / D-053. P12는 실제 perception이
+아니라, 자연어로 만든 incident response policy 또는 실행 중 자연어 report를 기존
+Validator → selective CBBA → checkpoint executor 경로에 연결한 실험이다.
+
+## 평가 설계
+
+동일한 `patrol_park` scene(초기 known incident 0)에서 8 case를 실행한다.
+
+- policy 5개: 정찰만, 감지 시 `THERMAL_RECON`, `SUPPRESSANT_DROP`,
+  `GROUND_INSPECTION`, `GROUND_SUPPRESSION`까지.
+- operator report 2개: Warehouse(`ZONE_A`)와 Tank Farm(`ZONE_D`)의 새 화재.
+- unsupported 1개: 특정 UAV 한 대만 사용하라는 resource constraint.
+
+sensor case의 화재는 `simulated-fire-zone-b-v1` fixture가 `AREA_RECON__ZONE_B` 완료
+checkpoint에서 한 번 공개한다. fixture는 초기 scene, scene hash, LLM context와 초기 graph에
+들어가지 않는다. sensor와 operator report는 동일한 atomic incident transaction을 사용한다.
+
+## 첫 Live 실행 — engineering feedback set
+
+입력: `data/p12_counterfactual.yaml`  
+원시 결과: `data/eval_results/p12_gpt-5-mini_first_pass.{json,txt}`
+
+| 지표 | 결과 |
+|---|---:|
+| model snapshot | `gpt-5-mini-2025-08-07` |
+| exact case | 4 / 8 |
+| exact policy depth | 3 / 5 |
+| exact operator report | 0 / 2 |
+| unsupported fail-closed | 1 / 1 |
+
+두 `NEW_MISSION`은 선택 kind에 속하지 않는 `note` 또는 `zone_ref`를 채워 strict wire
+schema가 거부했다. 두 report는 `Warehouse에서` / `Tank Farm에서`를 slot에 보존했지만 당시
+zone normalizer가 한국어 위치 조사를 처리하지 않아 clarification했다. 이 결과는 D-052 이전
+첫 관측값이며 삭제하거나 새 결과로 덮어쓰지 않는다.
+
+## D-052 이후 별도 held-out paraphrase
+
+입력은 결과 확인 전에 커밋한 `data/p12_counterfactual_heldout.yaml`이다. 첫 실행의 어떤
+명령 문장도 재사용하지 않았다. 원시 결과는
+`data/eval_results/p12_gpt-5-mini_heldout.{json,txt}`에 있다. 동일 Live cache를 D-053 감사
+schema로 재생한 결과는
+`data/eval_results/p12_gpt-5-mini_heldout_cached_audit.{json,txt}`에 별도 보존한다.
+
+| case | 기대/실제 response task | selective release | termination | exact |
+|---|---:|---:|---|---:|
+| H_P0_RECON_ONLY | 0 / 0 | 0 | COMPLETED | ✓ |
+| H_P1_THERMAL | 1 / 1 | 1 | COMPLETED | ✓ |
+| H_P2_DROP | 2 / 2 | 1 | COMPLETED | ✓ |
+| H_P3_INSPECTION | 3 / 3 | 1 | COMPLETED | ✓ |
+| H_P4_SUPPRESSION | 4 / 4 | 1 | COMPLETED | ✓ |
+| H_R1_WAREHOUSE | 4 / 4, `ZONE_A` | 2 | COMPLETED | ✓ |
+| H_R2_TANK_FARM | 4 / 4, `ZONE_D` | 2 | COMPLETED | ✓ |
+| H_U1_NAMED_AGENT | UNSUPPORTED | 0 | n/a | ✓ |
+
+요약: **8/8 exact**, 모든 실행 case `COMPLETED`, capability/precedence violation 0/0.
+실제 snapshot은 전부 `gpt-5-mini-2025-08-07`이었다. D-053 cached exact replay의 모든
+`TurnAudit`에서 `intent_repair_attempted=false`, `intent_repair_recovered=false`였으므로 이
+held-out Live 응답들은 D-052의 1회 schema repair를 실제로 사용하지 않았다. repair 성공과
+2차 실패 경로는 strict 회귀 테스트로 확인했다.
+
+첫 4/8과 held-out 8/8은 문장이 다른 두 set이므로 paired improvement나 통계적 유의성을
+주장하지 않는다. 8/8은 **사전 고정한 이 작은 held-out set에서 입력에 따라 policy depth와
+reported zone이 달라졌고, 그 결과 graph·release·경로가 달라졌음**을 보이는 통합 증거다.
+
+## 발표 재생
+
+```bash
+python3 -m desktop
+```
+
+센서 시나리오(cached/live):
+
+1. `1 · UAV 순찰 → simulated fire detection` 선택.
+2. `네 개 구역을 모두 항공 정찰하고 새 화재가 감지되면 지상 로봇 진압 단계까지 완료해줘`
+3. `다음 checkpoint`를 눌러 `AREA_RECON__ZONE_B` 완료 시점의 simulated observation 확인.
+4. 새 `FIRE_SITE_1`의 4개 workflow task와 selective reallocation을 확인하고 계속 재생.
+
+운영자 report 시나리오(cached/live):
+
+1. `2 · UAV 순찰 중 자연어 화재 신고` 선택.
+2. `네 개 구역 전체를 항공 정찰만 해줘`
+3. `다음 checkpoint`로 실행을 한 번 진행.
+4. `Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지 대응해줘`
+5. task 4→8, `ZONE_A`, selective release 2개와 다음 segment 경로 변화를 확인.
+
+`cached`는 이 머신에 실제 Live 응답 cache가 있을 때만 위 문장을 exact replay한다. `mock`은
+별도의 화면-wiring script이며 UI가 표시하는 정확한 mock 문장만 받는다.
+
+## 한계
+
+- 단일 model snapshot, 8개 held-out case의 소규모 평가다.
+- 화재 감지는 strict latent fixture가 만든 simulated observation이며 실제 영상/열 센서가 아니다.
+- 이동은 discrete-event schedule의 kinematic playback이고 실제 robot telemetry가 아니다.
+- 특정 agent/대수 제약은 아직 지원하지 않으며 조용히 무시하지 않고 `UNSUPPORTED`로 거부한다.
+- LLM은 intent·slot·초기 graph를 만들지만 좌표, priority, capability, assignment, release와
+  Validator 판정은 결정론적 코드가 담당한다.

@@ -19,18 +19,29 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-050, 계약 v1.46)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-053, 계약 v1.49)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
-## 지금 어디까지 왔는지 (2026-09-07 기준)
+## 지금 어디까지 왔는지 (2026-09-08 기준)
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.5,
-P9.0~P9.4, P10과 P11 완료 (브랜치 `feature/operator-interaction`). 계약 v1.46, 최신 결정
-D-050.**
+P9.0~P9.4, P10, P11과 P12.0~P12.5 완료 (브랜치 `feature/operator-interaction`). 계약
+v1.49, 최신 결정 D-053.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 784개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 854개 통과, ruff clean.
+
+P12 (§22, D-051/D-052): 자연어 `NEW_MISSION`이 초기 graph와 별도 future-incident response
+policy를 만들고, strict simulated `FIRE_DETECTED` 또는 실행 중 자연어 `REPORT_INCIDENT`가
+같은 atomic incident transaction → Validator → P9 selective reallocation으로 수렴한다.
+첫 Live engineering-feedback set은 4/8이고 보존한다. 그 결과 뒤 별도로 사전 커밋한 held-out
+paraphrase는 `gpt-5-mini-2025-08-07`에서 8/8 exact, 실행 case 전부 COMPLETED·위반 0이다.
+같은 시험의 전후 개선으로 주장하지 않는다. D-052는 live/cached intent wire의 첫 strict
+`ValidationError`에만 1회 schema correction을 허용하고 zone reference의 `에서`/`에`를
+제한적으로 처리한다. strict schema·LLM 역할·Validator/CBBA 의미는 불변이며 cache prompt
+schema는 `p12-v2`. D-053은 intent repair attempted/recovered를 각 `TurnAudit`에 기록한다.
+`docs/P12_RESULTS.md` 참고.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 최초 범위는 실행 개시 전 다중 턴
 자연어 계획 세션이며, 후속 P9가 이를 task-completion checkpoint의 온라인 명령으로 확장했다.
