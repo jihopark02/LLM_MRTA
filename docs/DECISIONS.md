@@ -1744,3 +1744,29 @@ fixture는 선택 항목으로 그대로 보존한다.
 **영향** native controller/window lifecycle, intent prompt/cache namespace, desktop 자동 테스트와
 문서. Validator/CBBA/executor/checkpoint/online policy의 의미와 버전, P3/P4/P9/P12 역사적
 artifact·수치는 불변이다.
+
+## D-055: completed patrol 뒤 follow-on incident response (계약 v1.51)
+
+**배경** D-054 자동 재생 뒤 `전체 구역 항공 정찰만 해줘`는 의도대로 `AREA_RECON` 4개만
+생성했지만, 운용자가 새 화재를 입력하기 전에 4개가 모두 끝나면 session이 `EXECUTED`가 되어
+올바르게 분류된 `REPORT_INCIDENT`조차 거부했다. 이는 기존 terminal 불변에는 맞지만 사용자가
+짧은 wall-clock 입력 창을 놓치면 발표 시나리오 자체를 다시 시작해야 하는 타이밍 경쟁이다.
+같은 Live audit에서는 모델이 단순 `정찰만`을 future incident policy `THERMAL_RECON`으로
+오추출한 것도 확인됐다.
+
+**결정** online `COMPLETED` 결과와 terminal runtime을 모두 가진 `EXECUTED`에 한해 새 incident
+REPORT와 그 incident의 canonical UPDATE를 허용한다. scene-only report는 terminal을 유지한다.
+response workflow가 accepted되면 terminal checkpoint clone에 새 task만 추가·입찰하고 기존
+COMPLETED prefix와 simulation time을 보존한 채 `EXECUTION_PAUSED`로 전환한다. 현재
+`session.execution`은 새 episode가 진행 중임을 나타내기 위해 비우지만 이전 `ExecutionAudit`은
+append-only event stream에 남긴다. one-shot 완료, 실패 terminal, NEW_MISSION, 기존 task 수정은
+계속 거부한다.
+
+이는 P9의 mid-run selective reallocation과 다른 follow-on episode다. 연구 결과에서 둘을
+합치지 않는다. native auto-run은 accepted follow-on commit을 자동 재생한다. intent prompt에는
+초기 recon-only와 conditional future-fire policy의 반례를 명시하고 cache namespace를
+`p12-v4`로 올린다.
+
+**영향** orchestrator terminal gate, incident transaction publication, native auto-run,
+intent prompt/cache와 회귀 테스트·문서. TaskGraph/Validator/CBBA/executor algorithm과 버전,
+P3/P4/P9/P12 역사적 artifact는 불변이다.

@@ -1,8 +1,14 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.50 (D-054). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.51 (D-055). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.51 (D-055): 성공적으로 끝난 online 실행의 terminal checkpoint를 후속 incident response
+  episode의 시작점으로 재사용한다. `EXECUTED`에서 `REPORT_INCIDENT`와 canonical
+  `UPDATE_MISSION`을 좁게 허용해 COMPLETED prefix는 그대로 두고 새 workflow task만 추가한 뒤
+  `EXECUTION_PAUSED`로 되돌려 자동 재생한다. 이는 진행 중 재할당 수치와 구분해 감사한다.
+  또한 단순 초기 정찰의 `정찰만`을 future-fire policy로 오인하지 않도록 intent prompt를
+  명시화하고 cache namespace를 `p12-v4`로 올린다.
 - v1.50 (D-054): native 발표 UI를 명령 생성 뒤 자동 checkpoint 재생으로 전환하고, 재생 중
   자연어 입력 한 건을 대기열에 받아 현재 frozen segment가 끝나는 안전한 task-completion
   checkpoint에서 기존 orchestrator로 처리한다. 같은 checkpoint의 simulated sensor event를
@@ -995,6 +1001,7 @@ invariant를 통과해야 한다.
 | P12.4 | Live counterfactual + 두 발표 scenario | 사전 고정 명령/annotation으로 initial graph·policy·report zone·response prefix exact scoring / 같은 scene의 다른 명령이 다른 graph/policy, 다른 zone이 다른 target을 생성 / scripted mock은 정확한 제시 문장 외 입력을 backend 소비 없이 거부 / sensor 시나리오와 operator-report 시나리오 모두 `COMPLETED`, capability/precedence violation 0, P9 selective release 원시값 감사 / 실제 model snapshot 기록 / 첫 Live 원시 결과와 개선 후 사전 고정 held-out 결과를 별도 artifact로 보존 |
 | P12.5 | native UI 연결 | scenario는 명시적 선택·seed/fixture id 표시 / Live parsed directive·event source·patch·release/rebid 표시 / sensor observation과 operator report를 구분 / 다음 checkpoint 이후 변경 경로 재생 / cached를 live로 표시 금지 / P3/P4/P9 골든 불변 |
 | P12.6 | autonomous safe-checkpoint playback + queued Live command (D-054) | initial `COMMITTED` 뒤 native UI가 별도 클릭 없이 checkpoint segment를 연속 재생 / playback 중 input 1건을 `QUEUED`로 표시하되 LLM·grounder는 호출하지 않음 / frozen segment 종료 뒤 같은 checkpoint의 sensor observation을 먼저 반영하고 queued command를 정확히 1회 기존 orchestrator로 처리 / accepted update 뒤 P9 selective release/rebid와 다음 segment 자동 진행 / clarification·UNSUPPORTED·REJECTED·TURN_ERROR에서는 자동 진행 정지 / queue overwrite 금지 / 일반 UAV·UGV platform 표현 허용, 특정 agent id·수량·배제는 계속 UNSUPPORTED / native 기본 scenario는 sensor detection / checkpoint 수동 버튼은 진단용으로 보존 / P3/P4/P9/P12 결과·감사 의미 불변 |
+| P12.7 | completed patrol → follow-on incident response (D-055) | online `COMPLETED` terminal checkpoint가 있는 `EXECUTED`에서만 REPORT/canonical UPDATE 허용 / scene-only report는 terminal 유지, response patch commit은 previous `ExecutionAudit` 보존 + COMPLETED task/status/time 불변 + 새 task만 READY/ASSIGNED + `EXECUTION_PAUSED` 재개 / 다음 segment 자동 재생 후 다시 `COMPLETED`·위반 0 / one-shot terminal·EXECUTION_FAILED·NEW_MISSION은 계속 거부 / TurnAudit이 follow-on patch와 online assignment를 기록하고 이전 EXECUTION→TURN→새 EXECUTION event 순서 보존 / 단순 recon 명령은 future incident policy null / `p12-v4` / mid-run selective reallocation과 follow-on episode 결과를 혼동하지 않음 |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
 
@@ -1050,6 +1057,15 @@ P9 정책의 전역 최소성·최적성 주장.
 `ExecutionResult` 조회(`QUERY_STATUS`)만 가능. 실패 시 동일 graph 재시도만 허용하고 graph
 변경은 금지한다.
 
+후속 P12.7은 이 최초 규칙을 한 경우에만 좁게 supersede한다(D-055). online 실행이
+`Termination.COMPLETED`로 끝났고 terminal `runtime` checkpoint가 보존된 `EXECUTED` session은
+새 `REPORT_INCIDENT`를 기록하고, 그 incident의 canonical workflow를 REPORT 한 턴 또는 이어지는
+`UPDATE_MISSION`으로 추가할 수 있다. 기존 COMPLETED task를 다시 열거나 수정하지 않고 새 task만
+terminal checkpoint에 붙인다. response task가 실제로 commit되면 현재 `execution` field를 비우고
+`EXECUTION_PAUSED`로 전환하지만 과거 `ExecutionAudit`은 event stream에 남는다. 이것은 임무 진행
+중 release/rebid와 구분되는 **follow-on execution episode**다. one-shot 완료(runtime 없음),
+`EXECUTION_FAILED`, `NEW_MISSION`에는 이 예외를 적용하지 않는다.
+
 P8 결과만으로는 "임무 실행 중 자연어 업데이트"를 주장하지 않는다. 이는 P9 §19의 별도
 checkpoint/resume 게이트를 모두 통과한 경우에만 선택 확장 결과로 주장한다. perception·자동
 화재 탐지 없음(§3 재확인) — 신규 incident는 운용자의 명시적 보고로만 시스템에 진입한다.
@@ -1060,7 +1076,9 @@ checkpoint/resume 게이트를 모두 통과한 경우에만 선택 확장 결�
 
 `NEW_MISSION` / `REPORT_INCIDENT` / `UPDATE_MISSION` / `QUERY_STATUS` / `UNSUPPORTED`.
 미지원(→ `UNSUPPORTED`, 고정 템플릿 응답): 자유 채팅, task/incident 취소·삭제, 재우선순위,
-agent 지정 할당, 비-canonical graph 편집, incident 위치 변경, mid/post-execution patch.
+agent 지정 할당, 비-canonical graph 편집, incident 위치 변경, 임의 mid/post-execution patch.
+단 §19의 paused canonical patch와 §18.1/D-055의 completed-online follow-on incident workflow는
+명시된 예외다.
 
 ### 18.3 파이프라인
 
@@ -1893,3 +1911,26 @@ intent 경계에서 `UAV로 정찰`, `UGV로 점검`, `지상 로봇으로 진�
 `R2 제외`처럼 특정 agent id·수량·배제를 요구하는 표현은 여전히 지원 범위 밖이고 요청 전체를
 `UNSUPPORTED`로 fail closed한다. native 기본 scenario는 두 발표 시나리오 중 sensor detection으로
 두어 처음 실행한 자유 문장이 legacy reference fixture처럼 보이지 않게 한다.
+
+### 22.7 completed patrol의 follow-on response episode (D-055)
+
+`AREA_RECON` 4개처럼 유한한 초기 graph는 마지막 task가 끝나면 정직하게 `EXECUTED`가 된다.
+반복 순찰 task나 실제 지속 감시를 구현하지 않았으므로 화면이 계속 움직이는 것처럼 가장하지
+않는다. 대신 online `COMPLETED` terminal checkpoint를 보존한 session은 이후 도착한 새 incident
+report를 받을 수 있다. response step이 없는 report는 scene/referent만 추가하고 terminal을
+유지하며, 같은 턴의 `response_up_to` 또는 후속 canonical `UPDATE_MISSION`이 workflow를 추가하면
+그 terminal checkpoint를 복제해 `apply_online_patch`와 CBBA epoch를 수행한 뒤
+`EXECUTION_PAUSED`로 전환한다.
+
+이 전환은 기존 completed prefix, simulation time, agent의 마지막 확정 위치, 기존 assignment
+history를 되돌리지 않는다. 직전 `ExecutionAudit`도 삭제하지 않고 event stream에
+`... EXECUTION(COMPLETED) → TURN(COMMITTED) → ... → EXECUTION(COMPLETED)` 순서로 남긴다.
+native auto-run은 follow-on commit도 자동 재생한다. 실행 중 queue가 만든 patch는 P9 selective
+reallocation 사례이고, terminal 뒤 patch는 follow-on episode이므로 발표·평가에서 둘을 같은
+수치로 부르지 않는다.
+
+intent classifier는 `incident_response_up_to`를 **미래 화재가 감지·보고될 때**라는 조건이
+명시된 `NEW_MISSION`에서만 채워야 한다. `전체 구역 항공 정찰만 해줘`의 `정찰만`은 초기 graph
+범위를 설명할 뿐 future incident policy가 아니므로 null이다. 이 prompt 의미 변경은
+`PROMPT_SCHEMA_VERSION = p12-v4`로 격리한다. LLM이 graph·policy 구조를 제안한다는 역할은
+유지하며, allocator·priority·좌표·capability는 계속 결정론적이다.
