@@ -1,8 +1,15 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.51 (D-055). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.52 (D-056). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.52 (D-056): P13 **dynamic natural-language mission runtime**과 P14 ROS2/Gazebo adapter를
+  추가한다. 고정된 semantic world·task vocabulary·안전 규칙 위에서 Live 자연어가 초기 graph와
+  검증 가능한 resource constraint를 만들며, 결정론적 allocator가 실제 active team과 assignment를
+  선택한다. 실행 중 입력은 계속 움직이는 wall-clock 2D runtime에서 받되 다음 task-completion
+  safe boundary에서 atomic하게 적용한다. 특정 agent·대수·배제를 무조건 UNSUPPORTED로 처리하던
+  P12.6 경계는 P13에서만 supersede한다. LLM 직접 agent assignment, 좌표 생성, RUNNING task
+  abort/migration은 계속 금지한다.
 - v1.51 (D-055): 성공적으로 끝난 online 실행의 terminal checkpoint를 후속 incident response
   episode의 시작점으로 재사용한다. `EXECUTED`에서 `REPORT_INCIDENT`와 canonical
   `UPDATE_MISSION`을 좁게 허용해 COMPLETED prefix는 그대로 두고 새 workflow task만 추가한 뒤
@@ -313,6 +320,17 @@ RQ5의 LLM 역할은 초기 objective·고정 4단계 workflow의 response prefi
 release 집합과 실행 성공을 LLM이 결정하지 않는다. `FIRE_DETECTED`는 실제 영상 인식이 아니라
 사전 고정된 latent-world fixture가 특정 `AREA_RECON` 완료 뒤 공개하는 결정론적 observation이다.
 따라서 결과를 "자동 화재 인식" 또는 물리적 실시간 perception으로 부르지 않는다.
+
+**RQ6 (선택 확장)**: 고정된 semantic world와 fleet에서 자유 형식 자연어 명령이 초기·후속
+task graph와 검증 가능한 자원 제약을 만들고, 결정론적 Validator/CBBA가 이를 실행 가능한 active
+team과 assignment로 변환하며, 계속 진행되는 2D runtime이 실행 중 입력을 다음 안전 경계에서
+atomic하게 반영할 수 있는가?
+
+RQ6에서 LLM은 intent, target/workflow slot, agent class·수량·포함·배제 **제약만** 구조화한다.
+특정 task→agent 배정, 좌표·경로·priority·capability, constraint feasibility, release 집합과 commit
+여부는 결정론적 코드가 정한다. 지원 ontology 밖의 표현은 자유롭게 추측하지 않고 clarification
+또는 UNSUPPORTED로 끝난다. P13의 2D runtime은 kinematic simulation이며 robot telemetry가 아니다.
+P14가 연결되기 전에는 Gazebo/물리 실행 또는 arbitrary wall-clock preemption을 주장하지 않는다.
 
 ---
 
@@ -1002,6 +1020,14 @@ invariant를 통과해야 한다.
 | P12.5 | native UI 연결 | scenario는 명시적 선택·seed/fixture id 표시 / Live parsed directive·event source·patch·release/rebid 표시 / sensor observation과 operator report를 구분 / 다음 checkpoint 이후 변경 경로 재생 / cached를 live로 표시 금지 / P3/P4/P9 골든 불변 |
 | P12.6 | autonomous safe-checkpoint playback + queued Live command (D-054) | initial `COMMITTED` 뒤 native UI가 별도 클릭 없이 checkpoint segment를 연속 재생 / playback 중 input 1건을 `QUEUED`로 표시하되 LLM·grounder는 호출하지 않음 / frozen segment 종료 뒤 같은 checkpoint의 sensor observation을 먼저 반영하고 queued command를 정확히 1회 기존 orchestrator로 처리 / accepted update 뒤 P9 selective release/rebid와 다음 segment 자동 진행 / clarification·UNSUPPORTED·REJECTED·TURN_ERROR에서는 자동 진행 정지 / queue overwrite 금지 / 일반 UAV·UGV platform 표현 허용, 특정 agent id·수량·배제는 계속 UNSUPPORTED / native 기본 scenario는 sensor detection / checkpoint 수동 버튼은 진단용으로 보존 / P3/P4/P9/P12 결과·감사 의미 불변 |
 | P12.7 | completed patrol → follow-on incident response (D-055) | online `COMPLETED` terminal checkpoint가 있는 `EXECUTED`에서만 REPORT/canonical UPDATE 허용 / scene-only report는 terminal 유지, response patch commit은 previous `ExecutionAudit` 보존 + COMPLETED task/status/time 불변 + 새 task만 READY/ASSIGNED + `EXECUTION_PAUSED` 재개 / 다음 segment 자동 재생 후 다시 `COMPLETED`·위반 0 / one-shot terminal·EXECUTION_FAILED·NEW_MISSION은 계속 거부 / TurnAudit이 follow-on patch와 online assignment를 기록하고 이전 EXECUTION→TURN→새 EXECUTION event 순서 보존 / 단순 recon 명령은 future incident policy null / `p12-v4` / mid-run selective reallocation과 follow-on episode 결과를 혼동하지 않음 |
+| P13.0 | RQ6 동적 임무·자원 제약·연속 runtime 계약 | v1.52 / D-056 커밋 |
+| P13.1 | strict resource request + deterministic active-team selection | `NEW_MISSION`이 UAV/UGV exact·min·max와 required/excluded agent slot을 strict wire로 보존 / 미지 id·중복·교집합·범위 모순 거부 / feasible team 전수 탐색 뒤 기존 `allocate` 결과로 결정론적 선택 / 제약 없는 입력은 기존 full-fleet 결과와 정확히 동일 / constraint를 조용히 무시하거나 LLM assignment로 대체하지 않음 |
+| P13.2 | 후속 resource update + online safe-boundary 적용 | `UPDATE_RESOURCES`와 incident report에 동반된 resource request를 지원 / RUNNING·COMPLETED commitment 불변 / 새로 배제된 RUNNING agent는 현재 task 완료 뒤 future work에서만 제외 / 실패 시 policy·state·runtime identity와 hash 불변 / resource request·resolved team·assignment 변화·deferred exclusion 감사 |
+| P13.3 | scenario-free Live operator session | Live 기본 scene은 world만 로드하고 reference graph·latent incident fixture·scripted response fallback 없음 / 서로 다른 사전 고정 자연어가 서로 다른 graph·team·assignment를 생성 / mock은 별도 TEST/DEMO 배너와 exact utterance만 허용 / Live 실패를 mock 결과로 대체하지 않음 |
+| P13.4 | continuous wall-clock 2D runtime + asynchronous command queue | 고정 tick에서 simulation time·pose가 연속 증가 / UI 버튼 없이 자동 진행 / 재생 중 Live 명령을 LLM이 해석해 pending transaction으로 보존 / 현재 frozen commitment는 다음 task-completion safe boundary까지 유지 / boundary에서 Validator→resource feasibility→selective release/rebid를 한 번만 atomic commit / 입력·tick timing 변화가 같은 boundary state에서 같은 결과 / pause·resume·failure 감사 / P3/P4/P9 골든 불변 |
+| P13.5 | Live counterfactual evaluation | 사전 커밋 held-out 명령에서 graph·resource request·resolved team·assignment exact score / invalid constraint clarification·rejection 분모 보고 / 초기 순찰→simulated detection→response와 순찰 중 operator report→재할당 두 시나리오 완주·위반 0 / 모델 snapshot·raw/final wire·hash·timing 감사 |
+| P14.0 | ROS2/Gazebo adapter 계약 | simulator boundary·topic/service schema·clock ownership·failure semantics·재현 가능한 world/launch 고정; P13 알고리즘과 adapter 분리 |
+| P14.1 | multi-agent Gazebo execution adapter | P13 committed assignment를 UAV/UGV controller에 발행하고 telemetry를 UI에 반영 / LLM은 setpoint를 만들지 않음 / adapter failure가 Validator·graph audit를 훼손하지 않음 / 대표 두 시나리오 재현 영상과 raw ROS audit |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
 
@@ -1019,12 +1045,10 @@ invariant를 통과해야 한다.
 
 ## 16. 시간 부족 시 cut-order
 
-1. Gazebo 통합(P7)
-2. exact solver 비교
-3. 반복 LLM 호출
-4. 18개 입력을 최소 9개로 축소
-5. 시각화 애니메이션 폴리싱
-6. RQ3(P8) 전체
+1. P14 Gazebo 통합
+2. P13.2 후속 자원 정책 중 min/max 갱신
+3. exact solver 비교
+4. 반복 LLM 호출
 
 **절대 자르지 않음**: canonical reference graph, deterministic whole-graph Validator,
 heterogeneous capability allocation, platform-aware travel cost, 2D end-to-end 실행, 최소
@@ -1037,13 +1061,14 @@ heterogeneous capability allocation, platform-aware travel cost, 2D end-to-end �
 실제 RGB/thermal perception, 학습 기반 자동 화재 탐지, 물리적 화재 안정성 판정, `WATER_LOAD`,
 suppressant 잔량과 재보급, same-agent resource coupling, obstacle removal, relay deployment,
 target tracking, `FIRE_DETECTED` 고정 contingency 밖의 일반 조건부 task graph, SLAM, 동적 장애물 회피, 일반 road planner, LLM 직접
-agent 할당, 새로운 CBBA 알고리즘 제안, P0~P6.5 완료 전 RQ3 구현(P7 Gazebo는 RQ3의
+task→agent 할당(P13의 agent class·수량·포함·배제 constraint 추출은 허용), 새로운 CBBA 알고리즘 제안, P0~P6.5 완료 전 RQ3 구현(P7 Gazebo는 RQ3의
 선행조건이 아님 — §16 cut-order·§15·§1 참고, D-027), MP4MR A~G 체계 복제, 모든
 agent가 최소 1개 task를 받아야 한다는 제약, bundle 길이 ≥2를 Phase 1 invariant나 완료 게이트로
 쓰는 것(P8에서는 실험 precondition으로 재검토 가능 — §15 P8), 임의 wall-clock 시점의 강제
 중단, RUNNING task abort·migration, 실행 후 terminal graph 수정, P12의 strict simulated
 `FIRE_DETECTED` fixture 밖의 자동 perception event,
-P9 정책의 전역 최소성·최적성 주장.
+P9 정책의 전역 최소성·최적성 주장. P13도 RUNNING task의 즉시 abort·migration을 도입하지 않으며,
+wall-clock 입력은 다음 task-completion safe boundary에서만 실행 상태에 반영한다.
 
 ---
 
@@ -1934,3 +1959,72 @@ intent classifier는 `incident_response_up_to`를 **미래 화재가 감지·보
 범위를 설명할 뿐 future incident policy가 아니므로 null이다. 이 prompt 의미 변경은
 `PROMPT_SCHEMA_VERSION = p12-v4`로 격리한다. LLM이 graph·policy 구조를 제안한다는 역할은
 유지하며, allocator·priority·좌표·capability는 계속 결정론적이다.
+
+---
+
+## 23. Dynamic natural-language mission runtime (P13, D-056)
+
+### 23.1 고정 world와 동적 mission의 경계
+
+P13 Live 경로에서 미리 고정하는 것은 semantic world, fleet, route graph, task vocabulary,
+workflow predecessor와 Validator 규칙뿐이다. 초기 task graph, incident response prefix,
+resource request, active team과 assignment는 자연어와 현재 session state로부터 매번 생성·검증한다.
+Live 기본 session에는 reference mission graph, latent incident fixture 또는 scripted backend 응답을
+넣지 않는다. mock/cached는 시험·재현 모드이며 화면과 감사에서 Live와 명확히 구분한다.
+
+자유 형식 입력은 무제한 행동 어휘를 뜻하지 않는다. LLM은 지원된 intent와 slot으로만 번역하고,
+모르는 task·target·조건은 만들지 않는다. 따라서 “Warehouse를 UAV 한 대로 정찰해줘”는 지원된
+graph와 자원 제약으로 처리할 수 있지만, 새 sensor payload나 임의 좌표를 요구하는 문장은
+clarification 또는 UNSUPPORTED다.
+
+### 23.2 resource request와 결정론적 team resolution
+
+`ResourceRequest`는 platform별 `exact`/`min`/`max` 대수와 `required_agents`/
+`excluded_agents`를 가진 strict 구조다. 정수는 bool이 아닌 0 이상의 int만 허용한다. 같은
+platform에서 `exact`는 `min`/`max`와 함께 쓸 수 없고 `min <= max`여야 한다. agent id는 scene
+fleet에 존재해야 하며 목록 내 중복과 required/excluded 교집합을 거부한다.
+
+LLM은 이 제약을 추출할 뿐 task→agent mapping을 출력하지 않는다. 결정론적 resolver는 scene의
+agent id 자연 정렬 순으로 가능한 active-team 부분집합을 열거하고 기존 `allocate()`를 그대로
+호출한다. 모든 task가 할당되고 capability/precedence violation이 없으며 required agent가 최소
+한 task를 실제로 맡는 candidate만 feasible이다. 선택 키는
+`(estimated_makespan, total_distance, active_team_size, sorted_agent_ids)` 오름차순이다.
+해가 없으면 명시적 `RESOURCE_INFEASIBLE`이며 full fleet로 조용히 fallback하지 않는다. 제약이
+없으면 기존 full-fleet `allocate()`와 결과가 정확히 같아야 한다.
+
+P13.1은 `NEW_MISSION`의 resource request와 initial team resolution을 먼저 구현한다. P13.2에서
+별도 `UPDATE_RESOURCES`와 `REPORT_INCIDENT`에 동반된 request를 지원한다. 후속 request는 현재
+policy를 atomic하게 교체하며, omitted field를 임의로 이전 값에서 추론하는 merge는 하지 않는다.
+
+### 23.3 실행 중 resource 변경
+
+실행 중 request는 다음 task-completion safe boundary에서 graph update와 한 transaction으로
+적용한다. COMPLETED와 RUNNING task/assignment는 변경하지 않는다. 새 policy에서 제외된 agent가
+RUNNING이면 그 task 완료까지 허용하고 이후 미시작 task에서 제외하는 deferred exclusion으로
+감사한다. feasibility·Validator·reallocation 중 하나라도 실패하면 policy, graph, runtime,
+simulation time과 assignment identity를 모두 보존한다.
+
+감사는 raw/final intent wire, `ResourceRequest`, resolved active team, infeasibility code,
+before/after assignment, released task, deferred exclusion과 적용 checkpoint time을 저장한다.
+
+### 23.4 continuous 2D runtime과 입력 queue
+
+P13.4는 `advance_to_next_completion()` 호출을 UI animation clock으로 쓰지 않는다. 별도 고정
+wall-clock tick driver가 현재 committed segment 안에서 simulation time과 kinematic pose를
+연속 보간하고, task completion boundary에서만 연구 상태를 commit한다. 입력은 이동 중에도 받아
+LLM 해석 결과와 도착 시각을 pending transaction으로 보존한다. pending 결과는 현재 RUNNING task를
+중단하지 않고 다음 safe boundary에서 정확히 한 번 적용된다.
+
+UI thread·network latency가 결과를 바꾸지 않게 LLM 호출은 executor state mutation과 분리한다.
+동일 utterance, pre-state hash와 적용 boundary가 같으면 graph/resource/team/assignment 결과도
+같아야 한다. 여러 입력의 순서·교체·취소 정책은 구현 전에 별도 계약으로 확정한다. P13.4는
+robot telemetry가 아니라 P10 schedule 기반 kinematic runtime이며, 이를 실제 비행으로 표시하지
+않는다.
+
+### 23.5 ROS2/Gazebo adapter 경계
+
+P14는 P13이 commit한 task와 assignment를 실행 platform 명령으로 변환하고 telemetry를 다시
+session view에 공급하는 adapter다. LLM은 ROS topic, trajectory setpoint, velocity 또는 controller
+명령을 만들지 않는다. multi-agent clock ownership, command acknowledgement, timeout, agent failure,
+재접속과 world/launch 재현 조건은 P14.0 계약에서 먼저 고정한다. P14가 완료되기 전 native 2D
+화면은 Gazebo 또는 실제 robot 실행으로 주장하지 않는다.

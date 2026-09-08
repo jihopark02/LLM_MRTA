@@ -1770,3 +1770,32 @@ append-only event stream에 남긴다. one-shot 완료, 실패 terminal, NEW_MIS
 **영향** orchestrator terminal gate, incident transaction publication, native auto-run,
 intent prompt/cache와 회귀 테스트·문서. TaskGraph/Validator/CBBA/executor algorithm과 버전,
 P3/P4/P9/P12 역사적 artifact는 불변이다.
+
+## D-056: 고정 world 위의 동적 자연어 임무·자원 제약·연속 runtime (계약 v1.52)
+
+**배경** P12는 자연어에 따라 graph와 incident workflow가 달라지는 것을 검증했지만, 특정 agent,
+platform별 대수와 배제를 의도적으로 `UNSUPPORTED`로 두었다. native UI도 연구 상태를 정확히
+checkpoint 단위로 전이한 뒤 미리 계산된 segment를 재생하므로, 사용자가 기대하는 “world만
+고정되고 자연어에 따라 임무·팀·할당이 실시간으로 달라지는 시스템”보다 scripted playback처럼
+보였다. 기존 warehouse offboard 예제는 지속 telemetry loop 덕분에 살아 보이지만 단일 vehicle과
+소수 고정 mission type에 한정되어 있어 그대로 이식하면 MRTA 검증 경계를 잃는다.
+
+**결정** P13을 추가한다. Live session은 world/fleet/ontology/Validator만 고정하고 자연어로 초기·
+후속 graph와 strict `ResourceRequest`를 만든다. LLM은 UAV/UGV exact·min·max, required/excluded
+agent 제약을 추출하지만 task→agent assignment를 정하지 않는다. 결정론적 team resolver가 feasible
+fleet subset을 전수 검증하고 기존 `allocate` 결과의 makespan, distance, team size, agent id 순으로
+선택한다. infeasible 제약은 full fleet로 fallback하지 않는다.
+
+P13의 UI는 checkpoint 버튼을 정상 clock으로 사용하지 않고 고정 wall-clock tick에서 현재 committed
+segment를 연속 표시한다. 실행 중 입력은 즉시 LLM 해석할 수 있지만 RUNNING task를 abort/migrate하지
+않고 다음 task-completion safe boundary에서 Validator→resource feasibility→selective rebid를 한 번만
+atomic commit한다. 기존 checkpoint API는 진단·재현 경계로 유지한다.
+
+Gazebo integration은 P14 adapter로 분리한다. LLM은 좌표·setpoint·ROS command를 만들지 않으며 P14 전에는
+2D kinematic playback을 physical robot telemetry로 주장하지 않는다. P13.1은 NEW mission의 resource
+request와 초기 team resolution부터 작게 구현하고, online resource update와 continuous clock은 후속
+게이트에서 추가한다.
+
+**영향** 계약 §1/§15/§16/§17과 신규 §23, interaction wire/prompt/directive/session/audit,
+deterministic allocation wrapper, native lifecycle와 이후 ROS2/Gazebo adapter. 기존 Validator 1.4,
+online policy 1.0, P3/P4/P9/P12 역사적 결과·artifact는 불변이어야 한다.
