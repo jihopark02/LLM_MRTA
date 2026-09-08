@@ -1833,3 +1833,91 @@ mission으로 fallback하지 않는다.
 
 **영향** native controller/window 기본값과 profile 표시, desktop 자동 테스트, README/CLAUDE.
 Validator/CBBA/executor/online policy와 기존 artifact는 불변이다.
+
+## D-059: 발표·시각화용 확장 reference scene (계약 v1.55)
+
+**배경** `industrial_park`은 4 zone·2 incident로 P1~P6.5 게이트와 P3/P4 골든값을 고정하는
+최소 scene이다. 발표에서 CBBA의 이종 할당을 MP4MR Fig 20처럼 보여주려면 task 수가 너무 적어
+할당 그림이 눈에 들어오지 않는다. scene을 키우는 방법은 (a) `industrial_park`을 확장하거나
+(b) 별도 확장 scene을 두는 것인데, (a)는 P3/P4 골든과 v0.6.5 baseline을 깨므로 불가다.
+
+**결정** 동일 task vocabulary(5종)·fleet(6대 2/2/2)·capability·workflow predecessor·Validator
+규칙·이동비용·priority 파생을 그대로 쓰고 zone·incident·route node 수만 늘린 **확장 reference
+scene**을 §3.1로 허용한다. `industrial_park`(4 zone)과 P3/P4 골든 makespan, P1~P6.5 게이트는
+불변이며 확장 scene은 게이트·평가 수치 생성 대상이 아니다 — 발표 슬라이드·§18.14 렌더러의 그림
+생성과 발표용 라이브 데모에 쓴다. 확장 scene도 scene loader의 §8 reachability, §5
+eligible-bidder(모든 task type ≥2), §7 priority(1..10) 검증을 동일하게 통과해야 하며, incident가
+채워진 확장 scene은 `reference_fixture.yaml`과 같은 방식의 full-response fixture로 둔다.
+incident-empty 변형은 §23.3.1의 dynamic-world 방식대로 native UI에 선택 가능한 world profile로
+등록하되 D-058의 기본 `patrol_park` profile은 유지하고, 이 scene에서도 평가 수치는 만들지 않는다.
+
+**영향** `scenarios/`에 확장 scene(incident 포함 + incident-empty 변형)·fixture YAML 추가,
+발표 렌더 산출물, `desktop/controller.py`의 world profile 목록. Validator 1.4, online policy 1.0,
+CBBA/executor 의미, native 기본 profile, `industrial_park` 및 P3/P4/P6/P9/P12/P13 역사적
+결과·artifact는 모두 불변이다.
+
+## D-060: UAV를 동일 기체 3대로 통합 (계약 v1.56)
+
+**배경** §5는 UAV를 Scout 2(`AERIAL_RECON`, `THERMAL_SENSOR`) + Response
+2(`THERMAL_SENSOR`, `SUPPRESSANT_PAYLOAD`)로 나눴다. 두 종류가 `THERMAL_SENSOR`를 공유하는
+유일한 이유는 `THERMAL_RECON`에 4-bidder 경쟁을 만들기 위해서였는데, 이 공유 capability가
+인위적이고 "UAV가 왜 2종인가"를 발표에서 설명하기 어렵다는 지적이 있었다(지도교수 피드백).
+분리를 없애면 UAV 내부 이종성은 사라지지만, §2가 명시하듯 이 연구의 novelty는 fleet 구성이
+아니라 결정론적 whole-graph Validator이며, RQ2의 이종 할당은 UAV/UGV 경계(capability 집합과
+이동 모델이 모두 다름)로도 성립한다.
+
+**결정** §5를 **총 5대**로 바꾼다: 동일 UAV 3대 {`AERIAL_RECON`, `THERMAL_SENSOR`,
+`SUPPRESSANT_PAYLOAD`}, UGV 2대 {`GROUND_MOBILITY`, `SUPPRESSANT_APPLICATOR`}. eligible
+bidder는 `AREA_RECON`/`THERMAL_RECON`/`SUPPRESSANT_DROP` 각 3, `GROUND_INSPECTION`/
+`GROUND_SUPPRESSION` 각 2 — 모든 task type이 여전히 ≥2. agent id는 U1/U2/U3/G1/G2. task
+vocabulary·workflow predecessor·Validator 규칙과 버전·이동비용 모델·priority 파생·CBBA
+알고리즘·§3 reference fixture의 task/edge 형상은 불변.
+
+**영향**
+- 계약: §5 재작성, §4 task 표의 "Scout/Response UAV"·"Ground Response UGV" 서술, §11의 유휴
+  UAV 서술, §19.3의 D-042 mixed-bundle 예시(Scout/Response 분할 전제 — 현 fleet 부적용,
+  정식 재서술은 후속). §3.1 확장 scene도 이 fleet을 따른다.
+- 코드: `industrial_park`·`patrol_park`·`reference_fixture`·`response_district{,_patrol,_fixture}`
+  의 fleet, `llm/prompts.py` task glossary, agent id를 참조하는 모든 테스트·평가 fixture,
+  P13 resource constraint 테스트(S1/R2 등 예시 id).
+- 결정론적 골든 재계산: P3 `allocate` makespan, P4 `SimExecutor` makespan, P6.5 실행
+  makespan, P9 release 수·makespan. 값 자체가 게이트이므로 새 값을 테스트와 RESULTS 문서에
+  반영한다.
+- LLM 평가: P6(9 호출), P12 counterfactual, P13는 새 fleet로 재실행하고 **새 결과 파일**에
+  기록한다. D-060 이전의 Live artifact(P12 첫 Live 4/8, held-out 8/8 등)와
+  `data/eval_results/`의 기존 파일은 수정하지 않고 "fleet v1(2/2/2)" 기록으로 보존한다.
+- `v0.6.5-baseline` 태그의 커밋은 그대로 두되, 그 시점 fleet이 2/2/2였음을 README/CLAUDE에
+  남긴다. `VALIDATOR_VERSION` 1.4, online policy 1.0은 불변.
+
+## D-061: task vocabulary 3종으로 축소 — THERMAL_RECON·SUPPRESSANT_DROP 제거 (계약 v1.57)
+
+**배경** §4는 5종을 "고정"으로 얼려놨다. 그러나 `THERMAL_RECON`(대응 전 열원 확인)은
+`AREA_RECON`과 기계적으로 동일하고(둘 다 "UAV 좌표 도달 + dwell"), symbolic이라 데이터도
+산출하지 않는다. §22.8 승인 게이트(화재 감지 → 사람이 대응 승인)가 "행동 전 확인" 역할을
+사람 판단으로 가져가므로 THERMAL_RECON은 중복이다. 나아가 지도교수·운용 개념 논의에서 이
+시스템의 대응 모델은 "UAV는 정찰·감시 전담, 실제 진압은 UGV 지상 대응"으로 정리됐다 —
+공중 소화 투하(`SUPPRESSANT_DROP`)는 이 개념에 없다. D-060 fleet 재-baseline으로 P3~P13
+골든을 어차피 재계산하는 시점이라 vocabulary 축소를 같은 재-baseline에 묶는다.
+
+**결정** `THERMAL_RECON`·`SUPPRESSANT_DROP` task type과 `THERMAL_SENSOR`·`SUPPRESSANT_PAYLOAD`
+capability를 제거한다. task vocabulary는 **3종**: `AREA_RECON`(UAV 정찰, 체인 밖),
+`GROUND_INSPECTION`(UGV, 대응 chain 첫 단계, predecessor 없음), `GROUND_SUPPRESSION`(UGV).
+incident workflow는 `GROUND_INSPECTION → GROUND_SUPPRESSION` 2단계. UAV capability는
+`{AERIAL_RECON}`, UGV는 `{GROUND_MOBILITY, SUPPRESSANT_APPLICATOR}`(불변). eligible bidder는
+AREA_RECON UAV 3, GROUND_* UGV 2로 모두 ≥ 2. `VALIDATOR_VERSION` 1.4 유지 — 판정 규칙
+(#1~#14) 불변, 허용 어휘 집합만 축소. priority 파생·이동비용·CBBA 알고리즘·§10 patch 절차는
+불변. 이종성은 UAV(공중 정찰, 직선 이동) vs UGV(지상 대응, route graph)에 있다.
+
+**영향**
+- 계약: §2/§3/§4/§5/§6/§7/§9/§11/§12/§19.3/§22의 THERMAL_RECON·SUPPRESSANT_DROP·
+  THERMAL_SENSOR·SUPPRESSANT_PAYLOAD·"4단계 workflow" 서술. reference fixture 형상
+  task 12→8, edge 6→2. §22.8 approval gate 계약(D-062)이 "행동 전 확인" 역할을 이어받는다.
+- 코드: `core/enums.py`(TaskType/Capability), `scenarios/compiler.py`(TASK_TABLE),
+  `interaction/workflow.py`(WORKFLOW_CHAIN), `validator/whole_graph.py`(WORKFLOW_PREDECESSOR),
+  `interaction/schemas.py`(UpToStep), `llm/prompts.py`·`interaction/prompts.py`,
+  `demo/visualization.py`, `evaluation/annotations.py`, scene fleet,
+  `reference_fixture.yaml`·`response_district_fixture.yaml`.
+- 데이터: `data/reference_annotations/*.yaml`(P6 정답 9개), `data/interaction_dialogues/*.yaml`
+  (P8.4), `data/p12_counterfactual*.yaml`, `data/online_reallocation_fixture.yaml`.
+- 골든: P3/P4/P6.5/P9는 D-060과 함께 재계산. LLM 평가(P6/P12/P13)는 재실행하고 새 결과 파일에
+  기록하며, D-060/D-061 이전 artifact는 fleet v1 / vocab v1 기록으로 보존한다.

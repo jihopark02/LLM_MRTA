@@ -1,8 +1,27 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.54 (D-058). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.57 (D-061). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.57 (D-061): task vocabulary를 5종 → **3종**으로 줄인다. `THERMAL_RECON`(대응 전 열원
+  확인)과 `SUPPRESSANT_DROP`(UAV 공중 투하)을 제거하고 incident workflow를
+  `GROUND_INSPECTION → GROUND_SUPPRESSION` 2단계로 한다. UAV는 정찰 전담(AREA_RECON), 실제
+  진압은 UGV 지상 대응만 한다. THERMAL_RECON의 "행동 전 확인"은 §22.8 승인 게이트(사람)가
+  대체한다. `THERMAL_SENSOR`·`SUPPRESSANT_PAYLOAD` capability도 제거(요구하는 task 없음).
+  `VALIDATOR_VERSION` 1.4 유지(판정 규칙 불변, 어휘 집합만 축소). P3/P4/P6/P9/P12/P13
+  골든·평가는 D-060과 함께 재계산·재실행한다.
+- v1.56 (D-060): §5의 UAV를 **동일 기체 3대**로 통합한다(Scout 2 + Response 2 분리 폐기).
+  총 5대 = UAV 3 + UGV 2. agent id는 U1/U2/U3/G1/G2. (capability·workflow는 D-061에서
+  추가로 축소됐다.) 결정론적 골든(P3/P4/P6.5/P9)은 재계산하고 LLM 평가(P6/P12/P13)는 새 fleet로 재실행하되
+  D-060 이전 Live artifact는 "fleet v1(2/2/2)"로 보존한다.
+- v1.55 (D-059): 발표·CBBA 시각화용 확장 reference scene을 §3.1로 허용한다. 동일 task
+  vocabulary(5종)·fleet(6대 2/2/2)·workflow predecessor·Validator 규칙을 그대로 쓰고 zone·
+  incident·route node 수만 늘린다. `industrial_park`(4 zone)과 P3/P4 골든값·P1~P6.5 게이트는
+  불변이며 확장 scene은 게이트 대상이 아니다. 확장 scene도 loader의 §8 reachability·§5
+  eligible-bidder(모든 task type ≥2)·§7 priority 검증을 동일하게 통과한다. incident-empty
+  변형은 §23.3.1의 dynamic-world 방식대로 native UI의 선택 가능한 world profile로 등록할 수
+  있고, D-058의 기본 profile(`patrol_park`)은 유지한다. 이 scene에서는 어떤 평가 수치도
+  만들지 않는다.
 - v1.54 (D-058): native UI의 기본 진입점을 `dynamic-world + live`로 바꾼다. 이 profile은
   zone·fleet·route만 있는 incident-empty scene을 로드하며 latent fixture, reference graph,
   mock script를 갖지 않는다. mock/cached 연구 재현 profile은 명시적으로 선택해야 하고 Live
@@ -324,7 +343,7 @@ type 없이도 release/rebid가 가능하다.
 명령의 대응 단계가 달라지면 생성되는 정책과 incident workflow prefix가 달라지고, 같은 명령에서
 보고된 zone이 달라지면 신규 incident target과 경로가 달라져야 한다.
 
-RQ5의 LLM 역할은 초기 objective·고정 4단계 workflow의 response prefix·운영자 발화의 zone을
+RQ5의 LLM 역할은 초기 objective·고정 2단계 workflow의 response prefix·운영자 발화의 zone을
 구조화하는 데 한정한다. 화재 존재 여부, 좌표, priority, capability, Validator 판정, agent 선택,
 release 집합과 실행 성공을 LLM이 결정하지 않는다. `FIRE_DETECTED`는 실제 영상 인식이 아니라
 사전 고정된 latent-world fixture가 특정 `AREA_RECON` 완료 뒤 공개하는 결정론적 observation이다.
@@ -356,7 +375,7 @@ Actor 1~4 단계, Critic 2/3/4a(feasibility)/4b(grammar), task 11종(표3), 실�
 
 **GROUND_SUPPRESSION에 대하여(D-016)**: §4의 `GROUND_SUPPRESSION`은 지상 무인체계가 incident
 접근 지점에서 수행하는 **symbolic task**다 — 위치 도달 + dwell로만 완료를 판정하고, 물리적
-소화 성공이나 소화 소요시간을 산출하거나 주장하지 않는다(`SUPPRESSANT_DROP`과 같은 성격).
+소화 성공이나 소화 소요시간을 산출하거나 주장하지 않는다.
 MP4MR의 UGV suppression과 유사한 단계가 있으나, 이 연구의 독창성 주장은 task 어휘가 아니라
 **결정론적 whole-graph Validator + CBBA 축**에 둔다(아래 "핵심 차별점"). task 어휘 변경만으로
 독창성을 주장하지 않는다.
@@ -394,39 +413,52 @@ time으로만 판정한다.
 
 | 항목 | 값 | 구성 |
 |---|---|---|
-| task | 12 | `AREA_RECON` 4 (ZONE_A~D) + incident workflow 4단계 × incident 2 = 8 |
-| edge | 6 | incident 체인당 3 (§4 workflow) × incident 2 |
-| 초기 READY | 6 | predecessor 없는 task = `AREA_RECON` 4 + `THERMAL_RECON` 2 |
-| 초기 PENDING | 6 | `SUPPRESSANT_DROP` 2 + `GROUND_INSPECTION` 2 + `GROUND_SUPPRESSION` 2 |
+| task | 8 | `AREA_RECON` 4 (ZONE_A~D) + incident workflow 2단계 × incident 2 = 4 |
+| edge | 2 | incident 체인당 1 (§4 workflow) × incident 2 |
+| 초기 READY | 6 | predecessor 없는 task = `AREA_RECON` 4 + `GROUND_INSPECTION` 2 |
+| 초기 PENDING | 2 | `GROUND_SUPPRESSION` 2 |
 
 READY/PENDING은 fixture YAML에 적지 않고 graph의 predecessor 상태에서 계산한다(§7, §9).
+
+### 3.1 확장 reference scene (발표·시각화용, D-059)
+
+`industrial_park`(4 zone)은 P1~P6.5 게이트와 P3/P4 골든 makespan(150.8 / 149.9, D-060+D-061)의 기준
+scene으로 **동결**된다. 발표 슬라이드와 CBBA 할당 그림(§18.14)에서 이종 할당이 눈에 들어오도록,
+같은 semantic world 규칙 위에서 zone·incident·route node 수만 늘린 **확장 reference scene**을
+추가로 둘 수 있다. 확장 scene이 바꾸지 않는 것: task vocabulary(§4), fleet 구성과
+capability(§5), workflow predecessor(§4), Validator 규칙과 `VALIDATOR_VERSION`, 이동비용 모델(§8),
+priority 파생 규칙(§7, D-022).
+
+확장 scene도 scene loader의 검증을 그대로 통과해야 한다: 모든 incident/zone response node가
+route graph에 있고 모든 UGV 시작점에서 도달 가능(§8), 모든 task type의 eligible bidder ≥ 2(§5),
+incident priority 1..10(§7). 확장 scene은 단계 게이트 대상이 아니고 어떤 평가 수치도 이 scene에서
+만들지 않는다 — 발표 그림 생성(§18.14)과 발표용 라이브 데모에 쓴다. incident가 채워진 확장
+scene은 `industrial_park`의 `reference_fixture.yaml`과 동일하게 손으로 고정한 full-response
+fixture를 둔다. incident-empty 변형은 §23.3.1의 dynamic-world 방식대로 native UI에 선택 가능한
+world profile로 등록해 첫 자연어부터 graph를 생성하며, D-058의 기본 profile(`patrol_park`)은
+그대로 유지한다.
 
 ---
 
 ## 4. Task vocabulary
 
-5종으로 고정한다. 추가 제안은 하지 않는다.
+3종으로 고정한다(D-061에서 `THERMAL_RECON`·`SUPPRESSANT_DROP` 제거). 추가 제안은 하지 않는다.
 
 | task_type | 의미 | 완료 조건 |
 |---|---|---|
-| `AREA_RECON` | Scout UAV가 지정 구역을 정찰 | 위치 도달 + dwell |
-| `THERMAL_RECON` | 이미 보고된 incident 위치에 UAV가 접근해 대응 전 열원 확인 절차를 수행하는 symbolic task. 열분포 지도, 새 좌표, 센서 데이터를 산출하지 않는다 | 위치 도달 + dwell |
-| `SUPPRESSANT_DROP` | Response UAV가 사전 탑재한 대응 payload를 투하. 완료는 물리적 화재 진압 성공을 의미하지 않는다 | 위치 도달 + dwell |
-| `GROUND_INSPECTION` | SUPPRESSANT_DROP workflow 완료 후 Ground Response UGV가 incident 접근 지점으로 이동해 지상 상태 점검 | 위치 도달 + dwell |
-| `GROUND_SUPPRESSION` | GROUND_INSPECTION 완료 후 Ground Response UGV가 incident 접근 지점에서 지상 진압을 수행하는 symbolic task. 완료는 물리적 소화 성공·소화 소요시간을 의미하지 않는다(D-016) | 위치 도달 + dwell |
-
-`THERMAL_RECON`을 `THERMAL_MAPPING`으로 부르지 않는다 — "mapping"은 위치를 도출하는 것처럼
-들리는데 실제로는 아무 데이터도 산출하지 않는다.
+| `AREA_RECON` | UAV가 지정 구역을 정찰. incident 대응 chain 밖의 독립 task | 위치 도달 + dwell |
+| `GROUND_INSPECTION` | UGV가 보고된 incident 접근 지점으로 이동해 지상 상태 점검. incident 대응 chain의 첫 단계 | 위치 도달 + dwell |
+| `GROUND_SUPPRESSION` | GROUND_INSPECTION 완료 후 UGV가 incident 접근 지점에서 지상 진압을 수행하는 symbolic task. 완료는 물리적 소화 성공·소화 소요시간을 의미하지 않는다(D-016) | 위치 도달 + dwell |
 
 **정적 incident workflow** (Phase 1, 조건부 규칙 — 아래 항상 강제되는 게 아님에 주의):
 
 ```
-THERMAL_RECON → SUPPRESSANT_DROP → GROUND_INSPECTION → GROUND_SUPPRESSION
+GROUND_INSPECTION → GROUND_SUPPRESSION
 ```
 
 이 규칙은 "downstream task가 **존재하면** 같은 incident의 올바른 predecessor가 필요하다"는
-조건부 규칙이지, "모든 incident가 반드시 4단계를 전부 생성해야 한다"는 강제가 아니다. 어떤
-NL 명령이 THERMAL_RECON까지만 요청했다면 그 부분 graph도 구조적으로 유효하다. "이 부분
+조건부 규칙이지, "모든 incident가 반드시 2단계를 전부 생성해야 한다"는 강제가 아니다. 어떤
+NL 명령이 GROUND_INSPECTION까지만 요청했다면 그 부분 graph도 구조적으로 유효하다. "이 부분
 graph가 의도된 것인지 덜 만들어진 것인지"는 Validator의 역할이 아니라 §12 평가 하네스의
 mission profile로 별도 판정한다(§9 참고).
 
@@ -441,27 +473,30 @@ mission profile로 별도 판정한다(§9 참고).
 
 ## 5. Agent 구성
 
-총 6대, 2/2/2 고정.
+총 5대. UAV 3대는 동일 기체, UGV 2대 (D-060).
 
 | Agent | 대수 | capability |
 |---|---|---|
-| Scout UAV (S1, S2) | 2 | `AERIAL_RECON`, `THERMAL_SENSOR` |
-| Response UAV (R1, R2) | 2 | `THERMAL_SENSOR`, `SUPPRESSANT_PAYLOAD` |
-| Ground Response UGV (G1, G2) | 2 | `GROUND_MOBILITY`, `SUPPRESSANT_APPLICATOR` |
+| UAV (U1, U2, U3) | 3 | `AERIAL_RECON` |
+| Ground UGV (G1, G2) | 2 | `GROUND_MOBILITY`, `SUPPRESSANT_APPLICATOR` |
 
-Task별 eligible bidder: `AREA_RECON`=Scout 2, `THERMAL_RECON`=Scout+Response 4,
-`SUPPRESSANT_DROP`=Response 2, `GROUND_INSPECTION`=Ground Response UGV 2,
-`GROUND_SUPPRESSION`=Ground Response UGV 2. 모든 task type에 eligible bidder ≥2 — UGV 전용
-task에서도 CBBA가 G1/G2 중 winner를 결정한다.
+Task별 eligible bidder: `AREA_RECON`=UAV 3, `GROUND_INSPECTION`=UGV 2,
+`GROUND_SUPPRESSION`=UGV 2. 모든 task type에 eligible bidder ≥2 —
+UGV 전용 task에서도 CBBA가 G1/G2 중 winner를 결정한다.
 
-Response UAV의 payload는 사전 탑재된 것으로 가정한다. `WATER_LOAD`, suppressant 잔량·재보급,
+D-060 이전의 Scout(2) + Response(2) UAV 분리는 폐기했다(이유는 D-060). D-061 이후 UAV는
+정찰 전담이고 진압은 UGV만 한다. **이종성은 UAV와 UGV 사이에 있다**: UAV는 공중 정찰(직선
+이동), UGV는 지상 대응(route graph Dijkstra, §8) — 역할·이동 모델·capability가 모두 다르다. RQ2의 "이종 무인체계 할당"은
+이 UAV/UGV 경계를 뜻한다.
+
+UGV의 진압 장비는 사전 탑재된 것으로 가정한다. `WATER_LOAD`, suppressant 잔량·재보급,
 same-agent resource coupling은 구현하지 않는다.
 
 **모든 agent가 반드시 하나 이상의 task를 받아야 한다는 제약은 두지 않는다.** 대기하는 것도
 비용상 합리적인 결과일 수 있다. 대신 다음을 측정한다: agent utilization, idle-agent count,
-workload distribution, task별 eligible bidder 수, Response UAV의 실제 참여 여부. Response
-UAV가 계속 유휴 상태라면 이는 즉시 실패가 아니라 capability 구성·bid 가중치·task 수가 의도한
-이종 할당 실험을 만드는지 재검토할 근거로 취급한다.
+workload distribution, task별 eligible bidder 수. UAV가 계속 유휴 상태라면 이는 즉시 실패가
+아니라 task 수·bid 가중치·world 크기가 의도한 이종 할당 실험을 만드는지 재검토할 근거로
+취급한다.
 
 ---
 
@@ -482,7 +517,6 @@ class PlatformKind(StrEnum):
 
 class Capability(StrEnum):
     AERIAL_RECON = "AERIAL_RECON"
-    THERMAL_SENSOR = "THERMAL_SENSOR"
     SUPPRESSANT_PAYLOAD = "SUPPRESSANT_PAYLOAD"
     GROUND_MOBILITY = "GROUND_MOBILITY"
     SUPPRESSANT_APPLICATOR = "SUPPRESSANT_APPLICATOR"
@@ -533,7 +567,7 @@ schema 검증(§9 #1)은 이를 강제한다 — top-level 키는 정확히 `{ta
 
 **priority 파생 규칙(D-022)**: compiler(`scenarios/compiler.py`의 `derive_priority`)가
 결정한다.
-- incident를 target으로 하는 task(`THERMAL_RECON`/`SUPPRESSANT_DROP`/`GROUND_INSPECTION`/
+- incident를 target으로 하는 task(`GROUND_INSPECTION`/
   `GROUND_SUPPRESSION`) → 그 incident의 `priority`(§3: FIRE_SITE_1 = 9, FIRE_SITE_2 = 7).
 - `AREA_RECON`(zone target) → 고정 상수 `AREA_RECON_PRIORITY = 4`. zone은 사건 심각도가
   없으므로 균일하며, 두 incident priority(7·9)보다 낮아 CBBA가 진행 중 사건 대응을 zone
@@ -603,7 +637,7 @@ def travel_time(agent, target_pos, scene) -> float:
 **mission profile**: `FULL_RESPONSE`/`AERIAL_ONLY`/`SELECTIVE_RESPONSE`는 런타임 Validator가
 아니라 §12 평가 하네스의 개념이다. 실험 입력별 expected profile을 LLM 출력을 보기 전에
 고정하고, 그 profile에 맞는 reference annotation과 대조해 recall을 측정한다. 런타임
-Validator는 이 두 출력을 구별하지 못한다: (a) 의도적으로 THERMAL_RECON까지만 생성한
+Validator는 이 두 출력을 구별하지 못한다: (a) 의도적으로 GROUND_INSPECTION까지만 생성한
 aerial-only 임무, (b) full-response 명령인데 나머지 task를 누락한 불완전 임무. 둘 다 구조적으로
 유효하면 Validator는 승인한다 — 이 한계는 §12의 recall 지표로 측정한다.
 
@@ -732,7 +766,7 @@ task를 도입하기 전에는 end-to-end로 도달하지 않는다. #13의 term
 READY가 되면 새 epoch를 시작한다. (precedence-aware 선점 번들링은 구현 난도만 올리고 RQ1/RQ2
 검증에 필요하지 않으므로 채택하지 않는다.)
 
-이 방식에서 Response UAV가 초기에는 대기하다 `SUPPRESSANT_DROP`이 READY가 된 뒤 투입되는 것도
+이 방식에서 어떤 UGV가 초기에는 대기하다 `GROUND_INSPECTION`이 READY가 된 뒤 투입되는 것도
 정상 동작이다.
 
 **rolling epoch의 held commitment(D-011)**: 새 epoch는 아직 완료되지 않은 기존 할당을
@@ -828,10 +862,10 @@ candidate만 `compile_reference_graph`로 실행 graph화한다(D-003 경계).
 **평가**: 최소 9개 명령(family당 3개), 시간이 있으면 18개(family당 6개)로 확장.
 
 - Family A(full industrial response): 전체 구역 정찰 + 두 incident 전체 workflow
-- Family B(aerial-focused): AREA_RECON/THERMAL_RECON만 요청 — SUPPRESSANT_DROP/UGV task가
+- Family B(aerial-focused): AREA_RECON만 요청 — UGV task가
   생성되면 안 됨
 - Family C(selective incident response): 특정 incident만 전체 대응, 다른 incident는 정찰
-  또는 THERMAL_RECON까지만
+  또는 GROUND_INSPECTION까지만
 
 각 명령의 LLM 출력을 보기 전에 사람이 canonical reference annotation을 고정한다.
 `task_key = (task_type, target)`, `edge_key = (predecessor_task_key, successor_task_key)`.
@@ -1493,7 +1527,7 @@ executor checkpoint)만 그린다. **예외 하나(D-044)**: `RouteGraph`에 최
 거리만 주므로, 이것 없이 UGV polyline을 그리려면 view가 Dijkstra를 재구현해야 하고 그것이야말로
 "연구 로직 비복제" 위반이다. 요구사항: 기존 `shortest_path_distance()`와 **같은 tie-break**,
 반환 경로의 누적 weight가 그 거리와 **모든 node 쌍에서 일치**(테스트), 입력 graph 불변, 동일
-입력 동일 경로, 도달 불가 시 기존 API와 일관된 반환. **P3/P4 골든 makespan(359.8 / 257.9)은
+입력 동일 경로, 도달 불가 시 기존 API와 일관된 반환. **P3/P4 골든 makespan(D-060+D-061: 150.8 / 149.9)은
 불변이어야 한다.** **렌더 전후로 `pre_state_hash`와 `scene_hash`가 변하지 않음을 테스트로 고정한다** —
 live `SimExecutor`를 넘길 때가 유일한 실질 위험이므로, 가능하면 checkpoint(이미 frozen deep
 snapshot)를 입력으로 받는다.
@@ -1640,8 +1674,8 @@ release), `selective`를 비교할 때도 우열의 일반화가 아니라 고�
 추가로 release하려면 한 agent의 bundle에 영향 task와 비영향 task가 섞여 있어야 한다.
 
 **관측된 사실**: 대표 fixture와 현재 테스트가 다루는 경로 — 신규 incident에 전체 workflow
-chain을 추가하는 online update — 에서는 즉시 `READY`가 되는 것이 `THERMAL_RECON` 하나뿐이고
-그 bidder union이 UAV 전체다. 그러면 모든 UAV task가 영향, 모든 UGV task가 비영향이 되고
+chain을 추가하는 online update — 에서는 즉시 `READY`가 되는 것이 `GROUND_INSPECTION` 하나뿐이고
+그 bidder union이 UGV 전체다. 그러면 모든 UGV task가 영향, 모든 UAV task가 비영향이 되고
 bundle은 한 agent(UAV이거나 UGV)의 것이므로 그 경로에서는 섞인 bundle이 나오지 않았다.
 따라서 이 실행들에서는 항상 `released == directly_affected`이고
 
@@ -1649,11 +1683,12 @@ bundle은 한 agent(UAV이거나 UGV)의 것이므로 그 경로에서는 섞인
 
 **단정하지 않는 것(D-042)**: 이것을 "도메인 전체에서 섞인 bundle이 불가능하다"로 일반화하지
 않는다. `build_chain_patch`는 신규 incident의 전체 chain뿐 아니라 **기존 incident의 부분
-workflow 연장**도 만든다. 예를 들어 `THERMAL_RECON`이 이미 COMPLETED인 incident를
-`SUPPRESSANT_DROP`까지 늘리면 신규 READY task의 bidder는 R1/R2이고 `AREA_RECON`은 비영향이
-되므로, S-agent bundle이 `THERMAL_RECON`(영향) → `AREA_RECON`(비영향) 순서를 갖는다면 suffix
-확장이 발생할 여지가 있다. 그런 상태가 현재 CBBA·priority 아래에서 실제로 도달 가능한지는
-**검증하지 않았다**.
+workflow 연장**도 만든다. 예를 들어 `GROUND_INSPECTION`이 이미 COMPLETED인 incident를
+`GROUND_SUPPRESSION`까지 늘려도 신규 READY task의 bidder는 UGV 전체이고 `AREA_RECON`은 UAV가
+bidder라 비영향이므로, 한 agent의 bundle에 영향 task와 비영향 task가 섞이려면 그런 배치가
+현재 CBBA·priority 아래에서 실제로 도달 가능해야 하는데 **검증하지 않았다**. (D-060 이전
+서술은 Scout/Response 분할을 전제했다 — 그 예시는 현 fleet에 성립하지 않으며, 정식 재서술은
+후속 검토로 남긴다.)
 
 따라서 P9가 실증한 것은 **"신규 READY task와 입찰자가 겹치는 기존 미시작 assignment만
 release/rebid한다"**까지이고, bundle suffix 확장이 실제로 동작했다고 주장하지 않는다. 규칙을
@@ -1889,8 +1924,8 @@ assignment, released task를 감사한다.
 P12의 결정론적 scene/compiler/Validator는 안전 경계이지 고정 LLM 응답이 아니다. Live 경로에는
 reference fixture fallback이 없다. 다음 counterfactual을 사전 annotation으로 고정한다.
 
-- 같은 patrol scene: 정찰만 / 감지 시 THERMAL_RECON / DROP / INSPECTION / SUPPRESSION 명령은
-  서로 다른 policy를 내며, 동일 sensor observation 뒤 정확히 0/1/2/3/4 workflow task를 만든다.
+- 같은 patrol scene: 정찰만 / 감지 시 DROP / INSPECTION / SUPPRESSION 명령은
+  서로 다른 policy를 내며, 동일 sensor observation 뒤 정확히 0/1/2/3 workflow task를 만든다.
 - 같은 command: Warehouse와 Tank Farm operator report는 서로 다른 zone으로 grounding되고
   서로 다른 incident target·경로를 만든다.
 - 같은 의미의 허용된 한국어/영어 paraphrase는 같은 directive가 되어야 하고, 미지·모호 zone은
