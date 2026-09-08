@@ -17,7 +17,7 @@ from allocation.allocate import AllocationResult
 from allocation.online import OnlinePatchApplication, ReleasePolicy
 from core.enums import TaskType
 from core.mission_state import MissionState
-from execution.executor import SimExecutor
+from execution.executor import SimExecutor, Termination
 from interaction.ground import build_chain_patch
 from interaction.scene_mut import register_incident
 from interaction.session import MissionSession, SessionPhase
@@ -58,21 +58,46 @@ class IncidentTransaction:
         return self.patch_result is None or self.patch_result.accepted
 
 
+def completed_online_terminal(session: MissionSession) -> bool:
+    """Whether D-055 may start a follow-on response from this checkpoint."""
+    return (
+        session.phase is SessionPhase.EXECUTED
+        and session.runtime is not None
+        and session.execution is not None
+        and session.execution.termination is Termination.COMPLETED
+    )
+
+
 def publish_incident_transaction(
     session: MissionSession, transaction: IncidentTransaction
 ) -> None:
     """Publish one fully prepared transaction without another computation."""
     if not transaction.accepted:
         raise ValueError("cannot publish a rejected incident transaction")
+    if (
+        session.phase is SessionPhase.EXECUTED
+        and transaction.online is None
+        and transaction.runtime is None
+    ):
+        raise ValueError("follow-on report has no preserved online runtime")
     session.scene = transaction.scene
     if transaction.online is not None:
+        follow_on = session.phase is SessionPhase.EXECUTED
         session.runtime = transaction.runtime
         session.state = transaction.state
+        if follow_on:
+            # The previous ExecutionAudit stays in the append-only event log;
+            # these fields now describe the newly opened response episode.
+            session.execution = None
+            session.online_started_at = None
+            session.phase = SessionPhase.EXECUTION_PAUSED
     elif transaction.response_up_to is not None:
         session.state, session.plan = transaction.state, transaction.plan
-    elif session.phase is SessionPhase.EXECUTION_PAUSED:
+    elif session.phase in {SessionPhase.EXECUTION_PAUSED, SessionPhase.EXECUTED}:
         # A scene-only report keeps the checkpoint identity/clock. The scene is
         # immutable data used by subsequent patches and views.
+        if session.runtime is None:
+            raise ValueError("online session has no runtime")
         session.runtime.scene = transaction.scene
 
 
@@ -98,6 +123,8 @@ def prepare_incident_transaction(
         raise ValueError(f"not an incident workflow step: {response_up_to!r}")
     if response_up_to is not None and session.state is None:
         raise ValueError("an incident response requires an active mission")
+    if session.phase is SessionPhase.EXECUTED and not completed_online_terminal(session):
+        raise ValueError("follow-on response requires a completed online terminal")
 
     candidate_scene, incident_id = register_incident(session.scene, zone_id)
     if response_up_to is None:
@@ -115,9 +142,9 @@ def prepare_incident_transaction(
     if chain.no_change or chain.patch is None:
         raise ValueError("a newly registered incident unexpectedly produced no patch")
 
-    if session.phase is SessionPhase.EXECUTION_PAUSED:
+    if session.phase in {SessionPhase.EXECUTION_PAUSED, SessionPhase.EXECUTED}:
         if session.runtime is None:
-            raise ValueError("paused session has no online runtime")
+            raise ValueError("online session has no runtime")
         online = online_applier(
             session.runtime,
             chain.patch,
@@ -170,6 +197,7 @@ __all__ = [
     "IncidentSource",
     "PolicyOrigin",
     "IncidentTransaction",
+    "completed_online_terminal",
     "prepare_incident_transaction",
     "publish_incident_transaction",
 ]

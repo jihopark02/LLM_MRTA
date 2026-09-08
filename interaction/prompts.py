@@ -54,6 +54,12 @@ Rules:
   A phrase such as "if a fire is detected" / "화재를 발견하면" on a new
   mission sets incident_response_up_to. A response step attached to a fire
   report sets response_up_to.
+- Set incident_response_up_to only when the utterance explicitly conditions a
+  future response on a fire being detected or reported. Reconnaissance words
+  that describe the initial mission do not imply a future-fire policy.
+  Example: "전체 구역 항공 정찰만 해줘" is NEW_MISSION with
+  incident_response_up_to=null. The word "정찰만" limits the initial graph;
+  it does not mean THERMAL_RECON after a future fire.
 - A request that names a particular robot, limits the number of robots, or
   excludes a robot is UNSUPPORTED as a whole. Never silently discard a
   resource constraint while keeping the rest of the request.

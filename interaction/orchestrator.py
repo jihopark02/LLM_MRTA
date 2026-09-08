@@ -63,6 +63,7 @@ from interaction.ground import (
 from interaction.incident_response import (
     IncidentSource,
     PolicyOrigin,
+    completed_online_terminal,
     prepare_incident_transaction,
     publish_incident_transaction,
 )
@@ -479,9 +480,10 @@ def _do_update_mission(
         _note(turn, ReferentKind.INCIDENT, incident.entity_id)
         return _finish(turn, TurnOutcome.NO_CHANGE, plan.note)
 
-    if session.phase is SessionPhase.EXECUTION_PAUSED:
+    if session.phase in {SessionPhase.EXECUTION_PAUSED, SessionPhase.EXECUTED}:
         if session.runtime is None:
-            raise ValueError("paused session has no online runtime")
+            raise ValueError("online session has no runtime")
+        follow_on = session.phase is SessionPhase.EXECUTED
         online = apply_online_patch(
             session.runtime,
             plan.patch,
@@ -500,6 +502,12 @@ def _do_update_mission(
         turn.online_reallocation = online_audit
         session.runtime = online.executor
         session.state = online.executor.work
+        if follow_on:
+            # Open a new execution episode from the preserved terminal
+            # checkpoint. The earlier ExecutionAudit remains append-only.
+            session.execution = None
+            session.online_started_at = None
+            session.phase = SessionPhase.EXECUTION_PAUSED
         return _finish(
             turn,
             TurnOutcome.COMMITTED,
@@ -600,9 +608,9 @@ def _dispatch(turn: _Turn, backend) -> TurnResult:
 
     if intent.kind == "NEW_MISSION" and session.phase is not SessionPhase.PLANNING:
         return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
-    if (
-        intent.kind in {"REPORT_INCIDENT", "UPDATE_MISSION"}
-        and session.phase not in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}
+    if intent.kind in {"REPORT_INCIDENT", "UPDATE_MISSION"} and (
+        session.phase not in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}
+        and not completed_online_terminal(session)
     ):
         return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
 

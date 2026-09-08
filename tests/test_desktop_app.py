@@ -17,6 +17,7 @@ from demo.mock_script import MOCK_COMMANDS, OPERATOR_MOCK_COMMANDS, SENSOR_MOCK_
 from desktop.app import build_windows
 from desktop.controller import OPERATOR_LIVE_EXAMPLES, DesktopController
 from execution.executor import SimExecutor
+from interaction.session import SessionPhase
 
 
 @pytest.fixture(scope="module")
@@ -288,6 +289,42 @@ def test_initial_commit_autoplays_and_mid_segment_report_is_applied_once(
             "THERMAL_RECON__FIRE_SITE_1" in task_ids
             for task_ids in played_task_sets[1:]
         )
+    finally:
+        operator.close()
+        qt_app.processEvents()
+
+
+def test_completed_patrol_report_opens_and_autoplays_a_follow_on_episode(
+    qt_app, tmp_path
+):
+    controller = DesktopController(
+        runtime_root=tmp_path,
+        frame_count=4,
+        scenario_id="operator-report",
+    )
+    operator, simulator = build_windows(
+        controller, playback_seconds=0.01, auto_run=True
+    )
+    operator.show()
+    simulator.show()
+    qt_app.processEvents()
+    try:
+        _submit(operator, OPERATOR_MOCK_COMMANDS[0])
+        _drain_until(qt_app, lambda: operator._busy)
+        _drain_until(qt_app, lambda: not operator._busy, timeout=6.0)
+        assert controller.session.phase is SessionPhase.EXECUTED
+        assert len(controller.session.state.graph) == 4
+
+        _submit(operator, OPERATOR_MOCK_COMMANDS[1])
+        _drain_until(qt_app, lambda: operator._busy)
+        _drain_until(qt_app, lambda: not operator._busy, timeout=6.0)
+
+        assert controller.session.phase is SessionPhase.EXECUTED
+        assert controller.session.execution.termination.value == "COMPLETED"
+        assert len(controller.session.state.graph) == 8
+        assert [event.event_type for event in controller.session.event_log].count(
+            "EXECUTION"
+        ) == 2
     finally:
         operator.close()
         qt_app.processEvents()

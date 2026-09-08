@@ -100,6 +100,97 @@ def test_repeated_online_continue_finishes_and_preserves_event_order(planned_ses
     )
 
 
+def test_completed_online_run_accepts_one_turn_follow_on_response(planned_session):
+    while planned_session.phase is not SessionPhase.EXECUTED:
+        advance_online_session(planned_session, mode="mock")
+
+    terminal_runtime = planned_session.runtime
+    terminal_time = terminal_runtime.now
+    completed_before = {
+        task.task_id
+        for task in terminal_runtime.graph.tasks
+        if task.status.value == "COMPLETED"
+    }
+    assert len(completed_before) == 12
+    assert isinstance(planned_session.event_log[-1], ExecutionAudit)
+
+    result = _turn(
+        planned_session,
+        "A 구역에 새 화재가 발생했어. 지상 진압까지 대응해줘",
+        "REPORT_INCIDENT",
+        zone_ref="A 구역",
+        response_up_to="GROUND_SUPPRESSION",
+    )
+
+    assert result.outcome is TurnOutcome.COMMITTED
+    assert result.audit.online_reallocation is not None
+    assert planned_session.phase is SessionPhase.EXECUTION_PAUSED
+    assert planned_session.execution is None
+    assert planned_session.runtime is not terminal_runtime
+    assert planned_session.runtime.now == terminal_time
+    assert completed_before == {
+        task.task_id
+        for task in planned_session.runtime.graph.tasks
+        if task.status.value == "COMPLETED"
+    }
+    added = {
+        task.task_id
+        for task in planned_session.runtime.graph.tasks
+        if task.target == "FIRE_SITE_3"
+    }
+    assert len(added) == 4
+
+    while planned_session.phase is SessionPhase.EXECUTION_PAUSED:
+        advance_online_session(planned_session, mode="mock")
+
+    assert planned_session.phase is SessionPhase.EXECUTED
+    assert planned_session.execution.termination is Termination.COMPLETED
+    assert not planned_session.execution.capability_violations
+    assert not planned_session.execution.precedence_violations
+    event_types = [event.event_type for event in planned_session.event_log]
+    first_execution = event_types.index("EXECUTION")
+    assert event_types[first_execution + 1] == "TURN"
+    assert event_types[-1] == "EXECUTION"
+    assert event_types.count("EXECUTION") == 2
+
+
+def test_scene_only_terminal_report_can_be_followed_by_canonical_update(
+    planned_session,
+):
+    while planned_session.phase is not SessionPhase.EXECUTED:
+        advance_online_session(planned_session, mode="mock")
+
+    terminal_runtime = planned_session.runtime
+    terminal_execution = planned_session.execution
+    report = _turn(
+        planned_session,
+        "Warehouse에 불이 났어",
+        "REPORT_INCIDENT",
+        zone_ref="Warehouse",
+    )
+
+    assert report.outcome is TurnOutcome.COMMITTED
+    assert planned_session.phase is SessionPhase.EXECUTED
+    assert planned_session.execution is terminal_execution
+    assert planned_session.runtime is terminal_runtime
+    assert planned_session.runtime.scene is planned_session.scene
+
+    update = _turn(
+        planned_session,
+        "거기 지상 진압까지 대응해줘",
+        "UPDATE_MISSION",
+        target_phrase="거기",
+        up_to_step="GROUND_SUPPRESSION",
+    )
+
+    assert update.outcome is TurnOutcome.COMMITTED
+    assert planned_session.phase is SessionPhase.EXECUTION_PAUSED
+    assert planned_session.execution is None
+    assert len(
+        [task for task in planned_session.state.graph.tasks if task.target == "FIRE_SITE_3"]
+    ) == 4
+
+
 def test_paused_report_then_update_replaces_only_the_accepted_runtime(planned_session):
     advance_online_session(planned_session, mode="mock")
     runtime_before_report = planned_session.runtime
@@ -437,6 +528,28 @@ def test_a_terminal_deadlock_keeps_its_runtime_but_is_not_resumable(
         "EXECUTION_CHECKPOINT",
         "EXECUTION",
     ]
+
+
+def test_a_terminal_deadlock_cannot_open_a_follow_on_incident_episode(
+    planned_session, monkeypatch
+):
+    advance_online_session(planned_session, mode="mock")
+    with _terminating(monkeypatch, Termination.DEADLOCK):
+        advance_online_session(planned_session, mode="mock")
+
+    scene_before = planned_session.scene
+    result = _turn(
+        planned_session,
+        "A 구역에 새 화재가 발생했어. 지상 진압까지 대응해줘",
+        "REPORT_INCIDENT",
+        zone_ref="A 구역",
+        response_up_to="GROUND_SUPPRESSION",
+    )
+
+    assert result.outcome is TurnOutcome.UNSUPPORTED
+    assert planned_session.phase is SessionPhase.EXECUTION_FAILED
+    assert planned_session.execution.termination is Termination.DEADLOCK
+    assert planned_session.scene is scene_before
 
 
 def test_a_terminal_step_limit_is_also_not_resumable(planned_session, monkeypatch):

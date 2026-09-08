@@ -268,6 +268,13 @@ def test_resource_constraints_are_fail_closed_in_the_prompt():
     assert "Warehouse 구역에 새 화재" in prompt
 
 
+def test_recon_only_does_not_imply_a_future_incident_policy_in_the_prompt():
+    prompt = intent_system("PHASE: PLANNING")
+    assert '"전체 구역 항공 정찰만 해줘"' in prompt
+    assert "incident_response_up_to=null" in prompt
+    assert "does not mean THERMAL_RECON after a future fire" in prompt
+
+
 def test_classifier_requests_wire_schema_then_returns_internal_intent():
     backend = MockBackend([wire_intent("QUERY_STATUS", about="agents")])
     session = MissionSession("WIRE", load_scene(SCENE))

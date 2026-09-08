@@ -380,7 +380,6 @@ class OperatorWindow(QMainWindow):
                 self.status.setText(f"QUEUE REFUSED · {exc}")
             self.refresh()
             return
-        initial_mission = self.controller.session.state is None
         self.status.setText("LLM / VALIDATOR 처리 중…")
         QApplication.processEvents()
         try:
@@ -394,9 +393,12 @@ class OperatorWindow(QMainWindow):
             self.refresh()
             return
         self.refresh()
+        self._auto_run_after_commit(result)
+
+    def _auto_run_after_commit(self, result) -> None:
+        """Start initial or D-055 follow-on work after an accepted commit."""
         if (
             self.auto_run
-            and initial_mission
             and result.outcome is TurnOutcome.COMMITTED
             and self._can_advance()
         ):
@@ -410,6 +412,7 @@ class OperatorWindow(QMainWindow):
         self.status.setText(f"{result.outcome.value} · {entity_id} 선택")
         self._refresh_simulator()
         self.refresh()
+        self._auto_run_after_commit(result)
 
     def cancel_candidate(self) -> None:
         if self._busy:
