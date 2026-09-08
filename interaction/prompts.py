@@ -57,6 +57,15 @@ Rules:
 - A request that names a particular robot, limits the number of robots, or
   excludes a robot is UNSUPPORTED as a whole. Never silently discard a
   resource constraint while keeping the rest of the request.
+- Generic platform-class wording is NOT a resource constraint. Phrases such
+  as "UAV로 정찰", "UGV로 점검", or "지상 로봇으로 진압" merely describe
+  the fixed workflow/capability and remain NEW_MISSION, REPORT_INCIDENT, or
+  UPDATE_MISSION as appropriate. The deterministic allocator still chooses
+  from the full eligible fleet. Only a specific agent id (for example G1), a
+  number limit ("UAV 한 대만"), or an exclusion ("R2 제외") is unsupported.
+- Example: "Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지
+  대응해줘" is REPORT_INCIDENT with zone_ref="Warehouse 구역" and
+  response_up_to="GROUND_SUPPRESSION"; it is not UNSUPPORTED.
 
 Current session state:
 {context}"""

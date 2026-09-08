@@ -13,7 +13,7 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from demo.mock_script import MOCK_COMMANDS, SENSOR_MOCK_COMMANDS
+from demo.mock_script import MOCK_COMMANDS, OPERATOR_MOCK_COMMANDS, SENSOR_MOCK_COMMANDS
 from desktop.app import build_windows
 from desktop.controller import OPERATOR_LIVE_EXAMPLES, DesktopController
 from execution.executor import SimExecutor
@@ -27,8 +27,12 @@ def qt_app():
 
 @pytest.fixture
 def windows(qt_app, tmp_path):
-    controller = DesktopController(runtime_root=tmp_path, frame_count=4)
-    operator, simulator = build_windows(controller, playback_seconds=0.01)
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="reference"
+    )
+    operator, simulator = build_windows(
+        controller, playback_seconds=0.01, auto_run=False
+    )
     operator.show()
     simulator.show()
     qt_app.processEvents()
@@ -83,13 +87,13 @@ def test_cached_help_is_never_labelled_live_and_shows_the_exact_replay(windows):
     assert OPERATOR_LIVE_EXAMPLES[1] in operator.scenario_help.text()
 
 
-def test_checkpoint_playback_locks_input_then_reopens_it(windows, qt_app):
+def test_checkpoint_playback_accepts_one_queued_input_then_reopens_it(windows, qt_app):
     controller, operator, simulator = windows
     _submit(operator, MOCK_COMMANDS[0])
 
     operator.play_checkpoint()
     assert operator._busy
-    assert not operator.command_input.isEnabled()
+    assert operator.command_input.isEnabled()
     assert simulator.is_playing
     _drain_until(qt_app, lambda: not operator._busy)
 
@@ -122,7 +126,7 @@ def test_continuous_mode_runs_checkpoint_segments_to_terminal(windows, qt_app):
 
     operator.play_continuous()
     assert operator._continuous
-    assert not operator.command_input.isEnabled()
+    assert operator.command_input.isEnabled()
     _drain_until(qt_app, lambda: not operator._busy, timeout=6.0)
 
     assert controller.session.phase.value == "EXECUTED"
@@ -158,7 +162,7 @@ def test_online_update_changes_the_next_native_playback(windows, qt_app):
     }
     ready_added = {task_id for task_id in added if task_id.startswith("THERMAL_RECON")}
     assert ready_added and ready_added <= shown
-    assert not operator.command_input.isEnabled()
+    assert operator.command_input.isEnabled()
     _drain_until(qt_app, lambda: not operator._busy)
     assert controller.session.phase.value == "EXECUTION_PAUSED"
     assert operator.command_input.isEnabled()
@@ -198,7 +202,9 @@ def test_sensor_scenario_is_explicit_and_refreshes_after_detection(qt_app, tmp_p
         frame_count=4,
         scenario_id="sensor-detection",
     )
-    operator, simulator = build_windows(controller, playback_seconds=0.01)
+    operator, simulator = build_windows(
+        controller, playback_seconds=0.01, auto_run=False
+    )
     operator.show()
     simulator.show()
     qt_app.processEvents()
@@ -219,6 +225,100 @@ def test_sensor_scenario_is_explicit_and_refreshes_after_detection(qt_app, tmp_p
         assert "FIRE_SITE_1" in {
             point.entity_id for point in simulator.canvas.spec.incidents
         }
+    finally:
+        operator.close()
+        qt_app.processEvents()
+
+
+def test_initial_commit_autoplays_and_mid_segment_report_is_applied_once(
+    qt_app, tmp_path, monkeypatch
+):
+    controller = DesktopController(
+        runtime_root=tmp_path,
+        frame_count=8,
+        scenario_id="operator-report",
+    )
+    operator, simulator = build_windows(
+        controller, playback_seconds=0.08, auto_run=True
+    )
+    operator.show()
+    simulator.show()
+    qt_app.processEvents()
+    played_task_sets = []
+    original_play = simulator.play
+
+    def capture_playback(playback, *, wall_seconds):
+        played_task_sets.append(
+            {
+                leg.task_id
+                for frame in playback.frames
+                for leg in frame.map_spec.legs
+            }
+        )
+        original_play(playback, wall_seconds=wall_seconds)
+
+    monkeypatch.setattr(simulator, "play", capture_playback)
+    try:
+        _submit(operator, OPERATOR_MOCK_COMMANDS[0])
+        _drain_until(qt_app, lambda: simulator.is_playing)
+        backend = controller.backends["mock"]
+        calls_before = len(backend.calls)
+        turns_before = controller.session.turn_count
+
+        assert operator._continuous
+        assert operator.command_input.isEnabled()
+        _submit(operator, OPERATOR_MOCK_COMMANDS[1])
+
+        assert controller.queued_command == OPERATOR_MOCK_COMMANDS[1]
+        assert len(backend.calls) == calls_before
+        assert controller.session.turn_count == turns_before
+        assert not operator.command_input.isEnabled()
+        assert "QUEUED" in operator.status.text()
+
+        _drain_until(qt_app, lambda: not operator._busy, timeout=6.0)
+
+        assert controller.queued_command is None
+        assert controller.session.turn_count == turns_before + 1
+        assert len(backend.calls) == calls_before + 1
+        assert len(controller.session.state.graph) == 8
+        assert controller.session.phase.value == "EXECUTED"
+        assert controller.session.execution.termination.value == "COMPLETED"
+        assert any("[QUEUED]" in message.text for message in controller.chat)
+        assert any(
+            "THERMAL_RECON__FIRE_SITE_1" in task_ids
+            for task_ids in played_task_sets[1:]
+        )
+    finally:
+        operator.close()
+        qt_app.processEvents()
+
+
+def test_queued_clarification_stops_autoplay_at_the_safe_checkpoint(
+    qt_app, tmp_path
+):
+    controller = DesktopController(
+        runtime_root=tmp_path,
+        frame_count=8,
+        scenario_id="reference",
+    )
+    operator, simulator = build_windows(
+        controller, playback_seconds=0.08, auto_run=True
+    )
+    operator.show()
+    simulator.show()
+    qt_app.processEvents()
+    try:
+        _submit(operator, MOCK_COMMANDS[0])
+        _drain_until(qt_app, lambda: simulator.is_playing)
+        _submit(operator, MOCK_COMMANDS[1])
+
+        _drain_until(qt_app, lambda: not operator._busy)
+
+        assert controller.session.pending_clarification is not None
+        assert controller.session.phase.value == "EXECUTION_PAUSED"
+        assert not operator._continuous
+        assert "CLARIFICATION" in operator.status.text()
+        assert operator.candidate_frame.isVisible()
     finally:
         operator.close()
         qt_app.processEvents()

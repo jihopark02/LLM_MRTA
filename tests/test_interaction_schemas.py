@@ -263,6 +263,9 @@ def test_resource_constraints_are_fail_closed_in_the_prompt():
     prompt = intent_system("PHASE: PLANNING")
     assert "particular robot" in prompt
     assert "UNSUPPORTED as a whole" in prompt
+    assert "Generic platform-class wording is NOT a resource constraint" in prompt
+    assert "지상 로봇으로 진압" in prompt
+    assert "Warehouse 구역에 새 화재" in prompt
 
 
 def test_classifier_requests_wire_schema_then_returns_internal_intent():

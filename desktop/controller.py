@@ -121,7 +121,7 @@ class DesktopController:
         self,
         *,
         scene_path: str | Path | None = None,
-        scenario_id: str = "reference",
+        scenario_id: str = "sensor-detection",
         runtime_root: str | Path | None = None,
         frame_count: int = DEFAULT_FRAME_COUNT,
     ) -> None:
@@ -142,6 +142,7 @@ class DesktopController:
         self.mode = "mock"
         self.backends: dict[str, object] = {}
         self.chat: list[ChatMessage] = []
+        self.queued_command: str | None = None
         self.observation_source: SimulatedFireSource | None = None
         self.session = self._fresh_session()
 
@@ -177,6 +178,7 @@ class DesktopController:
         self.session = self._fresh_session()
         self.backends = {}
         self.chat = []
+        self.queued_command = None
         return self.session
 
     def set_mode(self, mode: str) -> None:
@@ -211,6 +213,38 @@ class DesktopController:
             raise ValueError("utterance must contain text")
         result = handle_turn(self.session, utterance.strip(), self._backend())
         self._record(utterance.strip(), result.message)
+        self._persist()
+        return result
+
+    def queue_command(self, utterance: str) -> None:
+        """Hold one presentation command until the current segment ends.
+
+        Queuing is deliberately outside ``MissionSession``: no LLM call or
+        ``TurnAudit`` exists until :meth:`submit_queued` runs at the committed
+        safe checkpoint (§22.6).
+        """
+        if not isinstance(utterance, str) or not utterance.strip():
+            raise ValueError("utterance must contain text")
+        if self.queued_command is not None:
+            raise ValueError("a command is already queued")
+        clean = utterance.strip()
+        self.queued_command = clean
+        self._record(
+            clean,
+            "[QUEUED] 현재 이동은 중단하지 않습니다. "
+            "다음 safe checkpoint에서 명령을 적용합니다.",
+        )
+
+    def submit_queued(self) -> TurnResult:
+        """Consume the queued text exactly once through the real orchestrator."""
+        utterance = self.queued_command
+        if utterance is None:
+            raise ValueError("no command is queued")
+        # Dequeue before the external call: an unexpected exception must stop
+        # autoplay, not silently retry a possibly consumed LLM request.
+        self.queued_command = None
+        result = handle_turn(self.session, utterance, self._backend())
+        self.chat.append(ChatMessage("assistant", result.message))
         self._persist()
         return result
 

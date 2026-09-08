@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from desktop.controller import SCENARIO_PROFILES, SUPPORTED_MODES, DesktopController
 from desktop.simulator import MissionSimulatorWindow
 from interaction.audit import CheckpointAudit, ExecutionAudit
+from interaction.orchestrator import TurnOutcome
 from interaction.session import SessionPhase
 
 
@@ -61,6 +62,7 @@ class OperatorWindow(QMainWindow):
         simulator: MissionSimulatorWindow,
         *,
         playback_seconds: float | None = None,
+        auto_run: bool = True,
     ) -> None:
         super().__init__()
         self.setObjectName("operatorWindow")
@@ -70,6 +72,7 @@ class OperatorWindow(QMainWindow):
         self.simulator = simulator
         self._busy = False
         self._continuous = False
+        self.auto_run = auto_run
         configured = playback_seconds
         if configured is None:
             configured = float(os.environ.get("LLM_MRTA_PLAYBACK_SECONDS", "3.0"))
@@ -342,8 +345,14 @@ class OperatorWindow(QMainWindow):
         self._refresh_candidates()
 
         pending = session.pending_clarification is not None
-        self.command_input.setEnabled(not self._busy and not pending)
-        self.send_button.setEnabled(not self._busy and not pending)
+        can_queue = (
+            self._busy
+            and self.simulator.is_playing
+            and self.controller.queued_command is None
+        )
+        can_input = not pending and (not self._busy or can_queue)
+        self.command_input.setEnabled(can_input)
+        self.send_button.setEnabled(can_input)
         can_advance = not self._busy and self._can_advance()
         self.checkpoint_button.setEnabled(can_advance)
         self.continuous_button.setEnabled(can_advance)
@@ -356,8 +365,22 @@ class OperatorWindow(QMainWindow):
 
     def submit_command(self) -> None:
         utterance = self.command_input.text().strip()
-        if not utterance or self._busy:
+        if not utterance:
             return
+        if self._busy:
+            if not self.simulator.is_playing:
+                return
+            try:
+                self.controller.queue_command(utterance)
+                self.command_input.clear()
+                self.status.setText(
+                    "QUEUED · 현재 segment 종료 뒤 safe checkpoint에서 적용"
+                )
+            except ValueError as exc:
+                self.status.setText(f"QUEUE REFUSED · {exc}")
+            self.refresh()
+            return
+        initial_mission = self.controller.session.state is None
         self.status.setText("LLM / VALIDATOR 처리 중…")
         QApplication.processEvents()
         try:
@@ -368,7 +391,17 @@ class OperatorWindow(QMainWindow):
         except Exception as exc:  # UI wiring/import errors, not mission decisions
             self.status.setText(f"ERROR · {type(exc).__name__}: {exc}")
             QMessageBox.warning(self, "명령 처리 실패", f"{type(exc).__name__}: {exc}")
+            self.refresh()
+            return
         self.refresh()
+        if (
+            self.auto_run
+            and initial_mission
+            and result.outcome is TurnOutcome.COMMITTED
+            and self._can_advance()
+        ):
+            self.status.setText("AUTO · 임무 commit 완료, 실행을 시작합니다")
+            QTimer.singleShot(0, self.play_continuous)
 
     def choose_candidate(self, entity_id: str) -> None:
         if self._busy:
@@ -423,6 +456,12 @@ class OperatorWindow(QMainWindow):
             presentation.playback,
             wall_seconds=self.playback_seconds,
         )
+        self.status.setText(
+            "AUTO PLAYBACK · 자연어 명령 1건 입력 가능 · 다음 safe checkpoint 적용"
+            if self._continuous
+            else "CHECKPOINT PLAYBACK · 완료 후 입력 가능"
+        )
+        self.refresh()
 
     def play_checkpoint(self) -> None:
         if not self._can_advance() or self._busy:
@@ -437,6 +476,39 @@ class OperatorWindow(QMainWindow):
         self._advance_segment()
 
     def _on_playback_finished(self) -> None:
+        if self.controller.queued_command is not None:
+            self.status.setText("SAFE CHECKPOINT · queued 명령을 LLM로 처리 중…")
+            self.refresh()
+            try:
+                result = self.controller.submit_queued()
+            except Exception as exc:
+                self._continuous = False
+                self._busy = False
+                self.status.setText(f"QUEUE ERROR · {type(exc).__name__}: {exc}")
+                self._refresh_simulator()
+                self.refresh()
+                return
+            self._refresh_simulator()
+            if (
+                result.outcome
+                not in {
+                    TurnOutcome.COMMITTED,
+                    TurnOutcome.NO_CHANGE,
+                    TurnOutcome.ANSWERED,
+                }
+                or self.controller.session.pending_clarification is not None
+            ):
+                self._continuous = False
+                self._busy = False
+                self.status.setText(
+                    f"{result.outcome.value} · 자동 실행 정지 · 운용자 확인 필요"
+                )
+                self.refresh()
+                return
+            self.status.setText(
+                f"{result.outcome.value} · safe checkpoint 적용 완료"
+            )
+            self.refresh()
         if self._continuous and self.controller.session.phase is SessionPhase.EXECUTION_PAUSED:
             self.status.setText("연속 재생 · 다음 checkpoint로 진행")
             QTimer.singleShot(0, self._advance_segment)

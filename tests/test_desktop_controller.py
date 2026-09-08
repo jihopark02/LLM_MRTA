@@ -17,7 +17,16 @@ from interaction.audit import CheckpointAudit, IncidentObservationAudit
 
 
 def _controller(tmp_path):
-    return DesktopController(runtime_root=tmp_path, frame_count=4)
+    return DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="reference"
+    )
+
+
+def test_native_default_is_the_sensor_detection_presentation(tmp_path):
+    controller = DesktopController(runtime_root=tmp_path, frame_count=4)
+
+    assert controller.scenario_id == "sensor-detection"
+    assert controller.fixture_id == "simulated-fire-zone-b-v1"
 
 
 def test_importing_the_desktop_package_does_not_import_qt():
@@ -135,6 +144,36 @@ def test_a_new_session_replaces_presentation_state_and_mock_backend(tmp_path):
     assert controller.backends["mock"] is not old_backend
 
 
+def test_queued_command_does_not_call_backend_until_safe_checkpoint(tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path,
+        frame_count=4,
+        scenario_id="operator-report",
+    )
+    controller.submit(OPERATOR_MOCK_COMMANDS[0])
+    backend = controller.backends["mock"]
+    calls_before = len(backend.calls)
+    turns_before = controller.session.turn_count
+
+    controller.queue_command(OPERATOR_MOCK_COMMANDS[1])
+
+    assert controller.queued_command == OPERATOR_MOCK_COMMANDS[1]
+    assert len(backend.calls) == calls_before
+    assert controller.session.turn_count == turns_before
+    assert len(controller.session.state.graph) == 4
+    with pytest.raises(ValueError, match="already queued"):
+        controller.queue_command("두 번째 명령")
+
+    controller.advance_checkpoint()
+    result = controller.submit_queued()
+
+    assert result.outcome.value == "COMMITTED"
+    assert controller.queued_command is None
+    assert len(backend.calls) == calls_before + 1
+    assert controller.session.turn_count == turns_before + 1
+    assert len(controller.session.state.graph) == 8
+
+
 @pytest.mark.parametrize("mode", ["", "LIVE", "fake", None])
 def test_mode_is_strict(mode, tmp_path):
     controller = _controller(tmp_path)
@@ -180,6 +219,25 @@ def test_sensor_scenario_reveals_fixture_once_and_adds_response_in_one_event(tmp
     assert [event.event_type for event in controller.session.event_log].count(
         "INCIDENT_OBSERVATION"
     ) == 1
+
+
+def test_sensor_observation_precedes_a_queued_command_at_the_same_checkpoint(tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path,
+        frame_count=4,
+        scenario_id="sensor-detection",
+    )
+    controller.submit(SENSOR_MOCK_COMMANDS[0])
+    presentation = controller.advance_checkpoint()
+    while presentation.observation is None:
+        presentation = controller.advance_checkpoint()
+
+    controller.queue_command(SENSOR_MOCK_COMMANDS[1])
+    result = controller.submit_queued()
+
+    assert result.outcome.value == "ANSWERED"
+    event_types = [event.event_type for event in controller.session.event_log]
+    assert event_types[-2:] == ["INCIDENT_OBSERVATION", "TURN"]
 
     controller.advance_checkpoint()
     assert [event.event_type for event in controller.session.event_log].count(
