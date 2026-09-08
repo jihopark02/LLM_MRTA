@@ -19,18 +19,18 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-057, 계약 v1.53)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-058, 계약 v1.54)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-08 기준)
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.5,
-P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.2 완료 (브랜치
-`feature/operator-interaction`). 계약 v1.53, 최신 결정 D-057.**
+P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
+`feature/operator-interaction`). 계약 v1.54, 최신 결정 D-058.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 896개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 898개 통과, ruff clean.
 
 P12 (§22, D-051/D-052): 자연어 `NEW_MISSION`이 초기 graph와 별도 future-incident response
 policy를 만들고, strict simulated `FIRE_DETECTED` 또는 실행 중 자연어 `REPORT_INCIDENT`가
@@ -68,7 +68,13 @@ P13.2 (§23, D-057): 별도 `UPDATE_RESOURCES` 또는 `REPORT_INCIDENT`와 함�
 잔여 mission을 rollout해 feasibility를 확인한 뒤 현재 checkpoint만 atomic commit한다. 제외된
 RUNNING agent는 현재 commitment를 마치지만 즉시 새 입찰에서 빠지며, 관련 미시작 bundle suffix만
 release/rebid한다. 실패하면 runtime·clock·graph·policy identity가 보존된다. cache namespace는
-`p13-v2`. 다음은 P13.3 scenario-free Live이며, P13.4 continuous runtime과 P14 Gazebo는 미구현이다.
+`p13-v2`.
+
+P13.3 (§23.3.1, D-058): native 기본값은 `dynamic-world + live`다. `patrol_park`의 zone·fleet·
+route만 로드하고 incident, initial graph, latent fixture, mock script를 넣지 않는다. scripted
+sensor/operator/reference profile과 mock mode는 재현용으로 명시 선택한다. Live API/network/schema
+실패는 TURN_ERROR/REJECTED로 감사하며 mock/reference mission으로 fallback하지 않는다. 다음은
+P13.4 continuous runtime이고 P14 Gazebo는 미구현이다.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 최초 범위는 실행 개시 전 다중 턴
 자연어 계획 세션이며, 후속 P9가 이를 task-completion checkpoint의 온라인 명령으로 확장했다.
@@ -168,8 +174,8 @@ P11 네이티브 UI(§21, D-049): `python3 -m desktop`이 하나의 `QApplicatio
 미설치 안내를 offscreen 테스트로 고정했다. Streamlit은 fallback으로 유지한다. P11은 새로운
 할당·검증·실행 의미나 연구 주장을 추가하지 않는다.
 
-다음은 P13.3 scenario-free Live다. 이후 P13.4 continuous wall-clock 2D runtime,
-P14 ROS2/Gazebo adapter 순서로 진행한다. P13.4 전까지 native 화면은
+다음은 P13.4 continuous wall-clock 2D runtime, 이후 P14 ROS2/Gazebo adapter 순서로
+진행한다. P13.4 전까지 native 화면은
 checkpoint schedule playback이며 robot telemetry로 주장하지 않는다.
 
 P8.3 구조 (D-031~D-034, 계약 v1.32):

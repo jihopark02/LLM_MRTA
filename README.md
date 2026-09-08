@@ -20,9 +20,9 @@ canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행
 + `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가, P9
 실행 중 명령·선택적 재할당, P8.5 정적 DAG/2D 지도, P10 checkpoint 구간 애니메이션,
 P11 네이티브 운영자 콘솔·별도 2D simulator 창, P12 LLM-driven incident contingency와
-P12.7 completed-patrol follow-on incident response까지 완료**. **P13.0~P13.2
+P12.7 completed-patrol follow-on incident response까지 완료**. **P13.0~P13.3
 자연어 resource constraint + 결정론적 active-team resolution 및 실행 중 safe-boundary
-resource 교체 완료**. 테스트 896개 통과.
+resource 교체, scenario-free Live 기본 진입점 완료**. 테스트 898개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -37,7 +37,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.53 / 최신 결정 D-057 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.54 / 최신 결정 D-058 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
@@ -66,7 +66,8 @@ fleet로 fallback하지 않고 거부된다. P13.2는 `UPDATE_RESOURCES`와 화�
 resource request를 지원한다. 전체 fleet roster와 새 입찰/dispatch 대상인 active team을 분리해,
 실행 중 제외된 RUNNING agent는 현재 task만 마친 뒤 future work에서 빠지고 미시작 assignment만
 release/rebid한다. 실패하면 runtime·clock·graph·policy identity를 보존한다. prompt/cache
-namespace는 `p13-v2`다. scenario-free Live 기본 경로(P13.3), 버튼 없는 continuous 2D runtime(P13.4),
+namespace는 `p13-v2`다. P13.3부터 native 기본 진입점은 incident·graph·fixture가 없는
+`dynamic-world + live`다. 버튼 없는 continuous 2D runtime(P13.4),
 ROS2/Gazebo adapter(P14)는 다음 단계다.
 
 ## 네이티브 운영자 UI (권장)
@@ -83,8 +84,9 @@ Ubuntu 22.04 기본 `pip 22.0.2`는 격리 환경에 최신 setuptools를 설치
 `build_editable` hook을 잘못 판정하는 경우가 있으므로, 첫 줄의 사용자 pip 업그레이드를 먼저
 수행한다(D-050).
 
-기본 실행 모드는 `mock`, 기본 scenario는 `UAV 순찰 → simulated fire detection`이며 운영자 창
-상단에서 `mock`/`live`/`cached`와 scenario를 바꿀 수 있다. 두 창은 같은 `MissionSession`을
+기본 실행 모드는 `live`, 기본 world profile은 `Dynamic Live · world only`다. incident-empty
+semantic world만 로드하며 reference graph·latent incident·scripted response를 넣지 않는다.
+운영자 창 상단에서 `live`/`cached`/`mock`과 재현용 profile을 바꿀 수 있다. 두 창은 같은 `MissionSession`을
 공유한다. 운영자 창에서 최초 임무가 승인되면 별도 실행 클릭 없이 checkpoint segment가 자동
 재생된다. 재생 중 자연어 한 건을 전송하면 `QUEUED`로 표시되고 현재 이동을 끊지 않은 채 다음
 task-completion safe checkpoint에서 실제 LLM/orchestrator가 처리한다. accepted update의 selective
@@ -106,6 +108,8 @@ P12 발표는 상단 scenario 선택에서 `UAV 순찰 → simulated fire detect
 자연어 화재 신고`를 고른다. `mock`은 화면이 제시하는 고정 문장만 받는다. `live`는 지원 범위의
 자연어를 실제 모델로 해석하고, `cached`는 이전 Live와 모델·문맥·발화가 모두 같은 경우만
 재생한다. 검증된 cached/live 예시 문장은 `docs/P12_RESULTS.md`의 “발표 재생” 절에 있다.
+`dynamic-world`에는 mock script가 없으므로 mock을 쓰려면 이 재현용 profile 중 하나를 명시적으로
+선택해야 한다. Live 실패는 mock/reference mission으로 fallback하지 않는다.
 
 정찰-only graph는 반복 순찰이 아니라 구역별 `AREA_RECON` 4개인 유한 임무이므로 마지막 정찰이
 끝나면 `EXECUTED`가 맞다. 그러나 online `COMPLETED` terminal을 보존한 세션에서는 그 뒤에도
