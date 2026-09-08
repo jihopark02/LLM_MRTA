@@ -59,6 +59,11 @@ OPERATOR_LIVE_EXAMPLES = (
     "네 개 구역 전체를 항공 정찰만 해줘",
     "Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지 대응해줘",
 )
+DYNAMIC_LIVE_EXAMPLES = (
+    "네 개 구역 전체를 UAV 두 대로 항공 정찰해줘",
+    "이제 UAV 한 대만 사용하고 S2는 제외해줘",
+    "Warehouse에 화재가 났어. UAV 한 대로 열화상 확인까지 해줘",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,12 +71,19 @@ class ScenarioProfile:
     scenario_id: str
     label: str
     scene_path: Path
-    mock_script: str
+    mock_script: str | None
     latent_fixture_path: Path | None = None
     live_examples: tuple[str, ...] = ()
 
 
 SCENARIO_PROFILES = {
+    "dynamic-world": ScenarioProfile(
+        "dynamic-world",
+        "Dynamic Live · world only (no mission fixture)",
+        PATROL_SCENE_PATH,
+        None,
+        live_examples=DYNAMIC_LIVE_EXAMPLES,
+    ),
     "sensor-detection": ScenarioProfile(
         "sensor-detection",
         "1 · UAV 순찰 → simulated fire detection",
@@ -121,7 +133,7 @@ class DesktopController:
         self,
         *,
         scene_path: str | Path | None = None,
-        scenario_id: str = "sensor-detection",
+        scenario_id: str = "dynamic-world",
         runtime_root: str | Path | None = None,
         frame_count: int = DEFAULT_FRAME_COUNT,
     ) -> None:
@@ -139,7 +151,10 @@ class DesktopController:
         if not isinstance(frame_count, int) or isinstance(frame_count, bool) or frame_count < 2:
             raise ValueError("frame_count must be an integer >= 2")
         self.frame_count = frame_count
-        self.mode = "mock"
+        # The scenario-free operating entry is genuinely Live. Explicit
+        # scripted profiles remain mock by default for deterministic tests and
+        # rehearsals; switching mode later is always an operator action.
+        self.mode = "live" if self.profile.mock_script is None else "mock"
         self.backends: dict[str, object] = {}
         self.chat: list[ChatMessage] = []
         self.queued_command: str | None = None
@@ -197,6 +212,10 @@ class DesktopController:
                     DEFAULT_MODEL, self.cache_directory
                 )
             else:
+                if self.profile.mock_script is None:
+                    raise ValueError(
+                        "dynamic-world has no mock script; select a scripted test profile"
+                    )
                 self.backends[self.mode] = make_mock_backend(self.profile.mock_script)
         return self.backends[self.mode]
 
@@ -339,6 +358,8 @@ class DesktopController:
 
     @property
     def mock_commands(self) -> tuple[str, ...]:
+        if self.profile.mock_script is None:
+            return ()
         return commands_for_script(self.profile.mock_script)
 
     @property
@@ -368,6 +389,7 @@ class DesktopController:
 __all__ = [
     "AdvancePresentation",
     "ChatMessage",
+    "DYNAMIC_LIVE_EXAMPLES",
     "DesktopController",
     "OPERATOR_LIVE_EXAMPLES",
     "SCENARIO_PROFILES",

@@ -333,7 +333,11 @@ class OperatorWindow(QMainWindow):
         mock_commands = "  →  ".join(self.controller.mock_commands)
         live_examples = "  →  ".join(self.controller.live_examples)
         if self.controller.mode == "mock":
-            command_help = f"MOCK 정확 입력: {mock_commands}"
+            command_help = (
+                f"MOCK 정확 입력: {mock_commands}"
+                if mock_commands
+                else "MOCK 없음: scripted test profile을 명시적으로 선택하세요."
+            )
         elif self.controller.mode == "cached":
             command_help = (
                 f"CACHED exact replay: {live_examples}"
@@ -347,7 +351,7 @@ class OperatorWindow(QMainWindow):
                 else "LIVE: 지원 범위 안에서 자연어 표현을 바꿔 입력할 수 있습니다."
             )
         self.scenario_help.setText(
-            f"SCENARIO: {self.controller.scenario_label}  ·  fixture: {fixture}  ·  "
+            f"WORLD PROFILE: {self.controller.scenario_label}  ·  fixture: {fixture}  ·  "
             f"active policy: {policy.value if policy is not None else 'none'}\n"
             "ACTIVE TEAM: "
             + (", ".join(session.active_team) if session.active_team else "none")

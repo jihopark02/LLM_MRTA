@@ -22,11 +22,46 @@ def _controller(tmp_path):
     )
 
 
-def test_native_default_is_the_sensor_detection_presentation(tmp_path):
+def test_native_default_is_scenario_free_live_world(tmp_path):
     controller = DesktopController(runtime_root=tmp_path, frame_count=4)
 
-    assert controller.scenario_id == "sensor-detection"
-    assert controller.fixture_id == "simulated-fire-zone-b-v1"
+    assert controller.scenario_id == "dynamic-world"
+    assert controller.mode == "live"
+    assert controller.fixture_id is None
+    assert controller.session.scene.incidents == {}
+    assert controller.session.state is None
+    assert controller.mock_commands == ()
+
+
+def test_dynamic_world_never_falls_back_to_a_mock_mission(tmp_path):
+    controller = DesktopController(runtime_root=tmp_path, frame_count=4)
+    controller.set_mode("mock")
+
+    with pytest.raises(ValueError, match="no mock script"):
+        controller.submit("전체 구역을 정찰해줘")
+
+    assert controller.session.state is None
+    assert controller.chat == []
+    assert controller.backends == {}
+
+
+def test_dynamic_world_live_failure_is_audited_without_script_fallback(tmp_path):
+    controller = DesktopController(runtime_root=tmp_path, frame_count=4)
+
+    class Offline:
+        mode = "live"
+
+        def complete(self, *args, **kwargs):
+            raise ConnectionError("network unavailable")
+
+    controller.backends["live"] = Offline()
+    result = controller.submit("UAV 한 대로 Warehouse를 정찰해줘")
+
+    assert result.outcome.value == "TURN_ERROR"
+    assert result.audit.mode == "live"
+    assert result.audit.error_type == "ConnectionError"
+    assert controller.session.state is None
+    assert "mock" not in controller.backends
 
 
 def test_importing_the_desktop_package_does_not_import_qt():
