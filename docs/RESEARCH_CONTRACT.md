@@ -1,8 +1,12 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.53 (D-057). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.54 (D-058). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.54 (D-058): native UI의 기본 진입점을 `dynamic-world + live`로 바꾼다. 이 profile은
+  zone·fleet·route만 있는 incident-empty scene을 로드하며 latent fixture, reference graph,
+  mock script를 갖지 않는다. mock/cached 연구 재현 profile은 명시적으로 선택해야 하고 Live
+  실패를 scripted 응답으로 fallback하지 않는다.
 - v1.53 (D-057): P13.2의 실행 중 team 교체 의미를 고정한다. session/runtime의
   `MissionState.agents`는 scene 전체 fleet의 실행 이력과 마지막 확정 위치를 보존하는 roster이고,
   `active_team`은 새 입찰·dispatch에 참여할 수 있는 agent 집합이다. 제외된 RUNNING agent는 roster와
@@ -2029,6 +2033,20 @@ release한 뒤 잔여 mission을 끝까지 결정론적으로 rollout하여 검�
 
 감사는 raw/final intent wire, `ResourceRequest`, resolved active team, infeasibility code,
 before/after assignment, released task, deferred exclusion과 적용 checkpoint time을 저장한다.
+
+### 23.3.1 scenario-free Live 진입점 (P13.3)
+
+native UI의 기본 profile은 `dynamic-world`이고 기본 mode는 `live`다. 이 profile은 zone, fleet,
+route graph와 response point만 포함한 incident-empty semantic scene을 로드하며 initial graph,
+latent incident fixture, expected command, mock response를 주입하지 않는다. 첫 task graph와 resource
+request는 첫 자연어와 현재 empty session에서 생성된다. UI의 profile 선택은 world/test fixture의
+선택이지 Live mission template 선택으로 표시하지 않는다.
+
+`mock`은 exact scripted profile을 명시적으로 선택한 경우에만 사용할 수 있다. dynamic-world에서
+mock을 선택해 임의 명령을 입력하면 명시적 wiring error이며 reference/mock graph로 fallback하지
+않는다. `cached`도 model·prompt schema·context·utterance가 정확히 일치하는 응답만 사용한다. API
+key 누락, network 오류, schema 오류 또는 infeasible request는 Live turn 실패/거부로 감사하며 mode를
+바꾸거나 scripted mission을 대신 commit하지 않는다.
 
 ### 23.4 continuous 2D runtime과 입력 queue
 

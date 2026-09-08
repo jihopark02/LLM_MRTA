@@ -1818,3 +1818,18 @@ resource 교체에서 제외된 agent의 ASSIGNED task는 release하지만 RUNNI
 **영향** P13.1 team resolver의 committed state, `MissionSession.active_team` 불변,
 `ExecutionCheckpoint`, `SimExecutor`의 입찰·dispatch 대상, P13.2 resource replacement와 감사.
 Validator 1.4, online policy 1.0, task graph와 P3/P4/P9/P12 역사적 결과는 불변이다.
+
+## D-058: scenario-free Live를 native 기본 진입점으로 (계약 v1.54)
+
+**배경** native UI의 기본값은 simulated-fire fixture가 연결된 mock scenario였다. Live를 선택할 수
+있어도 앱을 처음 본 사용자는 미리 고정된 명령·fixture·경로를 재생하는 시스템으로 읽게 되고,
+P13의 “world만 고정되고 mission은 자연어로 생성”한다는 경계와 어긋났다. profile dropdown의
+reference/sensor 항목은 평가 재현에는 필요하지만 운용 기본값이어서는 안 된다.
+
+**결정** 기본 profile을 incident-empty `patrol_park` world로, 기본 mode를 `live`로 바꾼다. 이
+`dynamic-world` profile에는 latent fixture·reference graph·mock script가 없다. mock/cached 평가
+profile은 사용자가 명시적으로 선택하며 dynamic-world의 Live 실패는 scripted response나 reference
+mission으로 fallback하지 않는다.
+
+**영향** native controller/window 기본값과 profile 표시, desktop 자동 테스트, README/CLAUDE.
+Validator/CBBA/executor/online policy와 기존 artifact는 불변이다.
