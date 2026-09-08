@@ -20,8 +20,9 @@ canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행
 + `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가, P9
 실행 중 명령·선택적 재할당, P8.5 정적 DAG/2D 지도, P10 checkpoint 구간 애니메이션,
 P11 네이티브 운영자 콘솔·별도 2D simulator 창, P12 LLM-driven incident contingency와
-P12.7 completed-patrol follow-on incident response까지 완료**. **P13.0 계약과 P13.1
-자연어 resource constraint + 결정론적 active-team resolution 완료**. 테스트 884개 통과.
+P12.7 completed-patrol follow-on incident response까지 완료**. **P13.0~P13.2
+자연어 resource constraint + 결정론적 active-team resolution 및 실행 중 safe-boundary
+resource 교체 완료**. 테스트 896개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -36,7 +37,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.52 / 최신 결정 D-056 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.53 / 최신 결정 D-057 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
@@ -61,8 +62,11 @@ P13.1에서 `NEW_MISSION`은 UAV/UGV exact·min·max 대수와 required/excluded
 추출한다. LLM이 assignment를 정하지 않고, 결정론적 resolver가 가능한 active team을 기존
 CBBA로 검증해 `(makespan, distance, team size, agent ids)` 순으로 고른다. 예를 들어
 `UAV 한 대로 전체 구역을 정찰해줘`는 4개 AREA_RECON을 한 대가 맡으며, 불가능한 제약은 full
-fleet로 fallback하지 않고 거부된다. prompt/cache namespace는 `p13-v1`이다. 실행 중 resource
-변경(P13.2), scenario-free Live 기본 경로(P13.3), 버튼 없는 continuous 2D runtime(P13.4),
+fleet로 fallback하지 않고 거부된다. P13.2는 `UPDATE_RESOURCES`와 화재 report에 동반된
+resource request를 지원한다. 전체 fleet roster와 새 입찰/dispatch 대상인 active team을 분리해,
+실행 중 제외된 RUNNING agent는 현재 task만 마친 뒤 future work에서 빠지고 미시작 assignment만
+release/rebid한다. 실패하면 runtime·clock·graph·policy identity를 보존한다. prompt/cache
+namespace는 `p13-v2`다. scenario-free Live 기본 경로(P13.3), 버튼 없는 continuous 2D runtime(P13.4),
 ROS2/Gazebo adapter(P14)는 다음 단계다.
 
 ## 네이티브 운영자 UI (권장)
@@ -87,9 +91,15 @@ task-completion safe checkpoint에서 실제 LLM/orchestrator가 처리한다. a
 release/rebid와 새 경로는 바로 다음 segment부터 보인다. `다음 checkpoint`와 `끝까지 연속 재생`
 버튼은 수동 진단·회귀용으로 남아 있다.
 
+Live에서는 `이제 UAV 한 대만 사용하고 S2는 제외해줘`처럼 resource 정책만 교체하거나,
+`Warehouse에 화재가 났어. UAV 한 대로 열화상 확인까지 해줘`처럼 incident·workflow·resource를
+한 턴에 요청할 수 있다. LLM은 제약만 추출하고 실제 active team과 task assignment는 기존 CBBA를
+사용하는 결정론적 resolver가 선택한다. 현재 active team, release 수, deferred exclusion은 콘솔과
+감사 JSON에 표시된다.
+
 `live`는 저장소 루트 `.env`의 `OPENAI_API_KEY`를 사용한다. 실제 API 호출임을 모드 배너에
 표시하며, 성공 응답은 기존 exact cache 경로에 기록된다. `cached`는 동일한 모델·문맥·발화·
-schema 응답만 네트워크 없이 재생한다. P13.1의 prompt namespace는 `p13-v1`이므로 기존
+schema 응답만 네트워크 없이 재생한다. P13.2의 prompt namespace는 `p13-v2`이므로 기존
 `p12-v4` cache도 새 resource schema의 Live 응답으로 가장해 재사용하지 않는다.
 
 P12 발표는 상단 scenario 선택에서 `UAV 순찰 → simulated fire detection` 또는 `UAV 순찰 중
