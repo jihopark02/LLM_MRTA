@@ -47,6 +47,42 @@ def test_new_mission_has_only_the_optional_incident_policy_slot():
     assert policy.incident_response_up_to == "GROUND_SUPPRESSION"
 
 
+def test_new_mission_resource_slots_restore_a_strict_resource_request():
+    wire = wire_intent(
+        "NEW_MISSION",
+        uav_exact=1,
+        ugv_min=1,
+        ugv_max=2,
+        required_agents=["G1"],
+        excluded_agents=["R2"],
+    )
+    resources = wire.to_internal().intent.resources
+
+    assert resources is not None
+    request = resources.to_domain()
+    assert request.uav.exact == 1
+    assert request.ugv.minimum == 1
+    assert request.ugv.maximum == 2
+    assert request.required_agents == ("G1",)
+    assert request.excluded_agents == ("R2",)
+
+
+@pytest.mark.parametrize(
+    "slots",
+    [
+        {"uav_exact": True},
+        {"uav_exact": "1"},
+        {"uav_exact": 1, "uav_min": 1},
+        {"uav_min": 2, "uav_max": 1},
+        {"required_agents": ["G1", "G1"]},
+        {"required_agents": ["G1"], "excluded_agents": ["G1"]},
+    ],
+)
+def test_wire_rejects_invalid_resource_constraints(slots):
+    with pytest.raises(ValidationError):
+        wire_intent("NEW_MISSION", **slots)
+
+
 def test_report_incident_zone_ref_optional():
     assert _envelope({"kind": "REPORT_INCIDENT"}).intent.zone_ref is None
     got = _envelope({"kind": "REPORT_INCIDENT", "zone_ref": "A 구역"}).intent
@@ -171,6 +207,14 @@ def test_wire_schema_has_no_openai_rejected_one_of_and_requires_every_key():
         "response_up_to",
         "about",
         "note",
+        "uav_exact",
+        "uav_min",
+        "uav_max",
+        "ugv_exact",
+        "ugv_min",
+        "ugv_max",
+        "required_agents",
+        "excluded_agents",
     }
 
 
@@ -259,11 +303,12 @@ def test_intent_prompt_explains_the_flat_null_slot_protocol():
     assert "use null" in prompt
 
 
-def test_resource_constraints_are_fail_closed_in_the_prompt():
+def test_new_mission_resource_constraints_are_preserved_in_the_prompt():
     prompt = intent_system("PHASE: PLANNING")
-    assert "particular robot" in prompt
-    assert "UNSUPPORTED as a whole" in prompt
-    assert "Generic platform-class wording is NOT a resource constraint" in prompt
+    assert '"UAV 한 대만" is' in prompt
+    assert "uav_exact=1" in prompt
+    assert '"R2 제외"' in prompt
+    assert "excluded_agents" in prompt
     assert "지상 로봇으로 진압" in prompt
     assert "Warehouse 구역에 새 화재" in prompt
 

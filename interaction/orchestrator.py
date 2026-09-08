@@ -40,6 +40,7 @@ from enum import Enum
 
 from allocation.allocate import AllocationResult, allocate
 from allocation.online import ReleasePolicy, apply_online_patch
+from allocation.team import ResourceInfeasibleError, resolve_initial_team
 from core.enums import TaskStatus
 from interaction.audit import (
     GenerationAudit,
@@ -47,6 +48,7 @@ from interaction.audit import (
     IncidentActionAudit,
     OnlineReallocationAudit,
     PlanAssignmentChanges,
+    ResourceResolutionAudit,
     TurnAudit,
 )
 from interaction.audit_builders import online_reallocation_audit, patch_audit
@@ -69,6 +71,7 @@ from interaction.incident_response import (
 )
 from interaction.interpret import IntentRepairTrace, classify
 from interaction.mode import mode_of_backend, require_mode
+from interaction.resources import ResourceRequest, ResourceRequestError
 from interaction.session import (
     MissionSession,
     PendingClarification,
@@ -149,6 +152,7 @@ class _Turn:
     selected_entity_id: str | None = None
     online_reallocation: OnlineReallocationAudit | None = None
     incident_action: IncidentActionAudit | None = None
+    resource_resolution: ResourceResolutionAudit | None = None
     intent_repair: IntentRepairTrace = field(default_factory=IntentRepairTrace)
 
     def resolved_models(self) -> list[str]:
@@ -234,6 +238,7 @@ def _finish(
         plan_assignment_changes=PlanAssignmentChanges.between(turn.pre_plan, post_plan),
         online_reallocation=turn.online_reallocation,
         incident_action=turn.incident_action,
+        resource_resolution=turn.resource_resolution,
         scene_changed=scene_hash(session.scene) != turn.pre_scene_hash,
         state_changed=_graph_hash_of(session) != turn.pre_graph_hash,
         referent_noted=turn.referent_noted,
@@ -342,20 +347,51 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
 
     # Build state and plan as candidates, then swap both in one step.
     candidate_state = fresh_session_state(gen.graph, session.scene)
-    candidate_plan = _plan_for(candidate_state, session.scene)
+    resource_slots = turn.slots.get("resources") or {}
+    request = ResourceRequest.from_flat_slots(resource_slots)
+    try:
+        resolved = resolve_initial_team(
+            candidate_state, session.scene, request, planner=_plan_for
+        )
+    except (ResourceInfeasibleError, ResourceRequestError) as exc:
+        turn.resource_resolution = ResourceResolutionAudit(
+            request=request.to_dict(),
+            error_code=getattr(exc, "code", "RESOURCE_SCHEMA"),
+        )
+        return _finish(
+            turn,
+            TurnOutcome.REJECTED,
+            f"자원 제약을 만족하는 실행 팀이 없습니다 ({turn.resource_resolution.error_code}).",
+        )
+    candidate_state = resolved.state
+    candidate_plan = resolved.plan
+    turn.resource_resolution = ResourceResolutionAudit(
+        request=request.to_dict(),
+        active_team=list(resolved.active_agents),
+        candidates_tested=resolved.candidates_tested,
+    )
     candidate_directive = MissionDirective.from_slot(
         turn.slots.get("incident_response_up_to")
     )
-    session.state, session.plan, session.directive = (
+    (
+        session.state,
+        session.plan,
+        session.directive,
+        session.resource_request,
+        session.active_team,
+    ) = (
         candidate_state,
         candidate_plan,
         candidate_directive,
+        request,
+        resolved.active_agents,
     )
     return _finish(
         turn,
         TurnOutcome.COMMITTED,
         f"임무를 생성했습니다: task {len(session.state.graph)}개, "
-        f"edge {len(session.state.graph.edges)}개.",
+        f"edge {len(session.state.graph.edges)}개, active team "
+        f"{', '.join(session.active_team)}.",
     )
 
 

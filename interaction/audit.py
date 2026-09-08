@@ -77,6 +77,16 @@ class GenerationAudit:
 
 
 @dataclass(frozen=True, slots=True)
+class ResourceResolutionAudit:
+    """Requested constraints and deterministic P13 active-team result."""
+
+    request: dict[str, object]
+    active_team: list[str] = field(default_factory=list)
+    candidates_tested: int = 0
+    error_code: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeAssignmentChanges:
     """Assignment delta produced by an in-execution CBBA epoch (§19.4)."""
 
@@ -172,6 +182,7 @@ class TurnAudit:
     plan_assignment_changes: PlanAssignmentChanges | None = None
     online_reallocation: OnlineReallocationAudit | None = None
     incident_action: IncidentActionAudit | None = None
+    resource_resolution: ResourceResolutionAudit | None = None
 
     scene_changed: bool = False
     state_changed: bool = False
@@ -250,6 +261,7 @@ __all__ = [
     "GroundingAudit",
     "PatchAudit",
     "GenerationAudit",
+    "ResourceResolutionAudit",
     "RuntimeAssignmentChanges",
     "OnlineReallocationAudit",
     "IncidentActionAudit",

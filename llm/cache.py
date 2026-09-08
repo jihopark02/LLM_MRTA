@@ -20,7 +20,7 @@ from llm.backend import LLMBackend
 T = TypeVar("T", bound=BaseModel)
 
 CACHE_FORMAT_VERSION = 1
-PROMPT_SCHEMA_VERSION = "p12-v4"
+PROMPT_SCHEMA_VERSION = "p13-v1"
 DEFAULT_CACHE_DIR = Path("data/llm_cache")
 
 

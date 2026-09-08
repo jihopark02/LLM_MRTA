@@ -17,6 +17,7 @@ must not share a mutable ``Agent`` with the scene — the P6.5 fork is unaffecte
 because ``allocate``/``SimExecutor`` clone their input immediately.
 """
 
+import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
@@ -35,6 +36,7 @@ from interaction.audit import (
     TurnAudit,
 )
 from interaction.directive import MissionDirective
+from interaction.resources import ResourceRequest
 from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.scene import Scene
 
@@ -177,6 +179,8 @@ class MissionSession:
     online_started_at: str | None = None
     phase: SessionPhase = SessionPhase.PLANNING
     directive: MissionDirective = field(default_factory=MissionDirective)
+    resource_request: ResourceRequest = field(default_factory=ResourceRequest)
+    active_team: tuple[str, ...] = ()
     recent_referents: list[Referent] = field(default_factory=list)
     turn_count: int = 0
     pending_clarification: PendingClarification | None = None
@@ -195,6 +199,26 @@ class MissionSession:
                 f"session_id must match {SESSION_ID_PATTERN.pattern!r} exactly, "
                 f"got {self.session_id!r}"
             )
+        if not isinstance(self.resource_request, ResourceRequest):
+            raise ValueError("resource_request must be a ResourceRequest")
+        self.resource_request.validate_scene(self.scene)
+        if self.active_team:
+            if not isinstance(self.active_team, tuple) or not all(
+                isinstance(agent_id, str) and agent_id for agent_id in self.active_team
+            ):
+                raise ValueError("active_team must be a tuple of non-empty agent ids")
+            if len(self.active_team) != len(set(self.active_team)):
+                raise ValueError("active_team contains duplicate agent ids")
+            unknown = set(self.active_team) - {agent.agent_id for agent in self.scene.fleet}
+            if unknown:
+                raise ValueError(f"active_team contains unknown agents: {sorted(unknown)}")
+            if self.state is not None and set(self.active_team) != set(self.state.agents):
+                raise ValueError("active_team must match the agents in mission state")
+            self.active_team = tuple(sorted(self.active_team))
+        elif self.state is not None:
+            # Legacy/test constructors predate P13. Their state already owns
+            # the authoritative executable team, so adopt it deterministically.
+            self.active_team = tuple(sorted(self.state.agents))
 
     # -- derived (never stored, D-027) ---------------------------------
     @property
@@ -322,6 +346,9 @@ def build_context_summary(session: MissionSession) -> str:
             if session.directive.incident_response_up_to is not None
             else "none"
         ),
+        "RESOURCE_REQUEST: "
+        + json.dumps(session.resource_request.to_dict(), sort_keys=True, ensure_ascii=False),
+        "ACTIVE_TEAM: " + (", ".join(session.active_team) if session.active_team else "none"),
         "ZONES: " + ", ".join(sorted(scene.zones)),
         "INCIDENTS:",
     ]

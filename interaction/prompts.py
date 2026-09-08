@@ -1,10 +1,9 @@
 """Intent-classifier prompt for the planning session (RESEARCH_CONTRACT.md §18.3, §18.7).
 
-One LLM call per turn, and it does exactly two things: pick one of the five
-dialogue acts and extract slots. It never writes a clarification, a task list,
-a MissionPatch, an agent, a priority or a coordinate — the schema has no field
-for any of those, and the deterministic grounder decides what the slots refer
-to (§18.7).
+One LLM call per turn picks a dialogue act and extracts bounded slots. P13 lets
+it extract resource *constraints* on a new mission, but never an assignment.
+It never writes a clarification, task list, MissionPatch, priority, coordinate
+or task-to-agent mapping; deterministic code resolves all of those.
 
 The context is the structured session summary (``build_context_summary``), not
 the raw transcript: the model is told what exists right now rather than being
@@ -19,6 +18,8 @@ Pick exactly one intent kind:
   itself is decomposed later by a separate step. Slot incident_response_up_to
   is the last workflow step requested for a FUTURE fire that is detected or
   reported while the mission runs; null when no such conditional policy is said.
+  Resource slots may constrain the active fleet: uav_exact/uav_min/uav_max,
+  ugv_exact/ugv_min/ugv_max, required_agents and excluded_agents.
 - REPORT_INCIDENT: the operator reports a NEW fire in a zone. Slot: zone_ref,
   the zone phrase exactly as the operator said it. Optional response_up_to is
   the last workflow step explicitly requested in the SAME utterance.
@@ -29,16 +30,15 @@ Pick exactly one intent kind:
   incidents. Slots: about, and target_phrase if the question is about one
   specific incident.
 - UNSUPPORTED: anything else — chit-chat, cancelling or deleting tasks,
-  re-prioritising, naming which robot to use, or editing the graph in a way the
-  four acts above do not cover.
+  re-prioritising, or editing the graph in a way the four acts above do not cover.
 
 Rules:
-- Return exactly these eight top-level keys: kind, zone_ref, target_phrase,
-  up_to_step, incident_response_up_to, response_up_to, about, note. Every key
-  is required; use null for every slot that does not belong to the selected
-  kind or is not present in the utterance. In particular, note is non-null
-  only for UNSUPPORTED. Never place the operator utterance in note for another
-  kind.
+- Return exactly these sixteen top-level keys: kind, zone_ref, target_phrase,
+  up_to_step, incident_response_up_to, response_up_to, about, note, uav_exact,
+  uav_min, uav_max, ugv_exact, ugv_min, ugv_max, required_agents,
+  excluded_agents. Every key is required; use null for every slot that does not
+  belong to the selected kind or is not present. Resource arrays are null when
+  absent, not empty guesses. note is non-null only for UNSUPPORTED.
 - Copy slot phrases verbatim from the utterance. Do NOT resolve them, expand
   them, translate them, or substitute an id you infer from the context.
 - If a slot is not present in the utterance, set it to null. Do not omit any
@@ -60,15 +60,18 @@ Rules:
   Example: "전체 구역 항공 정찰만 해줘" is NEW_MISSION with
   incident_response_up_to=null. The word "정찰만" limits the initial graph;
   it does not mean THERMAL_RECON after a future fire.
-- A request that names a particular robot, limits the number of robots, or
-  excludes a robot is UNSUPPORTED as a whole. Never silently discard a
-  resource constraint while keeping the rest of the request.
-- Generic platform-class wording is NOT a resource constraint. Phrases such
-  as "UAV로 정찰", "UGV로 점검", or "지상 로봇으로 진압" merely describe
-  the fixed workflow/capability and remain NEW_MISSION, REPORT_INCIDENT, or
-  UPDATE_MISSION as appropriate. The deterministic allocator still chooses
-  from the full eligible fleet. Only a specific agent id (for example G1), a
-  number limit ("UAV 한 대만"), or an exclusion ("R2 제외") is unsupported.
+- For NEW_MISSION, preserve every stated resource constraint. "UAV 한 대만" is
+  uav_exact=1; "UAV 최소 두 대" is uav_min=2; "UGV 최대 한 대" is ugv_max=1;
+  "G1을 포함" puts G1 in required_agents; "R2 제외" puts R2 in
+  excluded_agents. Never produce a task-to-agent assignment. Deterministic
+  code checks whether the request is feasible.
+- exact cannot be combined with min/max for the same platform. Use integers,
+  not strings. Do not infer a count from generic platform wording: "UAV로
+  정찰" or "지상 로봇으로 진압" describes capability and leaves all
+  platform count slots null.
+- Resource changes on an already active mission are not implemented until
+  P13.2. Classify a resource-only follow-up as UNSUPPORTED for now; never
+  silently discard it.
 - Example: "Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지
   대응해줘" is REPORT_INCIDENT with zone_ref="Warehouse 구역" and
   response_up_to="GROUND_SUPPRESSION"; it is not UNSUPPORTED.
@@ -81,7 +84,7 @@ _REPAIR = """
 Your previous JSON response was rejected by the strict intent wire schema.
 Return a corrected JSON object for the SAME operator utterance and session.
 Keep the intended kind, unless the validation error itself shows that kind is
-invalid. Include all eight required keys. Set every slot not owned by the
+invalid. Include all sixteen required keys. Set every slot not owned by the
 selected kind to null; do not preserve text in an unrelated slot. Do not add
 new facts or change the operator's request.
 
