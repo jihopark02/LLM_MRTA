@@ -1799,3 +1799,22 @@ request와 초기 team resolution부터 작게 구현하고, online resource upd
 **영향** 계약 §1/§15/§16/§17과 신규 §23, interaction wire/prompt/directive/session/audit,
 deterministic allocation wrapper, native lifecycle와 이후 ROS2/Gazebo adapter. 기존 Validator 1.4,
 online policy 1.0, P3/P4/P9/P12 역사적 결과·artifact는 불변이어야 한다.
+
+## D-057: 실행 roster와 active team 분리 (계약 v1.53)
+
+**배경** P13.1은 선택된 active-team subset만 `MissionState.agents`에 넣었다. 이 구조로 실행 중
+agent를 제외하면 마지막 확정 위치·busy time·완료 assignment 이력을 버려야 하고, 나중에 다시
+포함할 때 scene 시작점에서 새 agent처럼 만드는 오류가 생긴다. 반대로 제외된 RUNNING agent를
+state에 남기면 `active_team == state.agents`라는 기존 임시 불변 때문에 future 입찰에서도 제외할
+수 없었다. D-056의 deferred exclusion을 구현하려면 실행 roster와 입찰 자격을 분리해야 한다.
+
+**결정** P13.2부터 session/runtime `MissionState.agents`는 scene 전체 fleet roster를 유지하고,
+`active_team`은 새 CBBA 입찰·dispatch 자격만 나타낸다. executor checkpoint도 active team을 저장한다.
+resource 교체에서 제외된 agent의 ASSIGNED task는 release하지만 RUNNING commitment는 보존한다.
+그 agent는 즉시 입찰에서 빠지고 현재 task 완료 뒤 idle이 되며, 재포함되면 보존된 마지막 확정
+위치에서 다시 참여한다. 후속 team 후보는 checkpoint clone의 잔여 mission을 rollout하여 검증하되
+선택된 현재 checkpoint만 atomic commit한다.
+
+**영향** P13.1 team resolver의 committed state, `MissionSession.active_team` 불변,
+`ExecutionCheckpoint`, `SimExecutor`의 입찰·dispatch 대상, P13.2 resource replacement와 감사.
+Validator 1.4, online policy 1.0, task graph와 P3/P4/P9/P12 역사적 결과는 불변이다.

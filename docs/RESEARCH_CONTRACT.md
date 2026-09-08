@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.52 (D-056). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.53 (D-057). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.53 (D-057): P13.2의 실행 중 team 교체 의미를 고정한다. session/runtime의
+  `MissionState.agents`는 scene 전체 fleet의 실행 이력과 마지막 확정 위치를 보존하는 roster이고,
+  `active_team`은 새 입찰·dispatch에 참여할 수 있는 agent 집합이다. 제외된 RUNNING agent는 roster와
+  현재 commitment에는 남되 active team에서는 즉시 빠지고, 완료 checkpoint에서 future work 없이
+  idle이 된다. executor checkpoint는 active team도 함께 보존한다.
 - v1.52 (D-056): P13 **dynamic natural-language mission runtime**과 P14 ROS2/Gazebo adapter를
   추가한다. 고정된 semantic world·task vocabulary·안전 규칙 위에서 Live 자연어가 초기 graph와
   검증 가능한 resource constraint를 만들며, 결정론적 allocator가 실제 active team과 assignment를
@@ -2003,6 +2008,24 @@ policy를 atomic하게 교체하며, omitted field를 임의로 이전 값에서
 RUNNING이면 그 task 완료까지 허용하고 이후 미시작 task에서 제외하는 deferred exclusion으로
 감사한다. feasibility·Validator·reallocation 중 하나라도 실패하면 policy, graph, runtime,
 simulation time과 assignment identity를 모두 보존한다.
+
+P13.2부터 session과 executor의 `MissionState.agents`는 **scene 전체 fleet roster**를 보존한다.
+`active_team`은 그 roster 중 새 CBBA 입찰과 새 task dispatch에 참여할 수 있는 집합이며, 따라서
+둘을 같은 뜻으로 사용하지 않는다. initial team resolver도 subset으로 계획을 평가하지만 commit되는
+state에서는 전체 roster를 유지한다. executor checkpoint는 `active_team`을 함께 저장·복원한다.
+
+resource 교체 시 새 active team에서 빠진 agent의 ASSIGNED(미시작) task는 release/rebid한다.
+RUNNING task는 release하지 않으며 그 agent는 즉시 새 입찰 대상에서는 빠지지만 현재 task를 끝낼
+때까지 simulator roster에 남는다. 이를 `deferred_exclusions`로 감사한다. 완료 뒤 그 agent는 idle로
+남고 future task를 dispatch하지 않는다. 다시 active team에 포함되면 새로 초기화하지 않고 roster에
+보존된 마지막 확정 위치에서 입찰한다. 이 분리는 inactive agent의 위치를 scene 시작점으로 되감거나,
+제외된 RUNNING agent가 다음 READY task를 다시 가져가는 것을 금지한다.
+
+후속 team 후보는 현재 checkpoint의 COMPLETED/RUNNING prefix를 고정한 clone에서 미시작 assignment를
+release한 뒤 잔여 mission을 끝까지 결정론적으로 rollout하여 검증한다. 모든 잔여 task가 완료되고
+위반이 없으며 required agent가 잔여 task를 실제로 맡는 후보만 feasible이다. 선택 키는 P13.1과 같은
+`(residual makespan, residual distance, active_team_size, sorted_agent_ids)`다. 선택된 candidate의
+현재-checkpoint state만 commit하며 feasibility rollout의 미래 task status·clock은 commit하지 않는다.
 
 감사는 raw/final intent wire, `ResourceRequest`, resolved active team, infeasibility code,
 before/after assignment, released task, deferred exclusion과 적용 checkpoint time을 저장한다.
