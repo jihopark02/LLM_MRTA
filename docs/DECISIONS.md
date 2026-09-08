@@ -1720,3 +1720,27 @@ Validator/CBBA/online release와 cache key는 바뀌지 않는다.
 **영향** interaction interpreter scratch trace, `TurnAudit`, orchestrator 직렬화, 감사 회귀 테스트,
 별도 cached replay artifact. 계약 v1.49, `VALIDATOR_VERSION` 1.4와
 `ONLINE_POLICY_VERSION`, P3/P4/P9 결과는 불변이다.
+
+## D-054: autonomous safe-checkpoint playback과 재생 중 명령 queue (계약 v1.50)
+
+**배경** P11/P12 native UI는 사용자가 `다음 checkpoint` 또는 `끝까지 연속 재생`을 눌러야만
+움직이고, 재생 중 input을 잠갔다. 연구 상태 전이는 정확했지만 발표에서는 이미 계산된 고정
+시나리오를 수동으로 넘기는 것처럼 보였다. 또한 intent prompt의 "naming which robot" 문구가
+`지상 로봇으로 진압` 같은 일반 platform 설명까지 resource constraint로 오해하게 만들어,
+지원해야 할 Live `REPORT_INCIDENT`가 `UNSUPPORTED`가 될 수 있었다.
+
+**결정** 최초 임무 commit 뒤 native UI는 P10 checkpoint segment를 자동으로 연속 재생한다.
+재생 중 자연어 한 건을 queue할 수 있지만 현재 segment가 끝날 때까지 LLM이나 연구 상태를
+변경하지 않는다. segment 종료 시 이미 commit된 sensor observation을 먼저 둔 상태에서 queued
+utterance를 기존 orchestrator로 정확히 한 번 처리하고, 성공이면 다음 segment를 자동 재생한다.
+clarification·거부·오류에서는 멈춘다. 이는 임의 simulation-time interrupt가 아니라 기존
+task-completion 경계의 UI lifecycle 개선이며 RUNNING task abort/migration은 없다.
+
+일반 UAV/UGV/지상 로봇 표현은 workflow·platform class 설명으로 허용하되 특정 agent id, 수량,
+배제는 계속 요청 전체를 `UNSUPPORTED`로 처리한다. prompt 의미가 달라지므로 cache namespace를
+`p12-v3`로 올린다. native 기본 scenario는 `sensor-detection`으로 바꾸며 reference scenario와
+fixture는 선택 항목으로 그대로 보존한다.
+
+**영향** native controller/window lifecycle, intent prompt/cache namespace, desktop 자동 테스트와
+문서. Validator/CBBA/executor/checkpoint/online policy의 의미와 버전, P3/P4/P9/P12 역사적
+artifact·수치는 불변이다.

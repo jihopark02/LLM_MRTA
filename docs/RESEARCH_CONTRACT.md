@@ -1,8 +1,15 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.49 (D-053). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.50 (D-054). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.50 (D-054): native 발표 UI를 명령 생성 뒤 자동 checkpoint 재생으로 전환하고, 재생 중
+  자연어 입력 한 건을 대기열에 받아 현재 frozen segment가 끝나는 안전한 task-completion
+  checkpoint에서 기존 orchestrator로 처리한다. 같은 checkpoint의 simulated sensor event를
+  먼저 commit한 뒤 대기 명령을 처리하며, accepted 변경은 P9 selective release/rebid 후 다음
+  segment부터 보인다. 이는 임의 wall-clock interrupt나 RUNNING task migration이 아니다. 일반
+  platform-class 표현(UAV 정찰, UGV/지상 로봇 점검·진압)은 workflow 설명으로 허용하되 특정
+  agent id·수량·배제는 계속 UNSUPPORTED다. native 기본 scenario는 sensor detection으로 둔다.
 - v1.49 (D-053): D-052의 bounded intent repair 사용 여부를 제3자가 cache 파일 없이 감사할
   수 있도록 각 `TurnAudit`에 `intent_repair_attempted`와 `intent_repair_recovered`를 기록한다.
   둘은 LLM 결과나 판정이 아니라 해당 턴의 transport provenance이며, 두 번째 실패에서도
@@ -987,6 +994,7 @@ invariant를 통과해야 한다.
 | P12.3 | sensor/operator 공통 atomic incident transaction | 같은 zone·response step이면 두 source가 같은 scene/graph diff를 생성 / planning·paused 모두 성공 후 한 번에 commit / Validator·reallocation 실패 시 scene/state/runtime identity와 hash·시각 불변 / sensor observation 별도 typed audit |
 | P12.4 | Live counterfactual + 두 발표 scenario | 사전 고정 명령/annotation으로 initial graph·policy·report zone·response prefix exact scoring / 같은 scene의 다른 명령이 다른 graph/policy, 다른 zone이 다른 target을 생성 / scripted mock은 정확한 제시 문장 외 입력을 backend 소비 없이 거부 / sensor 시나리오와 operator-report 시나리오 모두 `COMPLETED`, capability/precedence violation 0, P9 selective release 원시값 감사 / 실제 model snapshot 기록 / 첫 Live 원시 결과와 개선 후 사전 고정 held-out 결과를 별도 artifact로 보존 |
 | P12.5 | native UI 연결 | scenario는 명시적 선택·seed/fixture id 표시 / Live parsed directive·event source·patch·release/rebid 표시 / sensor observation과 operator report를 구분 / 다음 checkpoint 이후 변경 경로 재생 / cached를 live로 표시 금지 / P3/P4/P9 골든 불변 |
+| P12.6 | autonomous safe-checkpoint playback + queued Live command (D-054) | initial `COMMITTED` 뒤 native UI가 별도 클릭 없이 checkpoint segment를 연속 재생 / playback 중 input 1건을 `QUEUED`로 표시하되 LLM·grounder는 호출하지 않음 / frozen segment 종료 뒤 같은 checkpoint의 sensor observation을 먼저 반영하고 queued command를 정확히 1회 기존 orchestrator로 처리 / accepted update 뒤 P9 selective release/rebid와 다음 segment 자동 진행 / clarification·UNSUPPORTED·REJECTED·TURN_ERROR에서는 자동 진행 정지 / queue overwrite 금지 / 일반 UAV·UGV platform 표현 허용, 특정 agent id·수량·배제는 계속 UNSUPPORTED / native 기본 scenario는 sensor detection / checkpoint 수동 버튼은 진단용으로 보존 / P3/P4/P9/P12 결과·감사 의미 불변 |
 
 **P1 완료 게이트** (v1.1, D-002 — 전 항목 통과해야 P1 완료 선언 가능):
 
@@ -1857,3 +1865,31 @@ patch task, selectively released task와 다음 segment의 assignment/path를 �
 simulated observation에 대한 온라인 mission adaptation이며 실제 perception 또는 물리적 화재
 진압 성공 주장이 아니다. 기존 reference scene과 P3/P4/P9 fixture는 변경하지 않고 골든값을
 그대로 보존한다.
+
+### 22.6 autonomous safe-checkpoint presentation (D-054)
+
+native UI의 기본 발표 lifecycle은 최초 임무가 `COMMITTED`되면 별도 실행 버튼 없이 P10 frozen
+checkpoint segment를 연속 재생하는 것이다. 이는 executor를 wall-clock으로 구동하는 새 clock이
+아니며, 각 segment의 실행 상태와 감사 event는 §20.1대로 먼저 원자적으로 commit된다. 기존
+`다음 checkpoint` 버튼은 회귀·진단을 위해 남기지만 발표의 정상 경로는 자동 진행이다.
+
+운용자는 segment가 화면에서 재생되는 동안 자연어 명령 **한 건**을 입력할 수 있다. UI는 이를
+`QUEUED — 다음 safe checkpoint에서 적용`으로 명시하고, 현재 frozen playback이 끝나기 전에는
+LLM·grounder·Validator·CBBA를 호출하지 않는다. 두 번째 입력으로 첫 입력을 조용히 덮어쓰지
+않는다. segment 종료 callback에서 이미 commit된 같은 task-completion checkpoint의 P12
+simulated sensor observation을 먼저 확정한 뒤 queued utterance를 기존 `handle_turn()` 경로로
+정확히 한 번 처리한다. 따라서 명령은 화면상 임의 시각에 RUNNING task를 중단시키는 것이 아니고,
+다음 안전 경계에서 적용되는 운용자 입력이다.
+
+queued turn이 `COMMITTED`·`NO_CHANGE`·`ANSWERED`이고 session이 계속 실행 가능하면 다음 segment를
+자동 재생한다. `CLARIFICATION`·`UNSUPPORTED`·`REJECTED`·`TURN_ERROR` 또는 pending clarification이면
+자동 진행을 멈추고 입력/후보 선택을 기다린다. accepted online graph 변경은 §19의 atomic patch와
+selective release/rebid를 그대로 사용하며 다음 segment의 assignment/path에서 처음 보인다. queue는
+presentation state이고 처리 전에는 `TurnAudit`이 아니며, 처리된 시점에만 실제 턴 감사가 생긴다.
+
+intent 경계에서 `UAV로 정찰`, `UGV로 점검`, `지상 로봇으로 진압` 같은 **일반 platform class**
+표현은 이미 고정된 task capability/workflow를 설명하는 말이므로 허용한다. 이는 agent를 선택하거나
+수를 제한하는 slot이 아니며 allocator가 기존 fleet 전체에서 결정한다. `G1만`, `UAV 한 대만`,
+`R2 제외`처럼 특정 agent id·수량·배제를 요구하는 표현은 여전히 지원 범위 밖이고 요청 전체를
+`UNSUPPORTED`로 fail closed한다. native 기본 scenario는 두 발표 시나리오 중 sensor detection으로
+두어 처음 실행한 자유 문장이 legacy reference fixture처럼 보이지 않게 한다.
