@@ -20,7 +20,7 @@ canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행
 + `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가, P9
 실행 중 명령·선택적 재할당, P8.5 정적 DAG/2D 지도, P10 checkpoint 구간 애니메이션,
 P11 네이티브 운영자 콘솔·별도 2D simulator 창, P12 LLM-driven incident contingency와
-P12.6 autonomous safe-checkpoint input까지 완료**. 테스트 859개 통과.
+P12.7 completed-patrol follow-on incident response까지 완료**. 테스트 864개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -35,7 +35,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.50 / 최신 결정 D-054 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.51 / 최신 결정 D-055 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
@@ -79,13 +79,19 @@ release/rebid와 새 경로는 바로 다음 segment부터 보인다. `다음 ch
 
 `live`는 저장소 루트 `.env`의 `OPENAI_API_KEY`를 사용한다. 실제 API 호출임을 모드 배너에
 표시하며, 성공 응답은 기존 exact cache 경로에 기록된다. `cached`는 동일한 모델·문맥·발화·
-schema 응답만 네트워크 없이 재생한다. D-054의 prompt namespace는 `p12-v3`이므로 이전
-`p12-v2` cache는 새 prompt의 Live 응답으로 가장해 재사용하지 않는다.
+schema 응답만 네트워크 없이 재생한다. D-055의 prompt namespace는 `p12-v4`이므로 이전
+`p12-v3` cache는 새 prompt의 Live 응답으로 가장해 재사용하지 않는다.
 
 P12 발표는 상단 scenario 선택에서 `UAV 순찰 → simulated fire detection` 또는 `UAV 순찰 중
 자연어 화재 신고`를 고른다. `mock`은 화면이 제시하는 고정 문장만 받는다. `live`는 지원 범위의
 자연어를 실제 모델로 해석하고, `cached`는 이전 Live와 모델·문맥·발화가 모두 같은 경우만
 재생한다. 검증된 cached/live 예시 문장은 `docs/P12_RESULTS.md`의 “발표 재생” 절에 있다.
+
+정찰-only graph는 반복 순찰이 아니라 구역별 `AREA_RECON` 4개인 유한 임무이므로 마지막 정찰이
+끝나면 `EXECUTED`가 맞다. 그러나 online `COMPLETED` terminal을 보존한 세션에서는 그 뒤에도
+새 화재를 보고할 수 있다. `Warehouse에서 불이 났어. 지상 진압까지 대응해줘`처럼 대응 단계까지
+함께 말하면 완료된 정찰과 simulation time을 보존한 채 신규 workflow만 붙여 새 실행 episode를
+자동 시작한다(D-055). 이는 실행 중 safe-checkpoint selective reallocation과 구분한다.
 
 ## Streamlit UI (fallback)
 

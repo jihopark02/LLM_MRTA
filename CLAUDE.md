@@ -19,18 +19,18 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-054, 계약 v1.50)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-055, 계약 v1.51)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
 ## 지금 어디까지 왔는지 (2026-09-08 기준)
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.5,
-P9.0~P9.4, P10, P11과 P12.0~P12.6 완료 (브랜치 `feature/operator-interaction`). 계약
-v1.50, 최신 결정 D-054.**
+P9.0~P9.4, P10, P11과 P12.0~P12.7 완료 (브랜치 `feature/operator-interaction`). 계약
+v1.51, 최신 결정 D-055.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 859개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 864개 통과, ruff clean.
 
 P12 (§22, D-051/D-052): 자연어 `NEW_MISSION`이 초기 graph와 별도 future-incident response
 policy를 만들고, strict simulated `FIRE_DETECTED` 또는 실행 중 자연어 `REPORT_INCIDENT`가
@@ -40,7 +40,7 @@ paraphrase는 `gpt-5-mini-2025-08-07`에서 8/8 exact, 실행 case 전부 COMPLE
 같은 시험의 전후 개선으로 주장하지 않는다. D-052는 live/cached intent wire의 첫 strict
 `ValidationError`에만 1회 schema correction을 허용하고 zone reference의 `에서`/`에`를
 제한적으로 처리한다. strict schema·LLM 역할·Validator/CBBA 의미는 불변이며 cache prompt
-schema는 D-054 이후 `p12-v3`. D-053은 intent repair attempted/recovered를 각 `TurnAudit`에 기록한다.
+schema는 D-055 이후 `p12-v4`. D-053은 intent repair attempted/recovered를 각 `TurnAudit`에 기록한다.
 `docs/P12_RESULTS.md` 참고.
 
 P12.6 (§22.6, D-054): native UI는 initial commit 뒤 자동으로 checkpoint segment를 재생한다.
@@ -48,6 +48,13 @@ P12.6 (§22.6, D-054): native UI는 initial commit 뒤 자동으로 checkpoint s
 segment 종료 후 같은 safe checkpoint의 sensor observation을 먼저 반영한 상태에서 기존
 `handle_turn`으로 정확히 한 번 처리하고, 성공이면 다음 segment를 자동 재생한다. 일반 UAV/UGV
 platform 표현은 workflow 설명으로 허용하지만 agent id·대수·배제 제약은 계속 UNSUPPORTED다.
+
+P12.7 (§22.7, D-055): 유한 recon-only graph가 online `COMPLETED`로 끝난 뒤에도 terminal
+checkpoint가 보존돼 있으면 새 `REPORT_INCIDENT`와 그 incident의 canonical UPDATE를 받는다.
+scene-only report는 terminal을 유지하고, response task가 commit되면 기존 COMPLETED prefix·
+simulation time·agent 위치를 보존한 채 `EXECUTION_PAUSED`로 새 episode를 열어 native auto-run이
+재생한다. 이전 `ExecutionAudit`은 event stream에 남는다. one-shot/실패 terminal/NEW는 계속
+거부한다. `정찰만`은 future-fire policy가 아니며 intent prompt와 cache를 `p12-v4`로 격리했다.
 
 **P8 = Operator–LLM Planning Session (§18, D-027)**: 최초 범위는 실행 개시 전 다중 턴
 자연어 계획 세션이며, 후속 P9가 이를 task-completion checkpoint의 온라인 명령으로 확장했다.
@@ -145,7 +152,7 @@ P11 네이티브 UI(§21, D-049): `python3 -m desktop`이 하나의 `QApplicatio
 미설치 안내를 offscreen 테스트로 고정했다. Streamlit은 fallback으로 유지한다. P11은 새로운
 할당·검증·실행 의미나 연구 주장을 추가하지 않는다.
 
-다음은 네이티브 UI 실제 리허설과 발표 자료 정리다.
+다음은 P12.7 네이티브 UI 실제 리허설과 발표 자료 정리다.
 
 P8.3 구조 (D-031~D-034, 계약 v1.32):
 - **통합 `event_log: list[TurnAudit | ExecutionAudit]`** — list 순서가 event 순서의 유일한

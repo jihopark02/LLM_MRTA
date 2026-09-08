@@ -4,8 +4,9 @@
 아니라, 자연어로 만든 incident response policy 또는 실행 중 자연어 report를 기존
 Validator → selective CBBA → checkpoint executor 경로에 연결한 실험이다.
 
-위 버전은 평가 artifact의 역사적 기준이다. 현재 native 발표 UI는 계약 v1.50 / D-054이며,
-평가 수치를 바꾸지 않고 자동 재생과 safe-checkpoint command queue를 추가했다.
+위 버전은 평가 artifact의 역사적 기준이다. 현재 native 발표 UI는 계약 v1.51 / D-055이며,
+평가 수치를 바꾸지 않고 자동 재생·safe-checkpoint command queue와 completed-patrol follow-on
+incident episode를 추가했다.
 
 ## 평가 설계
 
@@ -90,9 +91,28 @@ python3 -m desktop
 4. 현재 움직임이 중단되지 않고 checkpoint에 도달한 뒤 실제 LLM 턴이 처리되는지 확인한다.
 5. task 4→8, `ZONE_A`, selective release와 다음 segment 경로 변화를 확인한다.
 
-`cached`는 이 머신에 `p12-v3` prompt로 기록한 실제 Live 응답 cache가 있을 때만 위 문장을 exact
-replay한다. D-054 이전 `p12-v2` cache는 재사용하지 않는다. `mock`은 별도의 화면-wiring
+`cached`는 이 머신에 `p12-v4` prompt로 기록한 실제 Live 응답 cache가 있을 때만 위 문장을 exact
+replay한다. D-055 이전 `p12-v3` cache는 재사용하지 않는다. `mock`은 별도의 화면-wiring
 script이며 UI가 표시하는 정확한 mock 문장만 받는다.
+
+### 정찰이 먼저 끝난 경우
+
+`AREA_RECON` 4개는 반복 순찰이 아니라 유한 task이므로 마지막 구역 정찰 뒤 `EXECUTED`가 되는
+것이 정상이다. 운용자가 재생 중 입력하지 못했더라도 online `COMPLETED` terminal runtime은
+보존된다. 같은 세션에서 아래처럼 새 화재와 대응 깊이를 함께 보고하면 기존 4개 정찰의 완료
+상태·simulation time·agent 마지막 위치를 보존하고 신규 incident workflow 4개만 추가해 자동
+재생한다.
+
+```text
+네 개 구역 전체를 항공 정찰만 해줘
+# 정찰 4개 완료 뒤에도 입력 가능
+Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지 대응해줘
+```
+
+감사 순서는 첫 `EXECUTION(COMPLETED)` 뒤 `TURN(COMMITTED)`과 두 번째
+`EXECUTION(COMPLETED)`이 남는다. 이 경로는 terminal 뒤 시작한 **follow-on episode**이며,
+첫 실행 도중 safe checkpoint에서 명령을 넣어 기존 미시작 assignment를 release/rebid하는 P9
+mid-run 결과와 같은 것으로 집계하지 않는다.
 
 ## 한계
 
