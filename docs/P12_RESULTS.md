@@ -4,6 +4,9 @@
 아니라, 자연어로 만든 incident response policy 또는 실행 중 자연어 report를 기존
 Validator → selective CBBA → checkpoint executor 경로에 연결한 실험이다.
 
+위 버전은 평가 artifact의 역사적 기준이다. 현재 native 발표 UI는 계약 v1.50 / D-054이며,
+평가 수치를 바꾸지 않고 자동 재생과 safe-checkpoint command queue를 추가했다.
+
 ## 평가 설계
 
 동일한 `patrol_park` scene(초기 known incident 0)에서 8 case를 실행한다.
@@ -74,19 +77,22 @@ python3 -m desktop
 
 1. `1 · UAV 순찰 → simulated fire detection` 선택.
 2. `네 개 구역을 모두 항공 정찰하고 새 화재가 감지되면 지상 로봇 진압 단계까지 완료해줘`
-3. `다음 checkpoint`를 눌러 `AREA_RECON__ZONE_B` 완료 시점의 simulated observation 확인.
-4. 새 `FIRE_SITE_1`의 4개 workflow task와 selective reallocation을 확인하고 계속 재생.
+3. 승인 직후 자동 재생되는 UAV 순찰을 본다. 별도 checkpoint 클릭은 필요 없다.
+4. `AREA_RECON__ZONE_B` 완료 시점의 simulated observation, 새 `FIRE_SITE_1`의 4개 workflow
+   task, selective reallocation과 바뀐 다음 경로를 확인한다.
 
 운영자 report 시나리오(cached/live):
 
 1. `2 · UAV 순찰 중 자연어 화재 신고` 선택.
 2. `네 개 구역 전체를 항공 정찰만 해줘`
-3. `다음 checkpoint`로 실행을 한 번 진행.
-4. `Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지 대응해줘`
-5. task 4→8, `ZONE_A`, selective release 2개와 다음 segment 경로 변화를 확인.
+3. 자동 재생 중 `Warehouse 구역에 새 화재가 발생했어. 지상 로봇 진압 단계까지 대응해줘`를
+   입력하고 `QUEUED — 다음 safe checkpoint에서 적용` 표시를 확인한다.
+4. 현재 움직임이 중단되지 않고 checkpoint에 도달한 뒤 실제 LLM 턴이 처리되는지 확인한다.
+5. task 4→8, `ZONE_A`, selective release와 다음 segment 경로 변화를 확인한다.
 
-`cached`는 이 머신에 실제 Live 응답 cache가 있을 때만 위 문장을 exact replay한다. `mock`은
-별도의 화면-wiring script이며 UI가 표시하는 정확한 mock 문장만 받는다.
+`cached`는 이 머신에 `p12-v3` prompt로 기록한 실제 Live 응답 cache가 있을 때만 위 문장을 exact
+replay한다. D-054 이전 `p12-v2` cache는 재사용하지 않는다. `mock`은 별도의 화면-wiring
+script이며 UI가 표시하는 정확한 mock 문장만 받는다.
 
 ## 한계
 

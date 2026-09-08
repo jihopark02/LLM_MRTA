@@ -19,8 +19,8 @@ Unmanned Systems
 canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행 감사, live/cached/mock)
 + `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가, P9
 실행 중 명령·선택적 재할당, P8.5 정적 DAG/2D 지도, P10 checkpoint 구간 애니메이션,
-P11 네이티브 운영자 콘솔·별도 2D simulator 창, P12 LLM-driven incident contingency까지
-완료**. 테스트 854개 통과.
+P11 네이티브 운영자 콘솔·별도 2D simulator 창, P12 LLM-driven incident contingency와
+P12.6 autonomous safe-checkpoint input까지 완료**. 테스트 859개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -35,7 +35,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.49 / 최신 결정 D-053 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.50 / 최신 결정 D-054 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
@@ -69,16 +69,18 @@ Ubuntu 22.04 기본 `pip 22.0.2`는 격리 환경에 최신 setuptools를 설치
 `build_editable` hook을 잘못 판정하는 경우가 있으므로, 첫 줄의 사용자 pip 업그레이드를 먼저
 수행한다(D-050).
 
-기본 실행 모드는 `mock`이며 사이드바가 아니라 운영자 창 상단에서 `mock`/`live`/`cached`를
-선택한다. 두 창은 같은 `MissionSession`을 공유한다. 운영자 창에서 자연어 명령과 clarification
-후보 선택을 처리하고, simulator 창은 같은 세션의 `MapRenderSpec`과 frozen `PlaybackSpec`만
-그린다. `다음 checkpoint`는 task-completion 경계에서 멈춰 실행 중 후속 명령과 selective
-release/rebid를 시험할 수 있고, `끝까지 연속 재생`은 같은 checkpoint primitive를 terminal까지
-반복한다. 구간 재생 중에는 입력이 잠기며 checkpoint에 도달하면 다시 열린다.
+기본 실행 모드는 `mock`, 기본 scenario는 `UAV 순찰 → simulated fire detection`이며 운영자 창
+상단에서 `mock`/`live`/`cached`와 scenario를 바꿀 수 있다. 두 창은 같은 `MissionSession`을
+공유한다. 운영자 창에서 최초 임무가 승인되면 별도 실행 클릭 없이 checkpoint segment가 자동
+재생된다. 재생 중 자연어 한 건을 전송하면 `QUEUED`로 표시되고 현재 이동을 끊지 않은 채 다음
+task-completion safe checkpoint에서 실제 LLM/orchestrator가 처리한다. accepted update의 selective
+release/rebid와 새 경로는 바로 다음 segment부터 보인다. `다음 checkpoint`와 `끝까지 연속 재생`
+버튼은 수동 진단·회귀용으로 남아 있다.
 
 `live`는 저장소 루트 `.env`의 `OPENAI_API_KEY`를 사용한다. 실제 API 호출임을 모드 배너에
 표시하며, 성공 응답은 기존 exact cache 경로에 기록된다. `cached`는 동일한 모델·문맥·발화·
-schema 응답만 네트워크 없이 재생한다.
+schema 응답만 네트워크 없이 재생한다. D-054의 prompt namespace는 `p12-v3`이므로 이전
+`p12-v2` cache는 새 prompt의 Live 응답으로 가장해 재사용하지 않는다.
 
 P12 발표는 상단 scenario 선택에서 `UAV 순찰 → simulated fire detection` 또는 `UAV 순찰 중
 자연어 화재 신고`를 고른다. `mock`은 화면이 제시하는 고정 문장만 받는다. `live`는 지원 범위의
