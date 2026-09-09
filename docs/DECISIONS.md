@@ -2223,3 +2223,32 @@ wall-clock(`total_s`)을 잰다. `_finish`가 그 턴의 새 `.calls` 구간을 
   `TurnAudit.timing`), `interaction/orchestrator.py`(wrap + total 계측 + `_finish`),
   `interaction/audit_io.py`(직렬화).
 - 새 브랜치 `feature/latency-profiling` (v0.13.4-baseline 이후).
+
+## D-072: single-call graph generation ablation (계약 v1.68)
+
+**배경** 지도교수 로드맵 Phase 2. NEW_MISSION은 LLM 3회(intent + Step1 task + Step2 edge)다.
+Step1/Step2를 `{tasks, edges}` 한 번으로 합치면 2회가 되고 왕복 지연이 준다. 다만 한 번에
+task+edge를 요구하면 D-019가 노리던 "나쁜 Step1을 Step2 전에 걸러 한 호출 아낀다"를 잃고,
+edge 정확도가 떨어질 수도 있다. 어느 쪽이 나은지는 재봐야 안다.
+
+**결정** `generate_mission`에 `single_call: bool = False`를 추가한다. 두 방식을 모두 유지한다.
+- `single_call=True`: `_GRAPH_SYSTEM` 프롬프트로 `GraphOutput`(tasks+edges) 한 호출 →
+  `to_candidate_dict` → 그 다음은 two-stage와 **동일한** whole-graph Validator + repair 1회
+  경로. `_initial_candidate` 헬퍼가 앞단(single vs Step1→Step2)만 분기하고 `generate_mission`
+  의 validate + repair tail은 공유하므로 two-stage 판정은 바이트 단위로 불변.
+- `GraphOutput`은 `RepairOutput`과 같은 형상이지만 이름을 분리한다 — response cache 키와
+  `TimingAudit.llm_calls`의 schema 이름에서 두 방식이 섞이지 않게.
+- `LLM_MRTA_GRAPH_GEN=single-call` 환경변수를 `_do_new_mission`만 읽는다. P6 하네스와
+  `evaluation/integration.py`는 인자를 넘기지 않아 항상 two-stage(frozen golden graph_hash).
+- `evaluation/graph_gen_ablation.py`가 같은 명령 집합을 두 방식으로 돌려 graph exact match /
+  validator first-pass rate / repair rate / latency(D-071 timing) / API call count를 대조한다.
+
+**주장 범위** 채택 여부는 실측 전까지 열려 있다. "single-call이 낫다/같다"를 결과로 쓰지
+않는다 — ablation 수치를 낸 뒤 이 계약 개정으로 확정한다.
+
+**영향**
+- 계약: §12 "single-call ablation" 문단, 버전 v1.68.
+- 코드: `llm/schemas.py`(`GraphOutput`), `llm/prompts.py`(`_GRAPH_SYSTEM`/`graph_system`/
+  `graph_user`), `llm/pipeline.py`(`_initial_candidate`/`_gen_schema_fail`/`single_call` 인자),
+  `interaction/orchestrator.py`(`_single_call_graph_gen` 토글), `evaluation/graph_gen_ablation.py`(신규).
+- 골든·Validator 판정·CBBA·allocator: 불변. 브랜치 `feature/latency-profiling`.

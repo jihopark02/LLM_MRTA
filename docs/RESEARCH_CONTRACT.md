@@ -1,8 +1,15 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.67 (D-071). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.68 (D-072). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.68 (D-072): §12 — `generate_mission`에 `single_call` 옵션(기본 `False`) 추가. `True`면
+  Step1(task) + Step2(edge) 두 호출 대신 `GraphOutput`(tasks+edges) 한 호출로 후보를 만든다.
+  이후 whole-graph Validator·repair 1회 경로는 완전히 동일하다. 두 방식을 모두 유지해
+  A/B 비교(graph exact match / validator first-pass / repair rate / latency / call count)
+  하며 채택 여부는 측정 후 결정한다. `LLM_MRTA_GRAPH_GEN=single-call` 환경변수가
+  `_do_new_mission`만 single-call로 라우팅하고, P6 하네스·integration은 계속 two-stage
+  (frozen golden). 판정·CBBA·골든·Validator 불변.
 - v1.67 (D-071): §18.9 `TurnAudit`에 `timing` 필드 추가 — 턴의 wall-clock을 LLM 호출별
   (`IntentWireEnvelope`/`Step1Output`/`Step2Output`/`RepairOutput`)과 deterministic 나머지로
   분해한다. `TimedBackend` 래퍼가 `backend.complete()`를 계측하고 `handle_turn`이
@@ -879,6 +886,18 @@ Protocol이다 — `OpenAIBackend`(`chat.completions.parse`, `OPENAI_API_KEY`, �
 `gpt-5-mini` 고정)와 `MockBackend`(스크립트 응답). P5 게이트 테스트는 전부 `MockBackend`로
 돌아 네트워크·API 키가 필요없다. 실제 LLM 평가(P6)는 §14 재현성을 위해 모델을 결과와 함께
 기록한다.
+
+**single-call ablation(D-072)**: `generate_mission(..., single_call=True)`는 Step1/Step2 두
+호출 대신 `GraphOutput`(tasks + edges 동시) 한 호출로 raw 후보를 만든다. 그 뒤 `from_raw`
+schema → whole-graph Validator → 구조화 오류 기반 repair 최대 1회 → 재검증 경로는 two-stage와
+바이트 단위로 동일하다(`_initial_candidate`가 앞단만 분기하고 나머지 tail은 공유). D-019의
+"Step 1을 Step 2 전에 검증" 규칙은 two-stage 경로에만 적용된다(single-call은 호출이 하나라
+분리 검증 대상이 없다). prompt는 `_GRAPH_SYSTEM`(Step1+Step2 지침 병합), schema는
+`GraphOutput`(이름을 분리해 response cache·`timing.llm_calls`에서 두 방식이 안 섞인다).
+`LLM_MRTA_GRAPH_GEN=single-call`이 native `_do_new_mission`만 single-call로 돌리고, P6
+하네스·`evaluation/integration.py`는 항상 two-stage다(frozen golden graph_hash 보존).
+채택 여부는 `evaluation/graph_gen_ablation.py`의 A/B 수치(graph exact / validator first-pass
+/ repair rate / latency / API call count)를 보고 이 계약 개정으로 정한다.
 
 **순서 강제(D-019)**: Step 1 출력은 **Step 2를 호출하기 전에** 자체적으로 schema 검증한다
 (task-only `MissionCandidate.from_raw` + 중복 id 검사). Step 1이 schema를 통과하지 못하면
