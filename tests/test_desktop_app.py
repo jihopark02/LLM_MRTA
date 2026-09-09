@@ -354,9 +354,7 @@ def test_queued_clarification_stops_autoplay_at_the_safe_checkpoint(
         qt_app.processEvents()
 
 
-def test_sensor_fire_approval_gate_pauses_continuous_and_resumes_on_approve(
-    qt_app, tmp_path
-):
+def test_sensor_fire_gate_lets_recon_finish_then_resumes_on_approve(qt_app, tmp_path):
     import yaml
 
     from scenarios.latent import SimulatedFireField, load_latent_fire_field
@@ -383,13 +381,13 @@ def test_sensor_fire_approval_gate_pauses_continuous_and_resumes_on_approve(
             load_latent_fire_field(spec, controller.session.scene)
         )
 
-        # nobody answers, so after one grace segment the clock stops for the operator
+        # D-067: nobody answers, so the recon runs to completion and only then
+        # does the clock hold for the operator — it never froze mid-patrol.
         _drain_until(qt_app, lambda: not operator._busy, timeout=6.0)
 
         assert controller.pending_fire_approval is not None
         assert operator.approval_frame.isVisible()
         assert not operator._continuous
-        assert not operator.command_input.isEnabled()
         assert "FIRE_SITE_1" not in controller.session.scene.incidents
 
         buttons = [
@@ -399,16 +397,14 @@ def test_sensor_fire_approval_gate_pauses_continuous_and_resumes_on_approve(
         approve = next(b for b in buttons if "진압까지" in b.text())
         approve.click()
 
-        # recorded, not yet applied — the clock auto-resumes and applies it at
-        # the next boundary, then runs to a terminal
+        # recon was already done, so the decision opens a follow-on episode now
         assert controller.pending_fire_approval is None
-        assert "FIRE_SITE_1" not in controller.session.scene.incidents
+        assert "FIRE_SITE_1" in controller.session.scene.incidents
         _drain_until(
             qt_app,
             lambda: controller.session.phase.value == "EXECUTED",
             timeout=8.0,
         )
-        assert "FIRE_SITE_1" in controller.session.scene.incidents
         assert controller.session.execution.termination.value == "COMPLETED"
     finally:
         operator.close()

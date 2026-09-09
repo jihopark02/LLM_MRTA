@@ -367,7 +367,6 @@ class OperatorWindow(QMainWindow):
             session.state is not None
             and session.plan is not None
             and session.pending_clarification is None
-            and self.controller.pending_fire_approval is None  # undecided fire blocks
             and (
                 session.phase
                 in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}
@@ -517,7 +516,9 @@ class OperatorWindow(QMainWindow):
 
     def _record_fire(self, decision: ApprovalDecision, scope: TaskType | None) -> None:
         # Recording is safe mid-motion (§22.8/D-066): it stamps the queue entry
-        # and the decision is applied at the next boundary by advance_checkpoint.
+        # and the decision is applied at the next boundary. Recon keeps running
+        # in the meantime — nothing here stops the clock. Button clicks are
+        # processed between ticks, so there is no reentrancy with the driver.
         if self.controller.pending_fire_approval is None:
             return
         try:
@@ -531,6 +532,17 @@ class OperatorWindow(QMainWindow):
         self.status.setText(
             f"화재 {recorded.zone_id} · {decision.value} 기록 · 다음 checkpoint 적용"
         )
+        # D-067: after the recon is already done there is no next boundary — the
+        # decision opens a follow-on episode right here.
+        if (
+            self.controller.pending_fire_approval is None
+            and self.controller.session.phase is SessionPhase.EXECUTED
+        ):
+            try:
+                self.controller.apply_pending_fire_decisions()
+            except Exception as exc:  # noqa: BLE001 - wiring errors, not mission decisions
+                self.status.setText(f"승인 적용 실패 · {type(exc).__name__}: {exc}")
+        self._refresh_simulator()
         self.refresh()
         if (
             self.controller.pending_fire_approval is None

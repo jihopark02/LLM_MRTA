@@ -385,7 +385,7 @@ def _attach_fire_field(controller, zone_id):
     return field
 
 
-def test_continuous_runtime_halts_when_a_fire_stays_undecided_past_a_boundary(tmp_path):
+def test_continuous_runtime_holds_only_when_recon_finishes_with_an_undecided_fire(tmp_path):
     from core.enums import TaskType
     from interaction.observe import ApprovalDecision
 
@@ -420,7 +420,7 @@ def test_continuous_runtime_halts_when_a_fire_stays_undecided_past_a_boundary(tm
     assert controller.session.execution.termination.value == "COMPLETED"
 
 
-def test_a_fire_answered_within_its_grace_segment_never_stops_the_clock(tmp_path):
+def test_a_fire_answered_before_recon_ends_never_stops_the_clock(tmp_path):
     from core.enums import TaskType
     from interaction.observe import ApprovalDecision
 

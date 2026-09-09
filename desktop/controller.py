@@ -363,6 +363,22 @@ class DesktopController:
         self._persist()
         return recorded
 
+    def apply_pending_fire_decisions(self):
+        """§22.8/D-067: apply decided fires directly (used once recon is done).
+
+        During execution the tick driver applies them at each boundary; after a
+        terminal there is no next boundary, so the operator's decision is
+        applied here and opens a follow-on episode (D-055).
+        """
+        audits = apply_recorded_fire_decisions(self.session, mode=self.mode)
+        for applied in audits:
+            self._record(
+                f"[화재 승인 적용] {applied.zone_id}", f"→ {applied.outcome}"
+            )
+        if audits:
+            self._persist()
+        return audits
+
     def advance_checkpoint(self) -> AdvancePresentation:
         """Commit exactly one online completion event and prepare its view."""
         session = self.session
@@ -556,21 +572,6 @@ class ContinuousRuntime:
             else None
         )
         for _ in range(_MAX_ZERO_LENGTH_SKIPS):
-            # §22.8/D-066: a fire the operator has not answered by the time the
-            # clock reaches a boundary blocks that boundary — but a fire
-            # revealed *during* the segment just played does not, it gets this
-            # segment as grace time. So this check is here, before advancing.
-            if has_undecided_fire(self._controller.session):
-                self.halted = True
-                zones = ", ".join(
-                    a.zone_id
-                    for a in self._controller.session.pending_approvals
-                    if not a.decided
-                )
-                return ContinuousTick(
-                    boundary_frame, self.sim_time,
-                    halt_reason=f"화재 감지 · 운용자 승인 대기 ({zones})",
-                )
             try:
                 advance = self._controller.advance_checkpoint()
             except Exception as exc:  # noqa: BLE001 - committed state is preserved
@@ -580,6 +581,21 @@ class ContinuousRuntime:
                     halt_reason=f"{type(exc).__name__}: {exc}",
                 )
             if isinstance(advance.audit, ExecutionAudit):
+                # §22.8/D-067: recon runs freely while a fire is pending —
+                # the response tasks are not in the graph until approval. Only
+                # when the recon itself is done and a fire is still undecided
+                # does the clock hold, resumably, for the operator.
+                if has_undecided_fire(self._controller.session):
+                    self.halted = True
+                    zones = ", ".join(
+                        a.zone_id
+                        for a in self._controller.session.pending_approvals
+                        if not a.decided
+                    )
+                    return ContinuousTick(
+                        boundary_frame, self.sim_time, boundary=advance,
+                        halt_reason=f"정찰 완료 · 화재 승인 대기 ({zones})",
+                    )
                 self.finished = True
                 reason = (
                     f"{advance.audit.error_type}: {advance.audit.error_detail}"
