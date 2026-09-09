@@ -450,6 +450,30 @@ def test_a_fire_answered_before_recon_ends_never_stops_the_clock(tmp_path):
     assert controller.session.execution.termination.value == "COMPLETED"
 
 
+def test_suppressed_incidents_flip_to_resolved_and_render_faded(tmp_path):
+    from core.enums import IncidentStatus
+
+    controller = _controller(tmp_path)  # reference scene: FIRE_SITE_1 / FIRE_SITE_2
+    controller.submit(MOCK_COMMANDS[0])
+    assert all(
+        i.status is IncidentStatus.RESPONSE_REQUIRED
+        for i in controller.session.scene.incidents.values()
+    )
+
+    runtime, _ = _run_continuous(controller, step=8.0)
+    assert runtime.finished
+
+    statuses = {i.incident_id: i.status for i in controller.session.scene.incidents.values()}
+    assert statuses == {
+        "FIRE_SITE_1": IncidentStatus.RESOLVED,
+        "FIRE_SITE_2": IncidentStatus.RESOLVED,
+    }
+    assert any("[화재 진압 완료]" in m.text for m in controller.chat)
+    spec = controller.current_map_spec()
+    assert spec is not None
+    assert all(point.resolved for point in spec.incidents)
+
+
 def test_continuous_runtime_decline_leaves_the_mission_unchanged(tmp_path):
     from interaction.observe import ApprovalDecision
 

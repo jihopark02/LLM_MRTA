@@ -43,3 +43,5 @@ class IncidentStatus(str, Enum):
     # in the system decides whether a fire exists. RESPONSE_REQUIRED is the only
     # state the contract defines.
     RESPONSE_REQUIRED = "RESPONSE_REQUIRED"
+    # D-068: set at the checkpoint where the incident's GROUND_SUPPRESSION completes.
+    RESOLVED = "RESOLVED"

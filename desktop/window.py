@@ -34,6 +34,7 @@ from desktop.controller import (
 )
 from desktop.simulator import MissionSimulatorWindow
 from interaction.audit import CheckpointAudit, ExecutionAudit
+from interaction.incident_response import completed_online_terminal
 from interaction.observe import ApprovalDecision
 from interaction.orchestrator import TurnOutcome
 from interaction.session import SessionPhase
@@ -376,7 +377,9 @@ class OperatorWindow(QMainWindow):
 
     def refresh(self) -> None:
         session = self.controller.session
-        self.phase_card.value.setText(session.phase.value)
+        self.phase_card.value.setText(
+            "대기" if completed_online_terminal(session) else session.phase.value
+        )
         now = session.runtime.now if session.runtime is not None else 0.0
         self.clock_card.value.setText(f"{now:.1f} s")
         task_count = len(session.state.graph.tasks) if session.state is not None else 0

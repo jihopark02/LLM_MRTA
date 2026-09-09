@@ -46,7 +46,7 @@ from allocation.team import (
     resolve_initial_team,
     resolve_runtime_team,
 )
-from core.enums import TaskStatus
+from core.enums import PlatformKind, TaskStatus
 from interaction.audit import (
     GenerationAudit,
     GroundingAudit,
@@ -374,7 +374,8 @@ def _resource_audit(
 
 def _do_new_mission(turn: _Turn, backend) -> TurnResult:
     session = turn.session
-    if session.state is not None:
+    new_episode = completed_online_terminal(session)
+    if session.state is not None and not new_episode:
         return _clarify(
             turn,
             GroundingOutcome(
@@ -387,6 +388,18 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
             ),
         )
 
+    # §22.7.1 (D-068): a fresh episode inherits UAV positions from the terminal
+    # checkpoint; UGVs restart from the scene base node.
+    inherited_uav = (
+        {
+            aid: agent.position
+            for aid, agent in session.runtime.agents.items()
+            if agent.platform_kind is PlatformKind.UAV
+        }
+        if new_episode
+        else {}
+    )
+
     gen = generate_mission(turn.utterance, session.scene, backend)
     turn.generation = gen
     if not gen.approved or gen.graph is None:
@@ -398,6 +411,9 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
 
     # Build state and plan as candidates, then swap both in one step.
     candidate_state = fresh_session_state(gen.graph, session.scene)
+    for aid, position in inherited_uav.items():
+        if aid in candidate_state.agents:
+            candidate_state.agents[aid].position = position
     resource_slots = turn.slots.get("resources") or {}
     request = ResourceRequest.from_flat_slots(resource_slots)
     try:
@@ -437,10 +453,19 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
         request,
         resolved.active_agents,
     )
+    if new_episode:
+        # The previous ExecutionAudit stays in the append-only stream; the
+        # runtime/execution now belong to the fresh episode, and PLANNING lets
+        # native auto-run pick it up.
+        session.runtime = None
+        session.execution = None
+        session.online_started_at = None
+        session.phase = SessionPhase.PLANNING
+    prefix = "새 임무 episode를 시작합니다" if new_episode else "임무를 생성했습니다"
     return _finish(
         turn,
         TurnOutcome.COMMITTED,
-        f"임무를 생성했습니다: task {len(session.state.graph)}개, "
+        f"{prefix}: task {len(session.state.graph)}개, "
         f"edge {len(session.state.graph.edges)}개, active team "
         f"{', '.join(session.active_team)}.",
     )
@@ -820,12 +845,18 @@ def _dispatch(turn: _Turn, backend) -> TurnResult:
         k: v for k, v in intent.model_dump().items() if k != "kind" and v is not None
     }
 
-    if intent.kind == "NEW_MISSION" and session.phase is not SessionPhase.PLANNING:
+    # §22.7.1 (D-068): a preserved terminal checkpoint is a standing console —
+    # NEW_MISSION opens a fresh episode, UPDATE_RESOURCES sets the next team.
+    if (
+        intent.kind == "NEW_MISSION"
+        and session.phase is not SessionPhase.PLANNING
+        and not completed_online_terminal(session)
+    ):
         return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
     if intent.kind == "UPDATE_RESOURCES" and session.phase not in {
         SessionPhase.PLANNING,
         SessionPhase.EXECUTION_PAUSED,
-    }:
+    } and not completed_online_terminal(session):
         return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
     if intent.kind in {"REPORT_INCIDENT", "UPDATE_MISSION"} and (
         session.phase not in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}

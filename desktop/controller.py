@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
+from core.enums import IncidentStatus
 from demo.animation import AnimationFrameSpec, PlaybackSpec, SegmentView
 from demo.mock_script import (
     OPERATOR_SCRIPT,
@@ -363,6 +364,29 @@ class DesktopController:
         self._persist()
         return recorded
 
+    def _resolve_suppressed_incidents(self) -> list[str]:
+        """§3/D-068: flip an incident to RESOLVED once its GROUND_SUPPRESSION is done.
+
+        Scans the committed graph rather than only ``completed_now`` so the
+        final task of a run (which arrives with the terminal ExecutionAudit,
+        not a CheckpointAudit) is covered too. Idempotent.
+        """
+        if self.session.state is None:
+            return []
+        done = {
+            task.target
+            for task in self.session.state.graph.tasks
+            if task.task_type.value == "GROUND_SUPPRESSION"
+            and task.status.value == "COMPLETED"
+        }
+        resolved: list[str] = []
+        for target in done:
+            incident = self.session.scene.incidents.get(target)
+            if incident is not None and incident.status is IncidentStatus.RESPONSE_REQUIRED:
+                incident.status = IncidentStatus.RESOLVED
+                resolved.append(target)
+        return sorted(resolved)
+
     def apply_pending_fire_decisions(self):
         """§22.8/D-067: apply decided fires directly (used once recon is done).
 
@@ -443,6 +467,8 @@ class DesktopController:
                         f"{observation.zone_id} FIRE_DETECTED → "
                         f"{observation_audit.outcome}"
                     )
+        for resolved_id in self._resolve_suppressed_incidents():
+            observation_responses.append(f"[화재 진압 완료] {resolved_id}")
         if isinstance(audit, CheckpointAudit):
             completed = ", ".join(audit.completed_now) or "없음"
             response = (

@@ -180,7 +180,8 @@ class MissionCanvas(QWidget):
         painter.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
         for incident in self.spec.incidents:
             point = project((incident.x, incident.y))
-            painter.setPen(QPen(INCIDENT, 3.0))
+            colour = QColor("#7c8596") if incident.resolved else INCIDENT
+            painter.setPen(QPen(colour, 2.0 if incident.resolved else 3.0))
             painter.drawLine(point + QPointF(-7, -7), point + QPointF(7, 7))
             painter.drawLine(point + QPointF(-7, 7), point + QPointF(7, -7))
             painter.drawText(point + QPointF(-36, 24), incident.entity_id)

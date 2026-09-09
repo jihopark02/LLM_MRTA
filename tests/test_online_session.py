@@ -154,6 +154,49 @@ def test_completed_online_run_accepts_one_turn_follow_on_response(planned_sessio
     assert event_types.count("EXECUTION") == 2
 
 
+def test_completed_run_accepts_a_new_mission_episode_from_current_positions(
+    planned_session,
+):
+    from llm.schemas import LLMTask, Step1Output, Step2Output
+
+    while planned_session.phase is not SessionPhase.EXECUTED:
+        advance_online_session(planned_session, mode="mock")
+    assert isinstance(planned_session.event_log[-1], ExecutionAudit)
+    uav_end = {
+        aid: agent.position
+        for aid, agent in planned_session.runtime.agents.items()
+        if agent.platform_kind.name == "UAV"
+    }
+    assert uav_end  # UAVs finished somewhere other than their scene start
+
+    zones = sorted(planned_session.scene.zones)
+    backend = MockBackend(
+        [
+            wire_intent("NEW_MISSION"),
+            Step1Output(tasks=[LLMTask(task_type="AREA_RECON", target=z) for z in zones]),
+            Step2Output(edges=[]),
+        ]
+    )
+    result = handle_turn(planned_session, "전체 구역 다시 정찰해줘", backend)
+
+    assert result.outcome is TurnOutcome.COMMITTED
+    assert planned_session.phase is SessionPhase.PLANNING  # a fresh episode
+    assert planned_session.runtime is None
+    assert planned_session.execution is None
+    assert len(planned_session.state.graph) == len(zones)
+    assert {t.task_type.value for t in planned_session.state.graph.tasks} == {"AREA_RECON"}
+    # UAV positions carried over from the previous terminal
+    for aid, pos in uav_end.items():
+        assert planned_session.state.agents[aid].position == pos
+
+    while planned_session.phase is not SessionPhase.EXECUTED:
+        advance_online_session(planned_session, mode="mock")
+    assert planned_session.execution.termination is Termination.COMPLETED
+    event_types = [e.event_type for e in planned_session.event_log]
+    assert event_types.count("EXECUTION") == 2
+    assert event_types[event_types.index("EXECUTION") + 1] == "TURN"
+
+
 def test_scene_only_terminal_report_can_be_followed_by_canonical_update(
     planned_session,
 ):

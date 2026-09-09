@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 from allocation.allocate import AllocationResult
 from allocation.travel import start_ref, task_ref
-from core.enums import PlatformKind, TaskStatus, TaskType
+from core.enums import IncidentStatus, PlatformKind, TaskStatus, TaskType
 from core.task_graph import TaskGraph
 from execution.executor import ExecutionResult, SimExecutor, Termination
 from interaction.workflow import WORKFLOW_CHAIN
@@ -245,6 +245,7 @@ class MapPointSpec:
     y: float
     kind: str            # zone | incident | task
     label: str
+    resolved: bool = False   # D-068: a suppressed incident (drawn faded)
 
 
 @dataclass(frozen=True, slots=True)
@@ -336,7 +337,10 @@ def _scene_background(scene: Scene):
         for zid, zone in sorted(scene.zones.items())
     )
     incidents = tuple(
-        MapPointSpec(iid, *map(float, incident.position), "incident", iid)
+        MapPointSpec(
+            iid, *map(float, incident.position), "incident", iid,
+            resolved=incident.status is IncidentStatus.RESOLVED,
+        )
         for iid, incident in sorted(scene.incidents.items())
     )
     lanes = tuple(
@@ -630,11 +634,15 @@ def render_mission_map(spec: MapRenderSpec, *, minimal: bool = False):
             ax.annotate(zone.label, (zone.x, zone.y), textcoords="offset points",
                         xytext=(0, 11), ha="center", fontsize=7, color="#6b7280")
         for incident in spec.incidents:
+            face, edge = (
+                ("#9aa1ab", "#6b7280") if incident.resolved else ("#c0392b", "#7b1e14")
+            )
             ax.plot([incident.x], [incident.y], marker="X", markersize=12,
-                    linestyle="none", color="#c0392b", markeredgecolor="#7b1e14", zorder=2)
+                    linestyle="none", color=face, markeredgecolor=edge, zorder=2,
+                    alpha=0.55 if incident.resolved else 1.0)
             ax.annotate(incident.entity_id, (incident.x, incident.y),
                         textcoords="offset points", xytext=(0, -15), ha="center",
-                        fontsize=7, color="#7b1e14")
+                        fontsize=7, color=edge)
         for task in spec.task_points:
             ax.plot([task.x], [task.y], marker=".", markersize=6, linestyle="none",
                     color="#4c566a", zorder=2)
