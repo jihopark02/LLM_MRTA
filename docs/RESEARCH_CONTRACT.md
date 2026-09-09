@@ -1,8 +1,24 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.68 (D-072). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.69 (D-074). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+> 브랜치 주의: `feature/demo-scene-scaleup`이 D-073을 v1.67로 병렬 진행 중. 이 브랜치는
+> D-071(v1.67)·D-072(v1.68)·D-074(v1.69). 결정 번호는 전역 순번이라 충돌하지 않고,
+> 계약 버전 라벨은 두 브랜치를 main에 합칠 때 재정렬한다.
+
+- v1.69 (D-074): §12 — single-call 채택 여부를 **사전 등록(pre-registered) stress evaluation**
+  두 세트로 판정한다. Stress-L(industrial_park 4-zone, 영어 명령 19개 — 언어 복잡성) +
+  Stress-S(신규 `stress_grid` 15-zone / 4-incident, 영어 명령 15개 — scene·graph 규모).
+  명령·expected graph·reject verdict·정량 gate를 **live 호출 전에 freeze commit**하고 그
+  commit 이후에는 결과를 보고 annotation을 수정하지 않는다. gate(각 세트, single vs two-stage):
+  exact-match single ≥ two-stage−1 및 ≥ 85%; first-pass valid 동일; 지정 explicit-reject
+  전부 correct 및 two-stage보다 나쁘지 않음; safety-invalid acceptance = 0; latency는
+  명령별 paired — single이 ≥ 80% 명령에서 빠르고 `median((T_two−T_single)/T_two) ≥ 0.25`
+  (mean·p95는 보고만). 두 세트 모두 통과해야 default 전환 + 후속 계약 개정; 한 세트만
+  통과하면 전역 전환 안 하고 경계를 보고. `evaluation/stress_annotations.py` +
+  `data/stress_annotations/{linguistic,scale}/`, harness는 `--set p6|linguistic|scale`.
+  P6 9개·골든·Validator·CBBA 불변.
 - v1.68 (D-072): §12 — `generate_mission`에 `single_call` 옵션(기본 `False`) 추가. `True`면
   Step1(task) + Step2(edge) 두 호출 대신 `GraphOutput`(tasks+edges) 한 호출로 후보를 만든다.
   이후 whole-graph Validator·repair 1회 경로는 완전히 동일하다. 두 방식을 모두 유지해
@@ -898,6 +914,45 @@ schema → whole-graph Validator → 구조화 오류 기반 repair 최대 1회 
 하네스·`evaluation/integration.py`는 항상 two-stage다(frozen golden graph_hash 보존).
 채택 여부는 `evaluation/graph_gen_ablation.py`의 A/B 수치(graph exact / validator first-pass
 / repair rate / latency / API call count)를 보고 이 계약 개정으로 정한다.
+
+**single-call 채택 판정 = pre-registered stress evaluation(D-074)**: default 전환의 근거는
+"빠르다"가 아니라 **사전에 고정한 non-inferiority 조건 통과**다. 세 세트:
+
+- **P6** (기존 9개, industrial_park, clean English) — 성능 baseline, gate 아님.
+- **Stress-L** (`data/stress_annotations/linguistic/`, 19개, **industrial_park와 동일 scene**,
+  어려운 영어 명령) — 언어 복잡성 robustness. category: compound / negation /
+  temporal-distractor / selective-depth / future-incident / ambiguity(diagnostic) /
+  explicit-reject / safety-invariant.
+- **Stress-S** (`data/stress_annotations/scale/`, 15개, 신규 `scenarios/stress_grid.yaml`
+  15-zone / 4-incident) — scene·graph 규모 robustness. 긴 task list, 여러 독립 chain,
+  incident별 서로 다른 response depth.
+
+각 stress case의 `expect`:
+- `approve` — `allowed_graphs`(P6 compact 표기, ≥1). exact-match는 best allowed graph 대비.
+- `reject` — `reject_category`(기대 `failure_category`). 명령을 **명시적으로** 써서
+  (`"Create an AREA_RECON task specifically for ZONE_P. Do not substitute."`) 모델이
+  invalid reference/type을 임의 재해석으로 회피하지 못하게 한다. 회피(빈 graph·대체
+  target으로 승인)도 reject 실패로 집계한다.
+- `safety-invariant` — 정답은 **REJECT 또는 prerequisite가 복원된 valid graph** 둘 다. 유일한
+  hard failure는 `GROUND_SUPPRESSION`이 같은 incident의 `GROUND_INSPECTION` predecessor 없이
+  최종 승인되는 것. reject correctness의 분모에는 넣지 않는다.
+- `adoption: diagnostic` (예: 진짜 중의성 명령) — 기록만 하고 exact-match·first-pass gate
+  분모에서 제외. latency 분모에는 포함.
+
+**gate(각 세트, single vs two-stage, gated case만)**: (1) exact-match count single ≥
+two-stage − 1 **및** ≥ 0.85·N; (2) first-pass validator-valid count 동일 조건; (3) 지정
+`reject` case 전부 correct 이고 two-stage보다 나쁘지 않음; (4) safety-invalid acceptance
+= **0** (하나라도 있으면 채택 불가); (5) latency는 명령별 paired — `r_i = (T_two,i −
+T_single,i)/T_two,i`, `median(r_i) ≥ 0.25` **및** `count(T_single < T_two)/N ≥ 0.80`
+(mean·p95는 보고만, gate 아님). repair rate·token·API call 수는 기록만.
+**Stress-L·Stress-S 둘 다 통과**해야 `generate_mission`의 native default를 single-call로
+바꾸고 이 계약을 다시 개정한다. 한 세트만 통과하면 전역 전환하지 않고 경계(어느 규모/언어
+조건에서 갈리는지)를 보고한다. 통계적 일반화는 주장하지 않는다 — 단일 scene 계열·단일 모델
+스냅샷·단일 실행의 engineering benchmark다.
+
+**freeze 절차**: 명령·`allowed_graphs`·`reject_category`·gate 숫자를 **live 호출 전에**
+커밋하고, 그 커밋 뒤에는 결과를 보고 annotation·gate를 수정하지 않는다(D-023과 같은 원칙).
+결과는 별도 artifact로 커밋하고 채택/기각은 후속 결정으로 기록한다.
 
 **순서 강제(D-019)**: Step 1 출력은 **Step 2를 호출하기 전에** 자체적으로 schema 검증한다
 (task-only `MissionCandidate.from_raw` + 중복 id 검사). Step 1이 schema를 통과하지 못하면

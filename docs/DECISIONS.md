@@ -2252,3 +2252,37 @@ edge 정확도가 떨어질 수도 있다. 어느 쪽이 나은지는 재봐야 
   `graph_user`), `llm/pipeline.py`(`_initial_candidate`/`_gen_schema_fail`/`single_call` 인자),
   `interaction/orchestrator.py`(`_single_call_graph_gen` 토글), `evaluation/graph_gen_ablation.py`(신규).
 - 골든·Validator 판정·CBBA·allocator: 불변. 브랜치 `feature/latency-profiling`.
+
+## D-074: single-call 채택 = pre-registered stress evaluation (계약 v1.69)
+
+> 병렬 브랜치: D-073은 `feature/demo-scene-scaleup`(v1.67). D-074는
+> `feature/latency-profiling`에서 v1.68(D-072) 뒤에 올린다. 버전 라벨은 main 병합 시 재정렬.
+
+**배경** D-072 P6 ablation: single-call이 9/9 exact 동일 + latency 10.06s→5.65s (~44%),
+call 2→1. 근데 P6는 two-stage도 만점이라 품질 저하를 감지할 여지가 없다. 지도교수 피드백:
+"single-call이 빨라서 바꿨다"가 아니라 사전에 정한 non-inferiority 조건을 통과해서 바꿨다고
+말할 수 있어야 D-072가 연구 결과가 된다.
+
+**결정** default 전환 판정을 두 개의 pre-registered stress 세트로 한다.
+- **Stress-L** — industrial_park(P6와 동일 scene), 어려운 **영어** 명령 19개. P6 clean English
+  → Stress-L difficult English로 언어만 어렵게 한 apples-to-apples. (한국어 조사/referent는
+  P8 계열의 별도 병목이라 섞지 않는다 — Korean robustness는 별도 후속.)
+- **Stress-S** — 신규 `scenarios/stress_grid.yaml`(demo_grid geometry 복사 + `FIRE_SITE_1~4`
+  known incident, 4개는 공간적으로 분산 배치), 영어 명령 15개. 규모·긴 task list·독립 chain
+  다수.
+- `expect`: `approve`(allowed_graphs) / `reject`(reject_category, 명령을 명시적으로 써서 회피
+  차단) / `safety-invariant`(REJECT 또는 prereq 복원 valid = 정답, suppression-only 승인만
+  hard fail) / `adoption: diagnostic`(진짜 중의성 — 기록만, exact/first-pass 분모 제외).
+- **gate**(각 세트, single vs two-stage): exact-match ≥ two-stage−1 및 ≥85%; first-pass valid
+  동일; explicit-reject 전부 correct·two-stage보다 나쁘지 않음; safety-invalid acceptance=0;
+  latency는 paired — `median((T_two−T_single)/T_two) ≥ 0.25` 및 single이 ≥80% 명령에서 빠름.
+  두 세트 다 통과해야 전환. 한 세트만 통과 → 경계 보고.
+- **freeze**: 명령·expected·gate를 live 호출 전 커밋, 이후 결과 보고 수정 금지.
+
+**영향**
+- 계약: §12 D-074 문단, 버전 v1.69.
+- 코드: `evaluation/stress_annotations.py`(신규 loader — P6 `annotations.py` 불변),
+  `data/stress_annotations/{linguistic,scale}/*.yaml`(신규, freeze),
+  `scenarios/stress_grid.yaml`(신규), `evaluation/graph_gen_ablation.py`(`--set` + reject/
+  safety-invalid/paired-latency 지표).
+- P6 9개·골든·Validator·CBBA·`generate_mission` default(아직 two-stage): 불변.
