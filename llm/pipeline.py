@@ -22,6 +22,8 @@ from pydantic import BaseModel, ValidationError
 from core.task_graph import TaskGraph
 from llm.backend import LLMBackend
 from llm.prompts import (
+    graph_system,
+    graph_user,
     repair_system,
     repair_user,
     step1_system,
@@ -29,7 +31,13 @@ from llm.prompts import (
     step2_system,
     step2_user,
 )
-from llm.schemas import RepairOutput, Step1Output, Step2Output, to_candidate_dict
+from llm.schemas import (
+    GraphOutput,
+    RepairOutput,
+    Step1Output,
+    Step2Output,
+    to_candidate_dict,
+)
 from scenarios.compiler import compile_reference_graph
 from scenarios.scene import Scene
 from validator.candidate import MissionCandidate
@@ -94,48 +102,56 @@ def _schema_error(detail: str) -> SchemaError:
     return SchemaError(ErrorCode.E_SCHEMA, "backend", detail)
 
 
-def generate_mission(
-    command: str, scene: Scene, backend: LLMBackend
-) -> GenerationResult:
-    # -- Step 1 --------------------------------------------------------
-    step1, err = _call(backend, step1_system(scene), step1_user(command), Step1Output)
-    if err is not None:
-        return GenerationResult(
-            command, approved=False, attempts=1, repaired=False,
-            raw_schema_valid=False, raw_whole_graph_valid=False,
-            failure_category="SCHEMA", errors=(_schema_error(err),),
-        )
-
-    # Contract order: schema-validate Step 1's own output BEFORE calling Step 2.
-    tasks_only, step1_errors = MissionCandidate.from_raw(to_candidate_dict(step1.tasks, []))
-    if tasks_only is not None:
-        step1_errors = step1_errors + tasks_only.consistency_errors()
-    if tasks_only is None or step1_errors:
-        return GenerationResult(
-            command, approved=False, attempts=1, repaired=False,
-            raw_schema_valid=False, raw_whole_graph_valid=False,
-            failure_category="SCHEMA", errors=tuple(step1_errors),
-        )
-
-    # -- Step 2 (only reached once Step 1 is schema-clean) --------------
-    step2, err = _call(
-        backend, step2_system(scene), step2_user(command, step1.model_dump_json()), Step2Output
+def _gen_schema_fail(command: str, errors) -> GenerationResult:
+    return GenerationResult(
+        command, approved=False, attempts=1, repaired=False,
+        raw_schema_valid=False, raw_whole_graph_valid=False,
+        failure_category="SCHEMA", errors=tuple(errors),
     )
-    if err is not None:
-        return GenerationResult(
-            command, approved=False, attempts=1, repaired=False,
-            raw_schema_valid=False, raw_whole_graph_valid=False,
-            failure_category="SCHEMA", errors=(_schema_error(err),),
-        )
 
-    raw = to_candidate_dict(step1.tasks, step2.edges)
+
+def _initial_candidate(command, scene, backend, single_call):
+    """The raw dict + parsed candidate from the LLM, or a SCHEMA GenerationResult.
+
+    ``single_call`` (D-072): one ``GraphOutput`` call. Otherwise the contract's
+    two-stage path — Step 1's task list is schema-checked before Step 2 is even
+    called, so a bad Step 1 costs one call not two.
+    """
+    if single_call:
+        graph, err = _call(backend, graph_system(scene), graph_user(command), GraphOutput)
+        if err is not None:
+            return _gen_schema_fail(command, (_schema_error(err),))
+        raw = to_candidate_dict(graph.tasks, graph.edges)
+    else:
+        step1, err = _call(backend, step1_system(scene), step1_user(command), Step1Output)
+        if err is not None:
+            return _gen_schema_fail(command, (_schema_error(err),))
+        tasks_only, step1_errors = MissionCandidate.from_raw(to_candidate_dict(step1.tasks, []))
+        if tasks_only is not None:
+            step1_errors = step1_errors + tasks_only.consistency_errors()
+        if tasks_only is None or step1_errors:
+            return _gen_schema_fail(command, step1_errors)
+        step2, err = _call(
+            backend, step2_system(scene),
+            step2_user(command, step1.model_dump_json()), Step2Output,
+        )
+        if err is not None:
+            return _gen_schema_fail(command, (_schema_error(err),))
+        raw = to_candidate_dict(step1.tasks, step2.edges)
+
     candidate, schema_errors = MissionCandidate.from_raw(raw)
     if candidate is None or schema_errors:
-        return GenerationResult(
-            command, approved=False, attempts=1, repaired=False,
-            raw_schema_valid=False, raw_whole_graph_valid=False,
-            failure_category="SCHEMA", errors=tuple(schema_errors),
-        )
+        return _gen_schema_fail(command, schema_errors)
+    return raw, candidate
+
+
+def generate_mission(
+    command: str, scene: Scene, backend: LLMBackend, *, single_call: bool = False
+) -> GenerationResult:
+    prepared = _initial_candidate(command, scene, backend, single_call)
+    if isinstance(prepared, GenerationResult):
+        return prepared
+    raw, candidate = prepared
 
     result = validate_candidate(candidate, scene)
     if result.accepted:

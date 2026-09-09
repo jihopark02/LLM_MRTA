@@ -216,3 +216,52 @@ def test_backend_running_dry_is_an_error(scene):
     backend = MockBackend([Step1Output(tasks=[t("AREA_RECON", "ZONE_A")])])  # missing Step 2
     with pytest.raises(AssertionError, match="ran out of scripted"):
         generate_mission("...", scene, backend)
+
+
+# -- single-call graph generation (D-072) ----------------------------
+
+
+def test_single_call_approves_from_one_graph_output(scene):
+    from llm.schemas import GraphOutput
+
+    graph = GraphOutput(
+        tasks=[
+            t("GROUND_INSPECTION", "FIRE_SITE_1"),
+            t("GROUND_SUPPRESSION", "FIRE_SITE_1"),
+        ],
+        edges=[e("GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_1")],
+    )
+    backend = MockBackend([graph])
+
+    r = generate_mission("Full response to FIRE_SITE_1.", scene, backend, single_call=True)
+
+    assert r.approved and r.attempts == 1 and not r.repaired
+    assert r.raw_schema_valid and r.raw_whole_graph_valid
+    assert [c[2] for c in backend.calls] == ["GraphOutput"]
+    assert len(r.graph) == 2 and len(r.graph.edges) == 1
+
+
+def test_single_call_bad_schema_is_explicit_rejection(scene):
+    backend = MockBackend([{"tasks": [{"task_type": "AREA_RECON", "target": "ZONE_A", "x": 1}]}])
+    r = generate_mission("...", scene, backend, single_call=True)
+    assert not r.approved and r.failure_category == "SCHEMA"
+    assert [c[2] for c in backend.calls] == ["GraphOutput"]
+
+
+def test_single_call_still_repairs_once(scene):
+    from llm.schemas import GraphOutput
+
+    broken = GraphOutput(tasks=[t("GROUND_SUPPRESSION", "FIRE_SITE_1")], edges=[])
+    repair = RepairOutput(
+        tasks=[
+            t("GROUND_INSPECTION", "FIRE_SITE_1"),
+            t("GROUND_SUPPRESSION", "FIRE_SITE_1"),
+        ],
+        edges=[e("GROUND_INSPECTION:FIRE_SITE_1", "GROUND_SUPPRESSION:FIRE_SITE_1")],
+    )
+    backend = MockBackend([broken, repair])
+
+    r = generate_mission("Drop on FIRE_SITE_1.", scene, backend, single_call=True)
+
+    assert r.approved and r.repaired and r.attempts == 2
+    assert [c[2] for c in backend.calls] == ["GraphOutput", "RepairOutput"]

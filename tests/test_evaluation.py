@@ -285,3 +285,38 @@ def test_plots_write_png_and_pdf(scene, annotations, tmp_path):
     out = save(run, tmp_path / "fig")
     assert [p.suffix for p in out] == [".png", ".pdf"]
     assert all(p.exists() and p.stat().st_size > 0 for p in out)
+
+
+# -- D-072: single-call vs two-stage ablation harness -------------------
+
+
+def test_graph_gen_ablation_runs_both_modes(scene, annotations):
+    from evaluation.graph_gen_ablation import _mock_backend_for, run
+
+    runs = run(scene, _mock_backend_for(annotations), annotations)
+
+    by_mode = {r.mode: r for r in runs}
+    assert set(by_mode) == {"two-stage", "single-call"}
+
+    two, one = by_mode["two-stage"].summary(), by_mode["single-call"].summary()
+    assert two["exact_match"] == one["exact_match"] == len(annotations)
+    assert two["llm_calls_total"] == 2 * len(annotations)
+    assert one["llm_calls_total"] == len(annotations)
+
+
+def test_graph_gen_ablation_graph_results_are_stable_across_runs(scene, annotations):
+    # latency is wall-clock and varies; the graph-quality columns must not.
+    from evaluation.graph_gen_ablation import _mock_backend_for, run
+
+    def quality(runs):
+        return {
+            r.mode: [
+                (c.id, c.approved, c.first_pass_valid, c.repaired, c.exact_match, c.llm_calls)
+                for c in r.cases
+            ]
+            for r in runs
+        }
+
+    a = quality(run(scene, _mock_backend_for(annotations), annotations))
+    b = quality(run(scene, _mock_backend_for(annotations), annotations))
+    assert a == b

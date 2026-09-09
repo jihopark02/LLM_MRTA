@@ -35,6 +35,7 @@ and exact live-response caching remain separate in ``interaction.execute`` and
 ``llm.cache`` so neither concern changes turn semantics.
 """
 
+import os
 import time
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -94,6 +95,14 @@ from validator.hashing import scene_hash
 from validator.patch_apply import PatchResult, apply_patch
 
 _WORKFLOW_STEPS = "GROUND_INSPECTION, GROUND_SUPPRESSION"
+
+
+def _single_call_graph_gen() -> bool:
+    """D-072 ablation toggle. ``LLM_MRTA_GRAPH_GEN=single-call`` routes NEW_MISSION
+    graph generation through the one-call ``GraphOutput`` path; anything else
+    (unset, ``two-stage``) keeps the contract's Step1 -> Step2 default. The P6
+    harness and integration tests never read this — they stay two-stage."""
+    return os.environ.get("LLM_MRTA_GRAPH_GEN", "").strip().lower() == "single-call"
 
 _UNSUPPORTED_TEMPLATE = (
     "이 세션은 임무 생성·화재 보고·대응 단계 확장·상태 질문만 지원합니다. "
@@ -425,7 +434,9 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
         else {}
     )
 
-    gen = generate_mission(turn.utterance, session.scene, backend)
+    gen = generate_mission(
+        turn.utterance, session.scene, backend, single_call=_single_call_graph_gen()
+    )
     turn.generation = gen
     if not gen.approved or gen.graph is None:
         return _finish(

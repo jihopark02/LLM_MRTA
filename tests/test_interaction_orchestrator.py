@@ -1147,3 +1147,47 @@ def test_a_backend_without_a_valid_mode_is_refused(scene, declared):
         handle_turn(s, "상태", Backend())
     # the refused turn never happened: no turn id burned, no audit record
     assert s.turn_count == 0 and s.turn_log == ()
+
+
+# -- D-072: single-call graph generation toggle --------------------------
+
+
+def test_new_mission_uses_single_call_when_env_selects_it(scene, monkeypatch):
+    from llm.schemas import GraphOutput
+
+    monkeypatch.setenv("LLM_MRTA_GRAPH_GEN", "single-call")
+    backend = MockBackend(
+        [
+            intent("NEW_MISSION"),
+            GraphOutput(
+                tasks=[
+                    LLMTask(task_type="GROUND_INSPECTION", target="FIRE_SITE_1"),
+                    LLMTask(task_type="GROUND_SUPPRESSION", target="FIRE_SITE_1"),
+                ],
+                edges=[
+                    LLMEdge(
+                        predecessor="GROUND_INSPECTION:FIRE_SITE_1",
+                        successor="GROUND_SUPPRESSION:FIRE_SITE_1",
+                    )
+                ],
+            ),
+        ]
+    )
+
+    result = handle_turn(sess(scene), "FIRE_SITE_1 대응 시작", backend)
+
+    assert result.outcome is TurnOutcome.COMMITTED
+    assert [name for name, _ in result.audit.timing.llm_calls] == [
+        "IntentWireEnvelope",
+        "GraphOutput",
+    ]
+
+
+def test_new_mission_defaults_to_two_stage_without_the_env(scene, monkeypatch):
+    monkeypatch.delenv("LLM_MRTA_GRAPH_GEN", raising=False)
+    result = start_mission(sess(scene))
+    assert [name for name, _ in result.audit.timing.llm_calls] == [
+        "IntentWireEnvelope",
+        "Step1Output",
+        "Step2Output",
+    ]

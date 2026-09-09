@@ -19,7 +19,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-071, 계약 v1.67)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-072, 계약 v1.68)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
@@ -27,7 +27,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P13.4 + D-059~D-070 완료. `main`은 이제 여기(D-070)까지 fast-forward됐고 태그
 `v0.13.4-baseline`이 review·재현 기준점이다** (직전 baseline은 `v0.6.5-baseline` = P6.5).
-계약 v1.67, 최신 결정 D-071. pytest 936개 통과, ruff clean.
+계약 v1.68, 최신 결정 D-072. pytest 948개 통과, ruff clean.
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
 (D-027), `λ = 0.999`.
@@ -37,8 +37,13 @@ D-070 시스템을 고정해 둔다). 진행 중:
 - `feature/latency-profiling` — **D-071 완료**: `TurnAudit.timing`(§18.9) = 턴 wall-clock을
   LLM 호출별(`IntentWireEnvelope`/`Step1Output`/`Step2Output`/`RepairOutput`) + deterministic로
   분해. `llm/backend.py`의 `TimedBackend`가 계측. 집계는 `python3 -m evaluation.latency
-  [--runs DIR] [--mode live]` — intent_kind별 mean/median/p95. 다음: Step1/Step2 → single-call
-  ablation, intent/slot(한국어 조사) robustness.
+  [--runs DIR] [--mode live]` — intent_kind별 mean/median/p95.
+- `feature/latency-profiling` — **D-072 완료(계약 v1.68)**: `generate_mission(..., single_call=True)`
+  = Step1+Step2 대신 `GraphOutput`(tasks+edges) 한 호출. validate + repair tail은 two-stage와
+  동일(`_initial_candidate`가 앞단만 분기). `LLM_MRTA_GRAPH_GEN=single-call`이 native
+  `_do_new_mission`만 전환, P6/integration은 항상 two-stage. A/B는 `python3 -m
+  evaluation.graph_gen_ablation [--mock] [--out P]` — graph exact / first-pass valid / repair /
+  latency / call count. 채택 여부는 실측 후 계약 개정. 다음: intent/slot(한국어 조사) robustness.
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.

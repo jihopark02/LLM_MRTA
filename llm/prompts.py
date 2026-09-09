@@ -73,6 +73,20 @@ successor genuinely depends on the predecessor completing. Follow the incident
 workflow chain; never connect tasks of different incidents.
 {facts}"""
 
+_GRAPH_SYSTEM = """You decompose a disaster-response command into a task graph in one step.
+Output ONLY a JSON object with a "tasks" list of {"task_type", "target"} and an
+"edges" list of {"predecessor": "TYPE:target", "successor": "TYPE:target"}.
+- task_type is one of the listed types.
+- target is a zone id (for AREA_RECON) or an incident id (for the ground steps).
+- Add an edge only when the successor genuinely depends on the predecessor
+  completing. Follow the incident workflow chain; never connect tasks of
+  different incidents.
+Do not invent coordinates, priority, capabilities, durations, or ids. Priority is
+assigned later from the scene. A conditional clause about a FUTURE detected/reported
+incident is stored separately as a session policy — create only tasks whose zone or
+incident target exists now, and never invent a placeholder incident for that clause.
+{facts}"""
+
 _REPAIR_SYSTEM = """A previous task graph failed deterministic validation.
 Given the command, the graph, and the structured error codes, output a corrected
 FULL graph: {"tasks": [{"task_type", "target"}, ...], "edges": [...]} in the same
@@ -95,6 +109,14 @@ def step2_system(scene: Scene) -> str:
 
 def step2_user(command: str, tasks_json: str) -> str:
     return f"Command: {command}\nTask list:\n{tasks_json}"
+
+
+def graph_system(scene: Scene) -> str:
+    return _GRAPH_SYSTEM.replace("{facts}", _scene_facts(scene))
+
+
+def graph_user(command: str) -> str:
+    return f"Command: {command}"
 
 
 def repair_system(scene: Scene) -> str:

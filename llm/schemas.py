@@ -42,6 +42,14 @@ class RepairOutput(_StrictModel):
     edges: list[LLMEdge]
 
 
+class GraphOutput(_StrictModel):
+    """One-call task graph (D-072) — same shape as RepairOutput, distinct name
+    so the audit's ``llm_calls`` and the response cache keep the two apart."""
+
+    tasks: list[LLMTask]
+    edges: list[LLMEdge]
+
+
 def to_candidate_dict(tasks: list[LLMTask], edges: list[LLMEdge]) -> dict:
     """The raw dict shape MissionCandidate.from_raw expects."""
     return {
