@@ -30,7 +30,12 @@ from demo.visualization import (
 from execution.executor import SimExecutor, Termination
 from interaction.audit import CheckpointAudit, ExecutionAudit, IncidentObservationAudit
 from interaction.audit_io import write_session_audit
-from interaction.observe import apply_fire_observation
+from interaction.observe import (
+    ApprovalDecision,
+    apply_fire_observation,
+    enqueue_fire_approvals,
+    resolve_fire_approval,
+)
 from interaction.online_execute import advance_online_session
 from interaction.orchestrator import (
     TurnOutcome,
@@ -335,6 +340,29 @@ class DesktopController:
         self._persist()
         return result
 
+    @property
+    def pending_fire_approval(self):
+        approvals = self.session.pending_approvals
+        return approvals[0] if approvals else None
+
+    def resolve_fire_approval(self, *, decision: ApprovalDecision, response_up_to=None):
+        """§22.8: apply the operator's yes/no to the head fire approval."""
+        pending = self.pending_fire_approval
+        audit = resolve_fire_approval(
+            self.session,
+            decision=decision,
+            response_up_to=response_up_to,
+            mode=self.mode,
+        )
+        label = (
+            f"화재 승인 · {pending.zone_id} · {response_up_to.value}"
+            if decision is ApprovalDecision.APPROVE
+            else f"화재 거절 · {pending.zone_id}"
+        )
+        self._record(label, f"{pending.zone_id} FIRE_DETECTED → {audit.outcome}")
+        self._persist()
+        return audit
+
     def advance_checkpoint(self) -> AdvancePresentation:
         """Commit exactly one online completion event and prepare its view."""
         session = self.session
@@ -373,17 +401,24 @@ class DesktopController:
                 revealed = ()
             elif isinstance(revealed, FireDetectedObservation):
                 revealed = (revealed,)
-            for observation in revealed:
-                observation_audit = apply_fire_observation(
-                    session,
-                    observation,
-                    mode=self.mode,
-                )
-                observation_responses.append(
-                    f"[SIMULATED SENSOR · {observation.fixture_id}] "
-                    f"{observation.zone_id} FIRE_DETECTED → "
-                    f"{observation_audit.outcome}"
-                )
+            if isinstance(self.observation_source, SimulatedFireField):
+                # §22.8: the field path always asks the operator first.
+                for obs_audit in enqueue_fire_approvals(session, revealed, mode=self.mode):
+                    observation_audit = obs_audit
+                    observation_responses.append(
+                        f"[SIMULATED SENSOR · {obs_audit.fixture_id}] "
+                        f"{obs_audit.zone_id} FIRE_DETECTED → 운용자 승인 대기"
+                    )
+            else:
+                for observation in revealed:
+                    observation_audit = apply_fire_observation(
+                        session, observation, mode=self.mode
+                    )
+                    observation_responses.append(
+                        f"[SIMULATED SENSOR · {observation.fixture_id}] "
+                        f"{observation.zone_id} FIRE_DETECTED → "
+                        f"{observation_audit.outcome}"
+                    )
         if isinstance(audit, CheckpointAudit):
             completed = ", ".join(audit.completed_now) or "없음"
             response = (
@@ -539,9 +574,21 @@ class ContinuousRuntime:
                     halt_reason=advance.playback_error,
                 )
             if advance.segment is not None:
-                queued_result = self._apply_one_queued()
                 self._segment = advance.segment
                 self.sim_time = advance.segment.start_time
+                boundary_at_start = advance.segment.frame_at(self.sim_time)
+                # §22.8: a sensor fire revealed at this boundary blocks the
+                # clock and the free-text queue until the operator answers.
+                if self._controller.session.pending_approvals:
+                    self.halted = True
+                    zones = ", ".join(
+                        a.zone_id for a in self._controller.session.pending_approvals
+                    )
+                    return ContinuousTick(
+                        boundary_at_start, self.sim_time, boundary=advance,
+                        halt_reason=f"화재 감지 · 운용자 승인 대기 ({zones})",
+                    )
+                queued_result = self._apply_one_queued()
                 halt = (
                     None
                     if queued_result is None or self._queued_ok(queued_result)
@@ -550,7 +597,7 @@ class ContinuousRuntime:
                 if halt is not None:
                     self.halted = True
                 return ContinuousTick(
-                    advance.segment.frame_at(self.sim_time),
+                    boundary_at_start,
                     self.sim_time,
                     boundary=advance,
                     queued_result=queued_result,

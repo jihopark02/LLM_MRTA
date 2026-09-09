@@ -369,6 +369,77 @@ def test_district_latent_fire_profile_wires_a_seeded_field(tmp_path):
     assert field.field_id not in controller.session.context_for_llm()
 
 
+def _attach_fire_field(controller, zone_id):
+    import yaml
+
+    from scenarios.latent import SimulatedFireField, load_latent_fire_field
+
+    spec = controller.runtime_root / "field.yaml"
+    spec.write_text(
+        yaml.safe_dump(
+            {"field_id": "gate-test", "seed": 1, "count": 1, "candidate_zones": [zone_id]}
+        )
+    )
+    field = load_latent_fire_field(spec, controller.session.scene)
+    controller.observation_source = SimulatedFireField(field)
+    return field
+
+
+def test_continuous_runtime_halts_on_a_sensor_fire_until_the_operator_approves(tmp_path):
+    from core.enums import TaskType
+    from interaction.observe import ApprovalDecision
+
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="operator-report"
+    )
+    controller.submit(OPERATOR_MOCK_COMMANDS[0])
+    _attach_fire_field(controller, "ZONE_A")
+
+    runtime, ticks = _run_continuous(controller, step=6.0)
+
+    assert not runtime.finished and runtime.halted  # stopped for the operator
+    assert controller.pending_fire_approval is not None
+    assert controller.pending_fire_approval.zone_id == "ZONE_A"
+    assert "AWAITING_APPROVAL" in [
+        e.outcome for e in controller.session.event_log
+        if isinstance(e, IncidentObservationAudit)
+    ]
+    # graph is untouched while the fire is held
+    assert "FIRE_SITE_1" not in controller.session.scene.incidents
+
+    audit = controller.resolve_fire_approval(
+        decision=ApprovalDecision.APPROVE, response_up_to=TaskType.GROUND_SUPPRESSION
+    )
+    assert audit.outcome == "COMMITTED"
+    assert controller.pending_fire_approval is None
+    assert "FIRE_SITE_1" in controller.session.scene.incidents
+
+    runtime2, ticks2 = _run_continuous(controller, step=6.0)
+    assert runtime2.finished
+    assert controller.session.execution.termination.value == "COMPLETED"
+
+
+def test_continuous_runtime_decline_leaves_the_mission_unchanged(tmp_path):
+    from interaction.observe import ApprovalDecision
+
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="operator-report"
+    )
+    controller.submit(OPERATOR_MOCK_COMMANDS[0])
+    _attach_fire_field(controller, "ZONE_A")
+
+    _run_continuous(controller, step=6.0)
+    graph_len = len(controller.session.state.graph)
+
+    controller.resolve_fire_approval(decision=ApprovalDecision.DECLINE)
+    assert controller.pending_fire_approval is None
+    assert len(controller.session.state.graph) == graph_len
+
+    runtime, _ = _run_continuous(controller, step=6.0)
+    assert runtime.finished
+    assert controller.session.execution.termination.value == "COMPLETED"
+
+
 def test_sensor_scenario_reveals_fixture_once_and_adds_response_in_one_event(tmp_path):
     controller = DesktopController(
         runtime_root=tmp_path,

@@ -168,6 +168,39 @@ def fresh_session_state(graph: TaskGraph, scene: Scene) -> MissionState:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class PendingFireApproval:
+    """A revealed sensor fire awaiting the operator's yes/no (§22.8, D-065).
+
+    A resumable pending interaction like :class:`PendingClarification`: it gates
+    autoplay and the free-text queue without introducing a new ``SessionPhase``.
+    The fields mirror ``scenarios.latent.FireDetectedObservation`` so the
+    approval can run the same §22.3 transaction the auto path would have.
+    """
+
+    fixture_id: str
+    zone_id: str
+    trigger_task_id: str
+    detecting_agent_id: str
+    simulation_time: float
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("fixture_id", self.fixture_id),
+            ("zone_id", self.zone_id),
+            ("trigger_task_id", self.trigger_task_id),
+            ("detecting_agent_id", self.detecting_agent_id),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{label} must be a non-empty str")
+        if (
+            not isinstance(self.simulation_time, (int, float))
+            or isinstance(self.simulation_time, bool)
+            or self.simulation_time < 0.0
+        ):
+            raise ValueError("simulation_time must be a non-negative number")
+
+
 @dataclass(slots=True)
 class MissionSession:
     session_id: str
@@ -184,6 +217,7 @@ class MissionSession:
     recent_referents: list[Referent] = field(default_factory=list)
     turn_count: int = 0
     pending_clarification: PendingClarification | None = None
+    pending_approvals: tuple[PendingFireApproval, ...] = ()
     _event_log: list[
         TurnAudit | ExecutionAudit | CheckpointAudit | IncidentObservationAudit
     ] = field(
@@ -387,6 +421,7 @@ __all__ = [
     "ReferentKind",
     "Referent",
     "PendingClarification",
+    "PendingFireApproval",
     "MissionSession",
     "fresh_session_state",
     "build_context_summary",

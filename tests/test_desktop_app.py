@@ -352,3 +352,60 @@ def test_queued_clarification_stops_autoplay_at_the_safe_checkpoint(
     finally:
         operator.close()
         qt_app.processEvents()
+
+
+def test_sensor_fire_approval_gate_pauses_continuous_and_resumes_on_approve(
+    qt_app, tmp_path
+):
+    import yaml
+
+    from scenarios.latent import SimulatedFireField, load_latent_fire_field
+
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="operator-report"
+    )
+    operator, simulator = build_windows(
+        controller, playback_seconds=0.01, auto_run=True, sim_rate=1500.0
+    )
+    operator.show()
+    simulator.show()
+    qt_app.processEvents()
+    try:
+        _submit(operator, OPERATOR_MOCK_COMMANDS[0])
+        _drain_until(qt_app, lambda: operator._continuous)
+        spec = tmp_path / "field.yaml"
+        spec.write_text(
+            yaml.safe_dump(
+                {"field_id": "g", "seed": 1, "count": 1, "candidate_zones": ["ZONE_A"]}
+            )
+        )
+        controller.observation_source = SimulatedFireField(
+            load_latent_fire_field(spec, controller.session.scene)
+        )
+
+        _drain_until(qt_app, lambda: not operator._busy, timeout=6.0)
+
+        assert controller.pending_fire_approval is not None
+        assert operator.approval_frame.isVisible()
+        assert not operator._continuous
+        assert not operator.command_input.isEnabled()
+
+        buttons = [
+            operator.approval_buttons.itemAt(i).widget()
+            for i in range(operator.approval_buttons.count())
+        ]
+        approve = next(b for b in buttons if "진압까지" in b.text())
+        approve.click()
+
+        assert controller.pending_fire_approval is None
+        assert "FIRE_SITE_1" in controller.session.scene.incidents
+        # the continuous clock auto-resumes and runs to a terminal
+        _drain_until(
+            qt_app,
+            lambda: controller.session.phase.value == "EXECUTED",
+            timeout=8.0,
+        )
+        assert controller.session.execution.termination.value == "COMPLETED"
+    finally:
+        operator.close()
+        qt_app.processEvents()

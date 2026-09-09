@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from core.enums import TaskType
 from desktop.controller import (
     SCENARIO_PROFILES,
     SUPPORTED_MODES,
@@ -33,6 +34,7 @@ from desktop.controller import (
 )
 from desktop.simulator import MissionSimulatorWindow
 from interaction.audit import CheckpointAudit, ExecutionAudit
+from interaction.observe import ApprovalDecision
 from interaction.orchestrator import TurnOutcome
 from interaction.session import SessionPhase
 
@@ -91,6 +93,7 @@ class OperatorWindow(QMainWindow):
         self._tick_ms = 33
         self._sim_time = 0.0
         self._continuous_runtime: ContinuousRuntime | None = None
+        self._resume_continuous_after_approval = False
         self._continuous_timer = QTimer(self)
         self._continuous_timer.timeout.connect(self._continuous_tick)
         self.simulator.playback_finished.connect(self._on_playback_finished)
@@ -164,6 +167,16 @@ class OperatorWindow(QMainWindow):
         candidate_outer.addWidget(self.candidate_question)
         candidate_outer.addLayout(self.candidate_buttons)
         layout.addWidget(self.candidate_frame)
+
+        self.approval_frame = QFrame()
+        self.approval_frame.setObjectName("candidateFrame")
+        approval_outer = QVBoxLayout(self.approval_frame)
+        self.approval_question = QLabel()
+        self.approval_question.setWordWrap(True)
+        self.approval_buttons = QHBoxLayout()
+        approval_outer.addWidget(self.approval_question)
+        approval_outer.addLayout(self.approval_buttons)
+        layout.addWidget(self.approval_frame)
 
         input_row = QHBoxLayout()
         self.command_input = QLineEdit()
@@ -310,6 +323,33 @@ class OperatorWindow(QMainWindow):
         cancel.clicked.connect(self.cancel_candidate)
         self.candidate_buttons.addWidget(cancel)
 
+    def _refresh_approvals(self) -> None:
+        _clear_layout(self.approval_buttons)
+        pending = self.controller.pending_fire_approval
+        self.approval_frame.setVisible(pending is not None)
+        if pending is None:
+            return
+        extra = len(self.controller.session.pending_approvals) - 1
+        self.approval_question.setText(
+            f"{pending.zone_id}에 화재를 감지했습니다 "
+            f"(정찰: {pending.detecting_agent_id}, t={pending.simulation_time:.1f}s). "
+            f"지상 로봇을 출동시킬까요?"
+            + (f"  · 대기 중인 화재 {extra}건" if extra > 0 else "")
+        )
+        for label, scope in (
+            ("진압까지 승인", TaskType.GROUND_SUPPRESSION),
+            ("점검만 승인", TaskType.GROUND_INSPECTION),
+        ):
+            button = QPushButton(label)
+            button.setObjectName("candidateButton")
+            button.clicked.connect(
+                lambda checked=False, s=scope: self.approve_fire(s)
+            )
+            self.approval_buttons.addWidget(button)
+        decline = QPushButton("거절")
+        decline.clicked.connect(self.decline_fire)
+        self.approval_buttons.addWidget(decline)
+
     def _can_advance(self) -> bool:
         session = self.controller.session
         retryable = (
@@ -321,6 +361,7 @@ class OperatorWindow(QMainWindow):
             session.state is not None
             and session.plan is not None
             and session.pending_clarification is None
+            and not session.pending_approvals
             and (
                 session.phase
                 in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}
@@ -384,8 +425,11 @@ class OperatorWindow(QMainWindow):
         scrollbar.setValue(scrollbar.maximum())
         self.latest.setText(self._last_decision())
         self._refresh_candidates()
+        self._refresh_approvals()
 
-        pending = session.pending_clarification is not None
+        pending = (
+            session.pending_clarification is not None or bool(session.pending_approvals)
+        )
         can_queue = self._busy and (self.simulator.is_playing or self._continuous)
         can_input = not pending and (not self._busy or can_queue)
         self.command_input.setEnabled(can_input)
@@ -457,6 +501,35 @@ class OperatorWindow(QMainWindow):
         result = self.controller.cancel_candidate()
         self.status.setText(result.outcome.value)
         self.refresh()
+
+    def approve_fire(self, scope: TaskType) -> None:
+        self._resolve_fire(ApprovalDecision.APPROVE, scope)
+
+    def decline_fire(self) -> None:
+        self._resolve_fire(ApprovalDecision.DECLINE, None)
+
+    def _resolve_fire(self, decision: ApprovalDecision, scope: TaskType | None) -> None:
+        if self._busy or self.controller.pending_fire_approval is None:
+            return
+        try:
+            audit = self.controller.resolve_fire_approval(
+                decision=decision, response_up_to=scope
+            )
+        except Exception as exc:  # noqa: BLE001 - wiring errors, not mission decisions
+            self.status.setText(f"승인 처리 실패 · {type(exc).__name__}: {exc}")
+            self.refresh()
+            return
+        self.status.setText(f"화재 {audit.zone_id} · {audit.outcome}")
+        self._refresh_simulator()
+        self.refresh()
+        if (
+            self.controller.pending_fire_approval is None
+            and self._resume_continuous_after_approval
+            and self._can_advance()
+        ):
+            self._resume_continuous_after_approval = False
+            self.status.setText("CONTINUOUS RUNTIME · 승인 완료, 재생 재개")
+            QTimer.singleShot(0, self.play_continuous)
 
     def _advance_segment(self) -> None:
         self._busy = True
@@ -565,6 +638,8 @@ class OperatorWindow(QMainWindow):
             message = f"CONTINUOUS RUNTIME · 종료 · {tick.halt_reason}"
         else:
             message = f"CONTINUOUS RUNTIME · 일시정지 · {tick.halt_reason}"
+        if not tick.finished and self.controller.pending_fire_approval is not None:
+            self._resume_continuous_after_approval = True
         self._stop_continuous(message)
         return True
 
