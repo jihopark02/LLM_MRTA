@@ -1149,14 +1149,13 @@ def test_a_backend_without_a_valid_mode_is_refused(scene, declared):
     assert s.turn_count == 0 and s.turn_log == ()
 
 
-# -- D-072: single-call graph generation toggle --------------------------
+# -- D-075: single-call is the runtime default; two-stage opts out -------
 
 
-def test_new_mission_uses_single_call_when_env_selects_it(scene, monkeypatch):
+def _single_call_new_mission_backend():
     from llm.schemas import GraphOutput
 
-    monkeypatch.setenv("LLM_MRTA_GRAPH_GEN", "single-call")
-    backend = MockBackend(
+    return MockBackend(
         [
             intent("NEW_MISSION"),
             GraphOutput(
@@ -1174,7 +1173,11 @@ def test_new_mission_uses_single_call_when_env_selects_it(scene, monkeypatch):
         ]
     )
 
-    result = handle_turn(sess(scene), "FIRE_SITE_1 대응 시작", backend)
+
+def test_new_mission_defaults_to_single_call(scene, monkeypatch):
+    monkeypatch.delenv("LLM_MRTA_GRAPH_GEN", raising=False)  # the real runtime default
+
+    result = handle_turn(sess(scene), "FIRE_SITE_1 대응 시작", _single_call_new_mission_backend())
 
     assert result.outcome is TurnOutcome.COMMITTED
     assert [name for name, _ in result.audit.timing.llm_calls] == [
@@ -1183,8 +1186,8 @@ def test_new_mission_uses_single_call_when_env_selects_it(scene, monkeypatch):
     ]
 
 
-def test_new_mission_defaults_to_two_stage_without_the_env(scene, monkeypatch):
-    monkeypatch.delenv("LLM_MRTA_GRAPH_GEN", raising=False)
+def test_new_mission_opts_into_two_stage_with_the_env(scene, monkeypatch):
+    monkeypatch.setenv("LLM_MRTA_GRAPH_GEN", "two-stage")
     result = start_mission(sess(scene))
     assert [name for name, _ in result.audit.timing.llm_calls] == [
         "IntentWireEnvelope",

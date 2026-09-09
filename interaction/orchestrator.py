@@ -98,11 +98,13 @@ _WORKFLOW_STEPS = "GROUND_INSPECTION, GROUND_SUPPRESSION"
 
 
 def _single_call_graph_gen() -> bool:
-    """D-072 ablation toggle. ``LLM_MRTA_GRAPH_GEN=single-call`` routes NEW_MISSION
-    graph generation through the one-call ``GraphOutput`` path; anything else
-    (unset, ``two-stage``) keeps the contract's Step1 -> Step2 default. The P6
-    harness and integration tests never read this — they stay two-stage."""
-    return os.environ.get("LLM_MRTA_GRAPH_GEN", "").strip().lower() == "single-call"
+    """Runtime NEW_MISSION graph generation is single-call by default (D-075):
+    one ``GraphOutput`` call for tasks + dependencies, then the unchanged
+    deterministic Validator + bounded repair. ``LLM_MRTA_GRAPH_GEN=two-stage``
+    opts back into the Step1 -> Step2 generator, which is retained as the
+    evaluation / ablation baseline. The P6 harness and integration tests never
+    read this — they stay two-stage so the frozen goldens do not move."""
+    return os.environ.get("LLM_MRTA_GRAPH_GEN", "").strip().lower() != "two-stage"
 
 _UNSUPPORTED_TEMPLATE = (
     "이 세션은 임무 생성·화재 보고·대응 단계 확장·상태 질문만 지원합니다. "
