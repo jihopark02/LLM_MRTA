@@ -32,8 +32,13 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 (P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
 (D-027), `λ = 0.999`.
 
-**이 baseline 이후 개발은 새 feature branch에서** (latency profiling, single-call ablation,
-intent robustness 등 LLM pipeline·실험 조건에 영향을 주는 변경이라 D-070 시스템을 고정해 둔다).
+**이 baseline 이후 개발은 새 feature branch에서** (LLM pipeline·실험 조건에 영향을 주는 변경이라
+D-070 시스템을 고정해 둔다). 진행 중:
+- `feature/latency-profiling` — **D-071 완료**: `TurnAudit.timing`(§18.9) = 턴 wall-clock을
+  LLM 호출별(`IntentWireEnvelope`/`Step1Output`/`Step2Output`/`RepairOutput`) + deterministic로
+  분해. `llm/backend.py`의 `TimedBackend`가 계측. 집계는 `python3 -m evaluation.latency
+  [--runs DIR] [--mode live]` — intent_kind별 mean/median/p95. 다음: Step1/Step2 → single-call
+  ablation, intent/slot(한국어 조사) robustness.
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.

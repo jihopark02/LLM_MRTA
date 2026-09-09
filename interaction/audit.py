@@ -168,6 +168,20 @@ class IncidentObservationAudit:
 
 
 @dataclass(frozen=True, slots=True)
+class TimingAudit:
+    """Wall-clock split for one turn (§18.9, D-071). Measurement only.
+
+    ``llm_calls`` is a list of ``[schema_name, seconds]`` pairs in call order —
+    a list of lists (not tuples) so ``asdict`` round-trips cleanly through JSON.
+    """
+
+    total_s: float
+    llm_total_s: float
+    deterministic_s: float
+    llm_calls: list = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
 class TurnAudit:
     """One operator turn (§18.9, ``event_type: TURN``)."""
 
@@ -209,6 +223,7 @@ class TurnAudit:
     input_kind: str = "NATURAL_LANGUAGE"
     resumed_from_turn_id: str | None = None
     selected_entity_id: str | None = None
+    timing: TimingAudit | None = None
 
     event_type: str = "TURN"
 
@@ -276,6 +291,7 @@ __all__ = [
     "OnlineReallocationAudit",
     "IncidentActionAudit",
     "IncidentObservationAudit",
+    "TimingAudit",
     "TurnAudit",
     "ExecutionAudit",
     "CheckpointAudit",

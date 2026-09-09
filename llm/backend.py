@@ -127,3 +127,33 @@ class OpenAIBackend:
         if parsed is None:  # pragma: no cover
             raise RuntimeError("model refused or returned unparseable structured output")
         return parsed
+
+
+class TimedBackend:
+    """Wraps a backend and records the wall time of every ``complete`` call.
+
+    ``mode`` and ``resolved_models`` delegate to the inner backend so the
+    orchestrator's provenance and ``resolved_models`` bookkeeping are unchanged
+    (D-071). ``calls`` holds ``(schema_name, seconds)`` in call order.
+    """
+
+    def __init__(self, inner) -> None:
+        self._inner = inner
+        self.calls: list[tuple[str, float]] = []
+
+    @property
+    def mode(self) -> str:
+        return self._inner.mode
+
+    @property
+    def resolved_models(self):
+        return getattr(self._inner, "resolved_models", [])
+
+    def complete(self, system: str, user: str, schema: type[T]) -> T:
+        import time
+
+        started = time.perf_counter()
+        try:
+            return self._inner.complete(system, user, schema)
+        finally:
+            self.calls.append((schema.__name__, time.perf_counter() - started))

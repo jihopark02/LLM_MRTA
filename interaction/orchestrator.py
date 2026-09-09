@@ -35,6 +35,7 @@ and exact live-response caching remain separate in ``interaction.execute`` and
 ``llm.cache`` so neither concern changes turn semantics.
 """
 
+import time
 from dataclasses import dataclass, field, replace
 from enum import Enum
 
@@ -56,6 +57,7 @@ from interaction.audit import (
     PlanAssignmentChanges,
     ResourceResolutionAudit,
     RuntimeAssignmentChanges,
+    TimingAudit,
     TurnAudit,
 )
 from interaction.audit_builders import online_reallocation_audit, patch_audit
@@ -86,6 +88,7 @@ from interaction.session import (
     SessionPhase,
     fresh_session_state,
 )
+from llm.backend import TimedBackend
 from llm.pipeline import GenerationResult, generate_mission
 from validator.hashing import scene_hash
 from validator.patch_apply import PatchResult, apply_patch
@@ -161,6 +164,7 @@ class _Turn:
     incident_action: IncidentActionAudit | None = None
     resource_resolution: ResourceResolutionAudit | None = None
     intent_repair: IntentRepairTrace = field(default_factory=IntentRepairTrace)
+    t_start: float = field(default_factory=time.perf_counter)
 
     def resolved_models(self) -> list[str]:
         """Every backend call this turn made — intent classification plus any
@@ -217,6 +221,19 @@ def _generation_audit(gen: GenerationResult | None) -> GenerationAudit | None:
     )
 
 
+def _turn_timing(turn: _Turn) -> TimingAudit:
+    """The turn's wall clock, split into LLM calls and the deterministic rest (D-071)."""
+    total = time.perf_counter() - turn.t_start
+    calls = list(getattr(turn.backend, "calls", ()))
+    llm_total = sum(seconds for _, seconds in calls)
+    return TimingAudit(
+        total_s=total,
+        llm_total_s=llm_total,
+        deterministic_s=max(0.0, total - llm_total),
+        llm_calls=[[name, seconds] for name, seconds in calls],
+    )
+
+
 def _finish(
     turn: _Turn,
     outcome: TurnOutcome,
@@ -258,6 +275,7 @@ def _finish(
         input_kind=turn.input_kind,
         resumed_from_turn_id=turn.resumed_from_turn_id,
         selected_entity_id=turn.selected_entity_id,
+        timing=_turn_timing(turn),
     )
     session.append_event(audit)
     return TurnResult(
@@ -910,18 +928,22 @@ def handle_turn(session: MissionSession, utterance: str, backend) -> TurnResult:
     is a wiring bug and raises, because logging its answers under the wrong
     provenance would be worse than stopping (§18.9).
     """
+    started = time.perf_counter()
     mode = _mode_of(backend)  # before the counter: a refused turn must not consume a turn id
     session.turn_count += 1
+    # D-071: time every backend.complete() call this turn makes.
+    timed = TimedBackend(backend)
     turn = _Turn(
         session=session,
         utterance=utterance,
-        backend=backend,
+        backend=timed,
         models_before=len(getattr(backend, "resolved_models", ())),
         mode=mode,
         turn_id=f"t{session.turn_count}",
         pre_scene_hash=scene_hash(session.scene),
         pre_graph_hash=_graph_hash_of(session),
         pre_plan=dict(session.plan.assignments) if session.plan else None,
+        t_start=started,
     )
     try:
         if session.pending_clarification is not None:
@@ -937,7 +959,7 @@ def handle_turn(session: MissionSession, utterance: str, backend) -> TurnResult:
                     reason=ClarificationReason.PENDING_SELECTION,
                 ),
             )
-        return _dispatch(turn, backend)
+        return _dispatch(turn, timed)
     except Exception as exc:  # noqa: BLE001 - one bad turn must not kill the session
         return _finish(
             turn,
