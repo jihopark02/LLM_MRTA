@@ -12,8 +12,14 @@ Unmanned Systems
 
 ## 현재 단계
 
-**계약 v1.66 / 최신 결정 D-070. `main` = 태그 `v0.13.4-baseline`, pytest 936개 통과, ruff clean.**
-이 baseline 이후 개발은 새 feature branch에서 진행한다.
+**`main` = 태그 `v0.13.4-baseline` (계약 v1.66 / D-070). 이 baseline 이후는 병렬 feature
+branch에서 진행한다:**
+- `feature/latency-profiling` — D-071 턴별 latency 계측 + D-072 single-call graph 생성
+  ablation (계약 v1.67 / v1.68).
+- `feature/demo-scene-scaleup` — D-073 발표 데모 확대 (계약 v1.67): 15-zone `demo_grid`
+  scene + seeded 4-fire latent field, 첫 임무 전 world 지도(`mode="world"`), display
+  label 분리 (`ZONE_A` → 화면 `A`, `FIRE_SITE_n` → `Fire n`). pytest 946개, ruff clean.
+- 두 브랜치의 계약 버전 라벨(v1.67)은 main 병합 시 재정렬한다.
 
 **P1~P6.5 완료** — `validator/`(P2) + `allocation/`(P3) + `execution/`(P4: `SimExecutor`)
 + `llm/`(P5: Step1/Step2/repair 파이프라인 §12) + `evaluation/`(P6: 9개 입력 평가 하네스;
@@ -33,6 +39,9 @@ P6.5: 통합 runner). **P8.0~P8.5, P9.0~P9.4, P10, P11, P12.0~P12.7, P13.0~P13.3
 - D-069/D-070 실행 중 `NEW_MISSION` — "새 episode 리셋"이 아니라 현재 sim time·위치에서
   이어지는 timeline.
 - 발표 시각화 — `render_mission_map(minimal=True)` MP4MR-clean 스타일.
+- D-073 (`feature/demo-scene-scaleup`) — 15-zone `demo_grid`가 native 데모 기본 프로파일.
+  임무 생성 전에도 world(zone·route·agent·알려진 incident)를 표시하고, 화재 4개는 고정 seed
+  latent field로 배치돼 해당 zone 정찰 완료 시 `Fire n`으로 공개된다. 기존 scene·골든 불변.
 
 **정직한 한계**: 반복 순찰/지속 감시는 구현하지 않는다(§22.7). agent는 task가 있을 때만
 움직이고 임무 사이엔 마지막 위치에서 idle이다. 콘솔이 다음 명령을 항상 받을 뿐이다.

@@ -19,7 +19,9 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-070, 계약 v1.66)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (이 브랜치: D-073, 계약 v1.67 — 병렬
+   `feature/latency-profiling`은 D-071/D-072, v1.67/v1.68. 결정 번호는 전역 순번,
+   버전 라벨은 main 병합 시 재정렬)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
@@ -32,8 +34,19 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 (P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
 (D-027), `λ = 0.999`.
 
-**이 baseline 이후 개발은 새 feature branch에서** (latency profiling, single-call ablation,
-intent robustness 등 LLM pipeline·실험 조건에 영향을 주는 변경이라 D-070 시스템을 고정해 둔다).
+**이 baseline 이후 개발은 병렬 feature branch에서** (D-070 시스템 고정):
+- `feature/latency-profiling` — D-071 턴별 latency 계측, D-072 single-call graph 생성
+  ablation (LLM pipeline 실험 축, 계약 v1.67/v1.68).
+- `feature/demo-scene-scaleup` — **D-073 (계약 v1.67, 이 브랜치)**: (1) `world_map_spec` /
+  `MapRenderSpec(mode="world")` — 첫 임무 전 zone·route·agent 초기 위치·알려진 incident만
+  표시(`current_map_spec()`이 `state is None`에서 이걸 반환). 지원 map 모드
+  `world/plan/runtime/execution/playback`. (2) `scenarios/demo_grid.yaml` — 15 zone(A–O)
+  incident-empty, native 데모 기본 프로파일 `demo-grid`. 화재 4개는
+  `scenarios/demo_grid_latent.yaml`(seed 2, count 4, `min_separation` 170 → A/D/J/O). D-062
+  latent 메커니즘 그대로 — 정찰 완료 전 비표시. (3) display label: `zone.name` = `"A"`,
+  incident 화면 라벨 `Fire n`(`_incident_label`), 내부 id·`scene_hash`·grounding 불변.
+  기존 scene·프로파일·골든 불변. pytest 946.
+- 두 브랜치 계약 버전 라벨(v1.67)은 main 병합 시 재정렬.
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.
