@@ -60,9 +60,10 @@ class MissionCanvas(QWidget):
         self.setMinimumSize(760, 560)
         self.spec: MapRenderSpec | None = None
         self.frame: AnimationFrameSpec | None = None
-        #: MP4MR-clean view: drop the route-lane / zone / incident backdrop so
-        #: the CBBA allocation polylines carry the picture (matches
-        #: ``demo.visualization.render_mission_map(minimal=True)`` for slides).
+        #: MP4MR-clean live view: drop the route-lane backdrop and thin the
+        #: legs so the CBBA allocation carries the picture. Zone and incident
+        #: markers stay — an operator still needs to see where a fire is. The
+        #: fully-stripped scatter is ``render_mission_map(minimal=True)`` (slides).
         self.minimal = minimal
 
     def set_spec(
@@ -158,14 +159,16 @@ class MissionCanvas(QWidget):
                 painter.setFont(QFont("Sans Serif", 8, QFont.Weight.Bold))
                 painter.drawText(end + QPointF(6, -6), str(leg.order + 1))
 
-        if not self.minimal:
-            painter.setFont(QFont("Sans Serif", 8))
-            for zone in self.spec.zones:
-                point = project((zone.x, zone.y))
-                painter.setPen(QPen(ZONE, 2.0))
-                painter.setBrush(QBrush(PANEL))
-                painter.drawRoundedRect(QRectF(point.x() - 7, point.y() - 7, 14, 14), 3, 3)
-                painter.drawText(point + QPointF(-25, -12), zone.label)
+        # Zone and incident markers survive the minimal view — they are the
+        # sparse operational context an operator needs (where is the fire?);
+        # only the route-lane backdrop is dropped for the clean look.
+        painter.setFont(QFont("Sans Serif", 8))
+        for zone in self.spec.zones:
+            point = project((zone.x, zone.y))
+            painter.setPen(QPen(ZONE, 2.0))
+            painter.setBrush(QBrush(PANEL))
+            painter.drawRoundedRect(QRectF(point.x() - 7, point.y() - 7, 14, 14), 3, 3)
+            painter.drawText(point + QPointF(-25, -12), zone.label)
 
         painter.setPen(QPen(TASK, 1.0))
         painter.setBrush(QBrush(TASK))
@@ -174,14 +177,13 @@ class MissionCanvas(QWidget):
             point = project((task.x, task.y))
             painter.drawEllipse(point, task_radius, task_radius)
 
-        if not self.minimal:
-            painter.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
-            for incident in self.spec.incidents:
-                point = project((incident.x, incident.y))
-                painter.setPen(QPen(INCIDENT, 3.0))
-                painter.drawLine(point + QPointF(-7, -7), point + QPointF(7, 7))
-                painter.drawLine(point + QPointF(-7, 7), point + QPointF(7, -7))
-                painter.drawText(point + QPointF(-36, 24), incident.entity_id)
+        painter.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+        for incident in self.spec.incidents:
+            point = project((incident.x, incident.y))
+            painter.setPen(QPen(INCIDENT, 3.0))
+            painter.drawLine(point + QPointF(-7, -7), point + QPointF(7, 7))
+            painter.drawLine(point + QPointF(-7, 7), point + QPointF(7, -7))
+            painter.drawText(point + QPointF(-36, 24), incident.entity_id)
 
         activity = {
             item.agent_id: (item.activity, item.task_id) for item in self.frame.agents
