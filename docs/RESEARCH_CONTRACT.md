@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.64 (D-068). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.65 (D-069). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.65 (D-069): §22.7.1 확장 — `NEW_MISSION`을 `EXECUTION_PAUSED`(실행 중 safe
+  checkpoint)에서도 받아 새 episode를 연다. 옛 mission의 미완료 task는 버려지고 `EXECUTION`
+  audit을 받지 못한다(`EXECUTION_FAILED`는 여전히 거부). continuous 재생 중 `NEW_MISSION`이
+  수용되면 `ContinuousRuntime`이 episode 경계에서 멈추고 native UI가 새 episode로 새
+  `ContinuousRuntime`을 시작해 이어 재생한다. §23.4.1 큐 경로도 동일. 골든·Validator·allocator 불변.
 - v1.64 (D-068): (A) §22.7.1 — terminal 뒤 session이 `NEW_MISSION`·`UPDATE_RESOURCES`도
   받아 새 mission episode를 연다(UAV 위치 이어받음, UGV 기지 재시작, 완료 graph에 덧붙이지
   않음). "임무 완료" 종착점 제거, phase는 EXECUTED 유지하되 UI는 "대기" 표시. 반복 순찰은
@@ -2078,6 +2083,21 @@ clarification 대신 **새 mission episode**를 연다:
 사이에 마지막 위치에서 idle이며 화면이 계속 움직이는 척하지 않는다. 콘솔이 다음 명령을 항상
 받을 수 있을 뿐이다. phase는 `EXECUTED`로 유지하되 UI는 terminal 보존 상태를 "대기 · 다음
 명령 가능"으로 표시한다. LLM·allocator·priority·좌표 역할은 §22.7과 동일하게 불변.
+
+**실행 중 새 episode (D-069).** 새 episode를 여는 시점은 completed terminal에 국한하지 않는다.
+runtime을 보존한 어떤 session(= `EXECUTION_PAUSED` 또는 completed `EXECUTED`)이든 `NEW_MISSION`을
+받으면 그 자리의 safe checkpoint에서 새 episode를 연다. `EXECUTION_PAUSED`에서 열면 진행 중이던
+옛 mission의 미완료 task는 버려지고 옛 mission은 `EXECUTION(COMPLETED)`를 받지 못한다(중단은
+정직하게 기록되며, event stream은 옛 mission의 CheckpointAudit들 뒤에 곧바로
+`TURN(COMMITTED NEW_MISSION)`이 온다). UAV 위치는 그 checkpoint에서 이어받고 나머지는 위와
+동일하다. `EXECUTION_FAILED`(one-shot/deadlock)에서는 여전히 거부한다 — 그건 "새 세션"으로
+시작한다.
+
+continuous 재생 중 `NEW_MISSION`이 (직접 입력이든 §23.4.1 큐든) 수용되면 현재
+`ContinuousRuntime`은 episode 경계에서 멈추고, native UI가 새 episode에 대해 새
+`ContinuousRuntime`을 시작해 이어 재생한다 — 운용자에게는 한 번의 명령으로 이전 episode
+재생에서 새 episode 재생으로 매끄럽게 넘어가는 것으로 보인다. 하나의 monotonic clock 전제는
+episode 안에서만 유지되고, episode 경계에서 sim time은 새 episode의 0에서 다시 시작한다.
 
 ### 22.8 sensor 화재 감지 승인 게이트 (D-065)
 

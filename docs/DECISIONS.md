@@ -2144,3 +2144,31 @@ clarification 대신 새 mission episode를 연다: `generate_mission`으로 새
   phase "대기" 표시), `demo/visualization.py` + `desktop/simulator.py`(resolved 렌더).
 - 골든·Validator 판정 규칙·allocator: 불변. `industrial_park` P3/P4 골든은 GROUND_SUPPRESSION이
   실행 끝까지 안 가는 P3(plan-time)엔 영향 없고, P4(exec)는 상태 전이가 makespan을 안 바꾸므로 불변.
+
+## D-069: 실행 중 NEW_MISSION + continuous episode 교체 (계약 v1.65)
+
+**배경** Live 데모(사진)에서 D-068 Part A가 completed terminal에서만 동작했다. 새 episode를
+막 시작해 `EXECUTION_PAUSED`인 상태에서 다음 명령 → "임무가 이미 실행됐습니다"로 거부.
+운용자가 화면을 보는 시간의 대부분이 `EXECUTION_PAUSED`라 "계속 명령 수행이 안 돼, 너무
+정적"으로 느껴짐. 추가로 재생 중 큐에 넣은 `NEW_MISSION`은 무반응(게이트에서 거부되고
+`ContinuousRuntime`이 옛 segment를 붙들고 있어 episode 교체를 못 넘어감).
+
+**결정**
+1. **게이트 완화**: `NEW_MISSION`을 `session.runtime`이 보존된 어떤 상태(`EXECUTION_PAUSED`
+   또는 completed `EXECUTED`)에서도 수용. `_do_new_mission`이 그 checkpoint의 UAV 위치를
+   이어받아 새 episode를 연다. `EXECUTION_PAUSED`에서 열면 옛 mission의 미완료 task는 버려지고
+   옛 mission은 `EXECUTION` audit을 받지 못한다(중단). `EXECUTION_FAILED`는 계속 거부("새 세션").
+2. **`ContinuousRuntime` episode-swap 감지**: `_apply_one_queued`가 처리한 turn이
+   `NEW_MISSION` + `COMMITTED`이면 `ContinuousTick(episode_changed=True)`를 내고 자기를 halt.
+   옛 segment로 넘어가지 않는다.
+3. **native UI**: `_continuous_tick`이 `episode_changed`를 보면 현재 `ContinuousRuntime`을
+   버리고, 세션이 실행 가능하면 새 `ContinuousRuntime`으로 `play_continuous`를 다시 건다.
+   직접 입력한 `NEW_MISSION`은 기존 `_auto_run_after_commit` 경로가 이미 처리.
+Fix 3(큐 경로)은 1+2로 자동 동작.
+
+**영향**
+- 계약: §22.7.1 "실행 중 새 episode" 문단, 버전 v1.65.
+- 코드: `interaction/orchestrator.py`(게이트, `_do_new_mission`의 `EXECUTION_PAUSED` 분기),
+  `desktop/controller.py`(`ContinuousTick.episode_changed`, `_commit_next` 감지),
+  `desktop/window.py`(`_continuous_tick`의 episode 재시작).
+- 골든·Validator 판정·allocator: 불변.
