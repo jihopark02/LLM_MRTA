@@ -50,6 +50,7 @@ class CaseAB:
 class ModeRun:
     mode: str
     cases: list[CaseAB]
+    resolved_models: tuple[str, ...] = ()
 
     def summary(self) -> dict:
         n = len(self.cases)
@@ -102,7 +103,9 @@ def run(scene: Scene, backend_for, annotations: list[Annotation]) -> list[ModeRu
     for mode in _MODES:
         timed = TimedBackend(backend_for(mode))
         single = mode == "single-call"
-        runs.append(ModeRun(mode, [_run_case(a, scene, timed, single) for a in annotations]))
+        cases = [_run_case(a, scene, timed, single) for a in annotations]
+        resolved = tuple(dict.fromkeys(getattr(timed, "resolved_models", ())))
+        runs.append(ModeRun(mode, cases, resolved))
     return runs
 
 
@@ -139,7 +142,11 @@ def to_json(scene: Scene, runs: list[ModeRun]) -> str:
         "validator_version": VALIDATOR_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "modes": {
-            r.mode: {"summary": r.summary(), "cases": [asdict(c) for c in r.cases]}
+            r.mode: {
+                "summary": r.summary(),
+                "resolved_models": list(r.resolved_models),
+                "cases": [asdict(c) for c in r.cases],
+            }
             for r in runs
         },
     }
