@@ -12,8 +12,14 @@ Unmanned Systems
 
 ## 현재 단계
 
-**계약 v1.66 / 최신 결정 D-070. `main` = 태그 `v0.13.4-baseline`, pytest 936개 통과, ruff clean.**
-이 baseline 이후 개발은 새 feature branch에서 진행한다.
+**`main` = 태그 `v0.13.4-baseline` (계약 v1.66 / D-070).** 이 baseline 이후는 병렬 feature
+branch:
+- `feature/latency-profiling` — D-071 턴별 latency 계측 → D-072 single-call graph 생성 ablation
+  → D-074 pre-registered stress eval(Stress-L 19 + Stress-S 15, gpt-5-mini) → **D-075**:
+  runtime NEW_MISSION 기본 graph-gen을 single-call로 전환. two-stage는 evaluation baseline으로
+  유지. 계약 v1.70. pytest 954, ruff clean.
+- `feature/demo-scene-scaleup` — D-073 발표 데모 확대 (15-zone `demo_grid` + world 지도).
+- 계약 버전 라벨은 main 병합 시 재정렬한다.
 
 **P1~P6.5 완료** — `validator/`(P2) + `allocation/`(P3) + `execution/`(P4: `SimExecutor`)
 + `llm/`(P5: Step1/Step2/repair 파이프라인 §12) + `evaluation/`(P6: 9개 입력 평가 하네스;

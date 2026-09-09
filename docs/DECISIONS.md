@@ -2286,3 +2286,60 @@ call 2→1. 근데 P6는 two-stage도 만점이라 품질 저하를 감지할 �
   `scenarios/stress_grid.yaml`(신규), `evaluation/graph_gen_ablation.py`(`--set` + reject/
   safety-invalid/paired-latency 지표).
 - P6 9개·골든·Validator·CBBA·`generate_mission` default(아직 two-stage): 불변.
+
+## D-075: single-call runtime default adoption after D-074 (계약 v1.70)
+
+> 병렬 브랜치: D-073은 `feature/demo-scene-scaleup`(v1.67). D-074·D-075는
+> `feature/latency-profiling`(v1.69·v1.70). 버전 라벨은 main 병합 시 재정렬.
+
+**배경** D-074 live A/B (`gpt-5-mini-2025-08-07`, `data/eval_results/d074_*`):
+
+| | Stress-L (19) | Stress-S (15) |
+|---|---|---|
+| exact-match (분모 16 / 13) | 15/16 == 15/16 | 12/13 == 12/13 |
+| first-pass valid | two 16 / single 15 (−1 이내) | 13 == 13 |
+| safety-invalid accept | 0 == 0 | 0 == 0 |
+| paired latency median | −46% (single 95% 빠름) | −29% (100%) |
+| **explicit-reject** | **0/2 == 0/2** | **0/2 == 0/2** |
+
+전체 43 prompt = P6 9 + Stress-L 19 + Stress-S 15. exact-match 채점 분모 38 (= 9 + 16 + 13),
+나머지 5 = explicit-reject 4 + ambiguity-diagnostic 1.
+
+**결정**
+1. **D-074는 수정하지 않는다.** pre-registered gate 결과는 `NOT ALL PASS`로 보존. threshold·
+   annotation 소급 변경 없음.
+2. **explicit-reject criterion은 non-discriminative였다.** L17/L18/S11/S12에서 두 generator
+   모두 의도한 invalid candidate를 만들지 않고(빈 graph / 안전한 대안) 우회해 Validator의
+   unknown-reference reject 경로가 자극되지 않았다. 0/2 == 0/2는 single-call 열세가 아니라
+   해당 test의 아키텍처 판별 실패다. Validator reject correctness는 별도의 결정론적 negative
+   test로 검증한다(자연어 LLM 실험과 분리).
+3. **별도 engineering/runtime 결정으로** single-call을 runtime NEW_MISSION 기본 graph-generation
+   경로로 채택. D-074 gate 통과로 재해석하지 않는다. intent classification 단계는 불변. 최종
+   경로: Semantic Interpreter (LLM) → Structured Graph Synthesis (LLM, single call) →
+   Deterministic Invariant Validator → invalid 시 bounded repair (≤1) → Compiler → CBBA →
+   Executor.
+4. **two-stage generator는 삭제하지 않는다** — `generate_mission(single_call=False)`로 유지,
+   evaluation/ablation baseline. P6 two-stage 결과 보존 + D-072 single-call P6 (9/9) 병행 기록.
+5. `LLM_MRTA_GRAPH_GEN=two-stage`로 opt-out. mock 회귀 테스트는 `tests/conftest.py`가
+   two-stage로 고정(P6 harness가 two-stage인 것과 같은 이유), runtime 기본은 dedicated 테스트가
+   env를 지우고 검증.
+
+**주장 범위** 단일 scene 계열·단일 모델 스냅샷·단일 실행. "no observed degradation" 이상을
+주장하지 않는다. two-stage의 이론적 early-rejection 장점(task-list 실패 시 edge 호출 회피)은
+이번 live stress에서 관측되지 않았다. 용어: Validator는 "deterministic invariant validation",
+정형검증(formal verification) 아님. single-call은 main contribution이 아니라 online
+responsiveness를 위한 validated implementation decision / ablation result.
+
+**핵심 결론(영문, 그대로 인용용)**: The preregistered D-074 gate was formally NOT ALL PASS
+because the explicit-reject criterion failed in both modes. However, the criterion was
+non-discriminative because neither generator emitted the intended invalid candidates. On all
+discriminative comparative metrics, single-call showed no observed degradation relative to
+two-stage generation while reducing paired latency. Therefore, single-call is adopted as the
+runtime default, while two-stage generation is retained as the experimental baseline.
+
+**영향**
+- 계약: §12 D-075 문단, 버전 v1.70.
+- 코드: `interaction/orchestrator.py`(`_single_call_graph_gen` 기본값 반전),
+  `tests/conftest.py`(신규, mock 회귀 two-stage 고정), `tests/test_interaction_orchestrator.py`
+  (default 검증 테스트).
+- P6 harness·integration·golden·Validator·CBBA·two-stage generator: 불변.

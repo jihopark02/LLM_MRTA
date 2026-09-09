@@ -1,12 +1,23 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.69 (D-074). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.70 (D-075). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
 > 브랜치 주의: `feature/demo-scene-scaleup`이 D-073을 v1.67로 병렬 진행 중. 이 브랜치는
-> D-071(v1.67)·D-072(v1.68)·D-074(v1.69). 결정 번호는 전역 순번이라 충돌하지 않고,
-> 계약 버전 라벨은 두 브랜치를 main에 합칠 때 재정렬한다.
+> D-071(v1.67)·D-072(v1.68)·D-074(v1.69)·D-075(v1.70). 결정 번호는 전역 순번이라 충돌하지
+> 않고, 계약 버전 라벨은 두 브랜치를 main에 합칠 때 재정렬한다.
 
+- v1.70 (D-075): §12 — runtime NEW_MISSION의 기본 graph-generation 경로를 **single-call로
+  전환**한다(intent classification 단계는 불변). D-074는 수정하지 않는다: pre-registered
+  gate 결과는 그대로 **NOT ALL PASS**로 보존되고 explicit-reject 0/2 == 0/2도 실패로 남는다.
+  단 그 criterion은 **non-discriminative**였다 — 두 generator 모두 의도한 invalid candidate를
+  만들지 않아 Validator reject 경로가 자극되지 않았고, 따라서 두 아키텍처를 구분하지 못했다.
+  판별력 있던 축(exact-match / first-pass validity / safety-invalid acceptance / paired
+  latency)에서 single-call은 two-stage 대비 관측된 열세가 없었고 latency는 일관되게 감소했다.
+  D-074 gate 통과로 재해석하지 않고 **별도 engineering/runtime 결정**으로 채택한다. two-stage
+  generator는 삭제하지 않고 evaluation/ablation baseline으로 재현 가능하게 유지한다. 기존 P6
+  two-stage 결과는 그대로 두고 D-072의 single-call P6 결과(9/9 exact)를 병행 기록한다.
+  `LLM_MRTA_GRAPH_GEN=two-stage`로 opt-out. P6 harness·integration·frozen golden 불변.
 - v1.69 (D-074): §12 — single-call 채택 여부를 **사전 등록(pre-registered) stress evaluation**
   두 세트로 판정한다. Stress-L(industrial_park 4-zone, 영어 명령 19개 — 언어 복잡성) +
   Stress-S(신규 `stress_grid` 15-zone / 4-incident, 영어 명령 15개 — scene·graph 규모).
@@ -953,6 +964,45 @@ T_single,i)/T_two,i`, `median(r_i) ≥ 0.25` **및** `count(T_single < T_two)/N 
 **freeze 절차**: 명령·`allowed_graphs`·`reject_category`·gate 숫자를 **live 호출 전에**
 커밋하고, 그 커밋 뒤에는 결과를 보고 annotation·gate를 수정하지 않는다(D-023과 같은 원칙).
 결과는 별도 artifact로 커밋하고 채택/기각은 후속 결정으로 기록한다.
+
+**D-074 live 결과 + D-075 채택 결정**: `gpt-5-mini-2025-08-07`, 결과 artifact
+`data/eval_results/d074_{linguistic,scale}.*`. 총 **43개 prompt** 평가(P6 9 + Stress-L 19 +
+Stress-S 15). 그중 graph exact-match를 채점할 수 있는 분모는 **38개**(P6 9 + Stress-L 16 +
+Stress-S 13) — 나머지 5개는 explicit-reject 4개 + ambiguity-diagnostic 1개다. safety-invariant
+2개(L19·S15)는 38에 포함되며 별도로 unsafe-acceptance도 검사한다.
+
+- exact-match: single == two-stage (Stress-L 15/16, Stress-S 12/13).
+- first-pass validity: Stress-L two-stage 16 / single 15(허용 −1 이내), Stress-S 13 == 13.
+- safety-invalid acceptance: 두 세트·두 모드 모두 **0** (L19·S15는 두 모드 다 prerequisite
+  복원된 valid graph로 수렴).
+- paired latency: Stress-L median −46%(single이 95% 명령에서 빠름), Stress-S −29%(100%).
+- **explicit-reject: 두 모드 모두 0/2** → **pre-registered gate = NOT ALL PASS** (보존, 수정
+  안 함).
+
+explicit-reject criterion은 **non-discriminative**였다: L17/L18/S11/S12에서 두 generator
+모두 의도한 invalid reference를 graph로 만들지 않고 빈 graph나 안전한 대안으로 우회해
+Validator의 unknown-reference reject 경로가 자극되지 않았다. 이는 single-call의 열세가 아니라
+해당 test가 두 아키텍처를 구분하는 데 실패한 것이다. Validator reject correctness는 자연어
+LLM 실험이 아니라 별도의 결정론적 negative test로 검증한다(평가 층 분리).
+
+**D-075 결정**: 위 결과를 D-074 gate 통과로 재해석하지 않는다. pre-registered gate 실패는
+그대로 보존하고, 판별력 있는 비교 지표 전부에서 열세가 없고 latency가 일관되게 감소한 것을
+근거로 **별도의 engineering/runtime architecture 결정**으로 runtime NEW_MISSION의 기본
+graph-generation 경로를 single-call로 전환한다. 최종 경로:
+
+    Operator NL
+      → Semantic Interpreter (LLM)                — intent / slot / constraint
+      → Structured Mission Graph Synthesis (LLM, single call)  — {tasks, edges}
+      → Deterministic Invariant Validator         — schema/reference · DAG/cycle ·
+                                                    workflow · capability · reachability
+          ├ valid   → Compiler → CBBA → Executor
+          └ invalid → bounded Repair (≤ 1) → Validator
+
+용어: 이 Validator는 결정론적 invariant 검사를 수행하며 **정형검증(formal verification)이
+아니다** — 문서에서 "deterministic invariant validation"으로 부른다. two-stage generator는
+`generate_mission(single_call=False)`로 유지되고 P6 harness·`evaluation/integration.py`·
+`graph_gen_ablation.py --set ... `가 계속 재현한다. 이 이후 single-call 관련 구조 변경은
+닫고 메인 축(online interaction / selective CBBA / 시뮬레이션 표현)으로 돌아간다.
 
 **순서 강제(D-019)**: Step 1 출력은 **Step 2를 호출하기 전에** 자체적으로 schema 검증한다
 (task-only `MissionCandidate.from_raw` + 중복 id 검사). Step 1이 schema를 통과하지 못하면

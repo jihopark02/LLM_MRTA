@@ -19,7 +19,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-074, 계약 v1.69)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-075, 계약 v1.70)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
@@ -27,7 +27,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P13.4 + D-059~D-070 완료. `main`은 이제 여기(D-070)까지 fast-forward됐고 태그
 `v0.13.4-baseline`이 review·재현 기준점이다** (직전 baseline은 `v0.6.5-baseline` = P6.5).
-계약 v1.69, 최신 결정 D-074. pytest 954개 통과, ruff clean.
+계약 v1.70, 최신 결정 D-075. pytest 954개 통과, ruff clean.
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
 (D-027), `λ = 0.999`.
@@ -50,9 +50,19 @@ D-070 시스템을 고정해 둔다). 진행 중:
   `data/stress_annotations/{linguistic,scale}/` (freeze — 결과 보고 수정 금지). harness는
   `--set p6|linguistic|scale` + reject correctness / safety-invalid acceptance / paired
   latency 지표. gate: exact·first-pass single ≥ two-stage−1 및 ≥85%, reject 전부 correct,
-  safety-invalid=0, `median((T_two−T_single)/T_two) ≥ 0.25` 및 single ≥80% 빠름. 두 세트 다
-  통과해야 default 전환. **live 미실행** — 사용자가 `--set linguistic/scale` 돌린다.
-  한국어 조사 robustness는 별도 후속(로드맵 Phase 3).
+  safety-invalid=0, `median((T_two−T_single)/T_two) ≥ 0.25` 및 single ≥80% 빠름.
+  **live 실행 완료**(`gpt-5-mini-2025-08-07`, `data/eval_results/d074_*`): exact 15/16==15/16 ·
+  12/13==12/13, safety-invalid 0, paired latency −46%/−29%. **gate = NOT ALL PASS** — 유일한
+  실패는 explicit-reject 0/2==0/2(두 모드 동일, 모델이 invalid candidate를 안 만들어 Validator
+  reject 경로 미자극 → non-discriminative). D-074는 이 결과 그대로 보존.
+- `feature/latency-profiling` — **D-075 (계약 v1.70)**: D-074 gate 통과로 재해석하지 않고
+  별도 engineering 결정으로 **runtime NEW_MISSION 기본 graph-gen을 single-call로 전환**
+  (`_single_call_graph_gen` 기본값 반전, `LLM_MRTA_GRAPH_GEN=two-stage`로 opt-out). intent
+  classification 불변. two-stage generator는 evaluation baseline으로 유지, P6 harness도
+  two-stage(`tests/conftest.py`가 mock 회귀를 two-stage 고정). 용어: "deterministic invariant
+  validation"(정형검증 아님). single-call은 main contribution 아님 — online responsiveness용
+  구현 결정. **이후 single-call 구조 변경 종료**, 메인 축(online interaction / selective CBBA /
+  시뮬레이션)으로 복귀. 한국어 조사 robustness는 별도 후속(로드맵 Phase 3).
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.
