@@ -2172,3 +2172,30 @@ Fix 3(큐 경로)은 1+2로 자동 동작.
   `desktop/controller.py`(`ContinuousTick.episode_changed`, `_commit_next` 감지),
   `desktop/window.py`(`_continuous_tick`의 episode 재시작).
 - 골든·Validator 판정·allocator: 불변.
+
+## D-070: 실행 중 NEW_MISSION을 "이어지는 timeline"으로 (계약 v1.66)
+
+**배경** D-069 Live 데모: "전체 구역 재순찰 해줘" → "새 임무 episode를 시작합니다" + sim time
+0.0 리셋 + `ContinuousRuntime` 재시작. 사용자: "새 에피소드를 시작하는 이런 느낌이 아니라
+그대로 이어서 계속하는 건데."
+
+**결정** D-069를 재서술한다. 실행/완료 중 `NEW_MISSION`은:
+- `_do_new_mission`이 검증된 새 graph로 `SimExecutor`를 만들되 `runtime.now = 옛 runtime.now`,
+  `runtime.access_nodes = dict(옛 runtime.access_nodes)`, UAV 위치는 candidate_state에 주입
+  (D-068과 동일). `session.runtime = 그 executor`, `phase = EXECUTION_PAUSED`(PLANNING 아님),
+  `session.execution = None`. `advance_online_session`이 이어서 진행.
+- `ContinuousRuntime._commit_next`: `_apply_one_queued`가 `NEW_MISSION` + `COMMITTED`를 내면
+  방금 만든 (옛 graph의) segment를 버리고 loop를 `continue`해 새 runtime에서 fresh segment를
+  다시 받는다. `sim_time`은 옛 boundary 시각 = 새 executor의 `now`라 튀지 않는다.
+  `ContinuousTick.episode_changed`와 window의 `_restart_continuous_for_new_episode` 제거.
+
+옛 mission의 미완료 task는 버려지고 `EXECUTION` audit을 못 받는다. `EXECUTION_FAILED`는 계속
+거부. **반복 순찰은 여전히 미구현**: 재순찰 명령은 새 recon task로 들어가고 옛 sweep 완료
+기록은 감사에만 남는다(§22.7 한계).
+
+**영향**
+- 계약: §22.7.1 "실행 중 새 mission" 문단 재서술, 버전 v1.66.
+- 코드: `interaction/orchestrator.py`(`_do_new_mission` seed executor),
+  `desktop/controller.py`(`_commit_next` loop-continue, `ContinuousTick.episode_changed` 제거),
+  `desktop/window.py`(`_restart_continuous_for_new_episode` 제거, tick 체크 제거).
+- 골든·Validator 판정·allocator: 불변.

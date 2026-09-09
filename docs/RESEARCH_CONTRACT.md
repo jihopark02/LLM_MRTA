@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.65 (D-069). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.66 (D-070). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.66 (D-070): D-069의 "새 episode(sim time 0 리셋, ContinuousRuntime 재시작)"를
+  "**이어지는 timeline**"으로 재서술. 실행/완료 중 `NEW_MISSION`은 새 graph를 현재 sim
+  time·현재 agent 위치에서 seed한 executor로 `EXECUTION_PAUSED` 상태에서 이어 실행한다.
+  `ContinuousRuntime`은 boundary에서 stale segment를 버리고 같은 시각에 새 graph 재생을
+  바로 이어간다(멈춤·재시작 없음). "반복 순찰 아님" 한계 명시.
 - v1.65 (D-069): §22.7.1 확장 — `NEW_MISSION`을 `EXECUTION_PAUSED`(실행 중 safe
   checkpoint)에서도 받아 새 episode를 연다. 옛 mission의 미완료 task는 버려지고 `EXECUTION`
   audit을 받지 못한다(`EXECUTION_FAILED`는 여전히 거부). continuous 재생 중 `NEW_MISSION`이
@@ -2084,20 +2089,27 @@ clarification 대신 **새 mission episode**를 연다:
 받을 수 있을 뿐이다. phase는 `EXECUTED`로 유지하되 UI는 terminal 보존 상태를 "대기 · 다음
 명령 가능"으로 표시한다. LLM·allocator·priority·좌표 역할은 §22.7과 동일하게 불변.
 
-**실행 중 새 episode (D-069).** 새 episode를 여는 시점은 completed terminal에 국한하지 않는다.
-runtime을 보존한 어떤 session(= `EXECUTION_PAUSED` 또는 completed `EXECUTED`)이든 `NEW_MISSION`을
-받으면 그 자리의 safe checkpoint에서 새 episode를 연다. `EXECUTION_PAUSED`에서 열면 진행 중이던
-옛 mission의 미완료 task는 버려지고 옛 mission은 `EXECUTION(COMPLETED)`를 받지 못한다(중단은
-정직하게 기록되며, event stream은 옛 mission의 CheckpointAudit들 뒤에 곧바로
-`TURN(COMMITTED NEW_MISSION)`이 온다). UAV 위치는 그 checkpoint에서 이어받고 나머지는 위와
-동일하다. `EXECUTION_FAILED`(one-shot/deadlock)에서는 여전히 거부한다 — 그건 "새 세션"으로
-시작한다.
+**실행 중 새 mission을 이어서 (D-069, 재서술 D-070).** `NEW_MISSION`을 받는 시점은 completed
+terminal에 국한하지 않는다. runtime을 보존한 어떤 session(= `EXECUTION_PAUSED` 또는 completed
+`EXECUTED`)이든 받으며, "새 episode"로 리셋하지 않고 **하나의 이어지는 timeline**으로 처리한다:
+- 검증된 새 graph를 실행할 executor를 **현재 sim time과 현재 agent 위치**(UAV는 마지막 확정
+  좌표, UGV는 마지막 확정 route node)에서 seed한다. sim time은 0으로 돌아가지 않는다.
+- phase는 `EXECUTION_PAUSED`를 유지하고 `advance_online_session`이 이어서 진행한다. `EXECUTED`
+  에서 왔으면 D-055 follow-on처럼 `EXECUTED → EXECUTION_PAUSED` 전이만 한다.
+- 옛 mission의 미완료 task는 버려지고 옛 mission은 `EXECUTION(COMPLETED)`를 받지 못한다.
+  event stream은 옛 CheckpointAudit들 → `TURN(COMMITTED NEW_MISSION)` → 새 CheckpointAudit들로
+  이어진다.
+- `EXECUTION_FAILED`(one-shot/deadlock)는 여전히 거부한다 — "새 세션"으로 시작한다.
 
-continuous 재생 중 `NEW_MISSION`이 (직접 입력이든 §23.4.1 큐든) 수용되면 현재
-`ContinuousRuntime`은 episode 경계에서 멈추고, native UI가 새 episode에 대해 새
-`ContinuousRuntime`을 시작해 이어 재생한다 — 운용자에게는 한 번의 명령으로 이전 episode
-재생에서 새 episode 재생으로 매끄럽게 넘어가는 것으로 보인다. 하나의 monotonic clock 전제는
-episode 안에서만 유지되고, episode 경계에서 sim time은 새 episode의 0에서 다시 시작한다.
+**반복 순찰 아님(§22.7 유지).** 이미 정찰 완료된 zone을 "재순찰"하면 그건 **새 recon task**로
+현재 graph에 들어간다. 옛 sweep의 완료 기록은 감사에만 남고 재실행되지 않는다. 반복 순찰
+루프를 구현하는 게 아니라, 운용자가 새 sweep 명령을 내렸고 agent가 현재 상태에서 수행하는
+것이다.
+
+continuous 재생 중 `NEW_MISSION`이 (직접 입력이든 §23.4.1 큐든) 수용되면 `ContinuousRuntime`은
+그 boundary에서 옛 graph의 stale segment를 버리고 같은 sim time에서 새 graph의 다음 segment를
+바로 이어 재생한다 — 재생을 멈추거나 새 `ContinuousRuntime`을 시작하지 않으며, 운용자에게는
+한 번의 명령으로 끊김 없이 이어지는 것으로 보인다. monotonic clock 전제는 유지된다.
 
 ### 22.8 sensor 화재 감지 승인 게이트 (D-065)
 
