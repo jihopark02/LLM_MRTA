@@ -273,7 +273,7 @@ def test_initial_commit_autoplays_and_mid_segment_report_is_applied_once(
         assert controller.queued_command == OPERATOR_MOCK_COMMANDS[1]
         assert len(backend.calls) == calls_before
         assert controller.session.turn_count == turns_before
-        assert not operator.command_input.isEnabled()
+        assert operator.command_input.isEnabled()  # more commands may be queued
         assert "QUEUED" in operator.status.text()
 
         _drain_until(qt_app, lambda: not operator._busy, timeout=6.0)
@@ -284,7 +284,7 @@ def test_initial_commit_autoplays_and_mid_segment_report_is_applied_once(
         assert len(controller.session.state.graph) == 6
         assert controller.session.phase.value == "EXECUTED"
         assert controller.session.execution.termination.value == "COMPLETED"
-        assert any("[QUEUED]" in message.text for message in controller.chat)
+        assert any("[QUEUED #" in message.text for message in controller.chat)
         assert any(
             "GROUND_INSPECTION__FIRE_SITE_1" in task_ids
             for task_ids in played_task_sets[1:]

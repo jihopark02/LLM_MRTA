@@ -210,8 +210,6 @@ def test_queued_command_does_not_call_backend_until_safe_checkpoint(tmp_path):
     assert len(backend.calls) == calls_before
     assert controller.session.turn_count == turns_before
     assert len(controller.session.state.graph) == 4
-    with pytest.raises(ValueError, match="already queued"):
-        controller.queue_command("두 번째 명령")
 
     controller.advance_checkpoint()
     result = controller.submit_queued()
@@ -221,6 +219,52 @@ def test_queued_command_does_not_call_backend_until_safe_checkpoint(tmp_path):
     assert len(backend.calls) == calls_before + 1
     assert controller.session.turn_count == turns_before + 1
     assert len(controller.session.state.graph) == 6
+
+
+def test_queue_is_fifo_and_drains_one_command_per_checkpoint(tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="operator-report"
+    )
+    controller.submit(OPERATOR_MOCK_COMMANDS[0])
+    backend = controller.backends["mock"]
+    calls_before = len(backend.calls)
+
+    controller.queue_command(OPERATOR_MOCK_COMMANDS[1])
+    controller.queue_command("점검 상태 알려줘")
+
+    assert controller.queued_commands == [OPERATOR_MOCK_COMMANDS[1], "점검 상태 알려줘"]
+    assert controller.queued_command == OPERATOR_MOCK_COMMANDS[1]
+    assert len(backend.calls) == calls_before
+
+    controller.advance_checkpoint()
+    controller.submit_queued()
+    assert controller.queued_commands == ["점검 상태 알려줘"]
+
+    controller.advance_checkpoint()
+    controller.submit_queued()
+    assert controller.queued_commands == []
+    with pytest.raises(ValueError, match="no command is queued"):
+        controller.submit_queued()
+
+
+def test_cancelling_a_queued_command_touches_no_mission_state(tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="operator-report"
+    )
+    controller.submit(OPERATOR_MOCK_COMMANDS[0])
+    graph_before = len(controller.session.state.graph)
+    turns_before = controller.session.turn_count
+
+    controller.queue_command("첫 명령")
+    controller.queue_command("둘째 명령")
+    removed = controller.cancel_queued(0)
+
+    assert removed == "첫 명령"
+    assert controller.queued_commands == ["둘째 명령"]
+    assert controller.session.turn_count == turns_before
+    assert len(controller.session.state.graph) == graph_before
+    with pytest.raises(ValueError, match="no queued command at index"):
+        controller.cancel_queued(5)
 
 
 @pytest.mark.parametrize("mode", ["", "LIVE", "fake", None])

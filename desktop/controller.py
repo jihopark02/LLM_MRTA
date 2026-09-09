@@ -186,7 +186,7 @@ class DesktopController:
         self.mode = "live" if self.profile.mock_script is None else "mock"
         self.backends: dict[str, object] = {}
         self.chat: list[ChatMessage] = []
-        self.queued_command: str | None = None
+        self.queued_commands: list[str] = []
         self.observation_source: SimulatedFireSource | SimulatedFireField | None = None
         self.session = self._fresh_session()
 
@@ -226,7 +226,7 @@ class DesktopController:
         self.session = self._fresh_session()
         self.backends = {}
         self.chat = []
-        self.queued_command = None
+        self.queued_commands = []
         return self.session
 
     def set_mode(self, mode: str) -> None:
@@ -268,33 +268,51 @@ class DesktopController:
         self._persist()
         return result
 
+    @property
+    def queued_command(self) -> str | None:
+        """The next command that will be consumed, or ``None`` (§23.4.1)."""
+        return self.queued_commands[0] if self.queued_commands else None
+
     def queue_command(self, utterance: str) -> None:
-        """Hold one presentation command until the current segment ends.
+        """Append one presentation command to the FIFO queue (§23.4.1).
 
         Queuing is deliberately outside ``MissionSession``: no LLM call or
         ``TurnAudit`` exists until :meth:`submit_queued` runs at the committed
-        safe checkpoint (§22.6).
+        safe checkpoint (§22.6).  A second input never overwrites the first —
+        each utterance is its own operator decision.
         """
         if not isinstance(utterance, str) or not utterance.strip():
             raise ValueError("utterance must contain text")
-        if self.queued_command is not None:
-            raise ValueError("a command is already queued")
         clean = utterance.strip()
-        self.queued_command = clean
+        self.queued_commands.append(clean)
+        position = len(self.queued_commands)
         self._record(
             clean,
-            "[QUEUED] 현재 이동은 중단하지 않습니다. "
-            "다음 safe checkpoint에서 명령을 적용합니다.",
+            f"[QUEUED #{position}] 현재 이동은 중단하지 않습니다. "
+            "다음 safe checkpoint부터 순서대로 적용합니다.",
         )
 
+    def cancel_queued(self, index: int) -> str:
+        """Drop one not-yet-consumed queued command (§23.4.1).
+
+        Cancelling touches no graph, scene, runtime or referent state — it only
+        removes a presentation-layer entry that has not reached the orchestrator.
+        """
+        if not isinstance(index, int) or isinstance(index, bool):
+            raise ValueError("index must be an int")
+        if not 0 <= index < len(self.queued_commands):
+            raise ValueError(f"no queued command at index {index}")
+        removed = self.queued_commands.pop(index)
+        self._record(removed, "[QUEUE CANCELLED] 이 명령은 적용되지 않습니다.")
+        return removed
+
     def submit_queued(self) -> TurnResult:
-        """Consume the queued text exactly once through the real orchestrator."""
-        utterance = self.queued_command
-        if utterance is None:
+        """Consume the head of the queue once through the real orchestrator."""
+        if not self.queued_commands:
             raise ValueError("no command is queued")
         # Dequeue before the external call: an unexpected exception must stop
         # autoplay, not silently retry a possibly consumed LLM request.
-        self.queued_command = None
+        utterance = self.queued_commands.pop(0)
         result = handle_turn(self.session, utterance, self._backend())
         self.chat.append(ChatMessage("assistant", result.message))
         self._persist()

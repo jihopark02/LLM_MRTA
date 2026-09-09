@@ -371,11 +371,7 @@ class OperatorWindow(QMainWindow):
         self._refresh_candidates()
 
         pending = session.pending_clarification is not None
-        can_queue = (
-            self._busy
-            and self.simulator.is_playing
-            and self.controller.queued_command is None
-        )
+        can_queue = self._busy and self.simulator.is_playing
         can_input = not pending and (not self._busy or can_queue)
         self.command_input.setEnabled(can_input)
         self.send_button.setEnabled(can_input)
