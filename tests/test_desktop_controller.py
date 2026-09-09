@@ -450,6 +450,42 @@ def test_a_fire_answered_before_recon_ends_never_stops_the_clock(tmp_path):
     assert controller.session.execution.termination.value == "COMPLETED"
 
 
+def test_continuous_runtime_reports_episode_changed_for_a_queued_new_mission(tmp_path):
+    from interaction.orchestrator import TurnOutcome
+
+    controller = _controller(tmp_path)
+    controller.submit(MOCK_COMMANDS[0])
+
+    runtime = ContinuousRuntime(controller)
+    runtime.start()
+    runtime.advance_to(runtime.sim_time + 2.0)
+
+    # simulate a queued NEW_MISSION landing at the next boundary
+    controller.queued_commands.append("전체 재정찰")
+
+    class _Fake:
+        outcome = TurnOutcome.COMMITTED
+        intent_kind = "NEW_MISSION"
+        message = ""
+
+    def fake_submit_queued():
+        controller.queued_commands.pop(0)
+        return _Fake()
+
+    controller.submit_queued = fake_submit_queued
+
+    tick = None
+    guard = 0
+    while runtime.active and guard < 400:
+        tick = runtime.advance_to(runtime.sim_time + 6.0)
+        if tick.episode_changed:
+            break
+        guard += 1
+
+    assert tick is not None and tick.episode_changed
+    assert not runtime.active  # this runtime halted; the UI starts a fresh one
+
+
 def test_suppressed_incidents_flip_to_resolved_and_render_faded(tmp_path):
     from core.enums import IncidentStatus
 

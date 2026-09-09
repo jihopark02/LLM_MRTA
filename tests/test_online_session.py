@@ -197,6 +197,68 @@ def test_completed_run_accepts_a_new_mission_episode_from_current_positions(
     assert event_types[event_types.index("EXECUTION") + 1] == "TURN"
 
 
+def test_new_mission_mid_run_abandons_the_paused_mission_and_opens_a_fresh_episode(
+    planned_session,
+):
+    from llm.schemas import LLMTask, Step1Output, Step2Output
+
+    advance_online_session(planned_session, mode="mock")
+    advance_online_session(planned_session, mode="mock")
+    assert planned_session.phase is SessionPhase.EXECUTION_PAUSED
+    uav_mid = {
+        aid: agent.position
+        for aid, agent in planned_session.runtime.agents.items()
+        if agent.platform_kind.name == "UAV"
+    }
+    executions_before = [
+        e.event_type for e in planned_session.event_log
+    ].count("EXECUTION")
+
+    zones = sorted(planned_session.scene.zones)
+    backend = MockBackend(
+        [
+            wire_intent("NEW_MISSION"),
+            Step1Output(tasks=[LLMTask(task_type="AREA_RECON", target=z) for z in zones]),
+            Step2Output(edges=[]),
+        ]
+    )
+    result = handle_turn(planned_session, "이거 그만하고 전체 정찰 다시 해줘", backend)
+
+    assert result.outcome is TurnOutcome.COMMITTED
+    assert planned_session.phase is SessionPhase.PLANNING
+    assert planned_session.runtime is None
+    assert {t.task_type.value for t in planned_session.state.graph.tasks} == {"AREA_RECON"}
+    for aid, pos in uav_mid.items():
+        assert planned_session.state.agents[aid].position == pos
+    # the abandoned mission never produced an EXECUTION audit
+    assert [e.event_type for e in planned_session.event_log].count(
+        "EXECUTION"
+    ) == executions_before
+
+    while planned_session.phase is not SessionPhase.EXECUTED:
+        advance_online_session(planned_session, mode="mock")
+    assert planned_session.execution.termination is Termination.COMPLETED
+
+
+def test_new_mission_is_still_refused_from_a_failed_run(planned_session, monkeypatch):
+    from execution.executor import SimExecutor
+
+    original = SimExecutor.advance_to_next_completion
+
+    def boom(self, *a, **k):
+        raise RuntimeError("exec exploded")
+
+    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", boom)
+    advance_online_session(planned_session, mode="mock")
+    assert planned_session.phase is SessionPhase.EXECUTION_FAILED
+    monkeypatch.setattr(SimExecutor, "advance_to_next_completion", original)
+
+    result = handle_turn(
+        planned_session, "전체 정찰 다시", MockBackend([wire_intent("NEW_MISSION")])
+    )
+    assert result.outcome is TurnOutcome.UNSUPPORTED
+
+
 def test_scene_only_terminal_report_can_be_followed_by_canonical_update(
     planned_session,
 ):

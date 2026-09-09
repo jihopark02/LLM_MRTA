@@ -552,6 +552,7 @@ class ContinuousTick:
     queued_result: TurnResult | None = None
     finished: bool = False
     halt_reason: str | None = None
+    episode_changed: bool = False   # a queued NEW_MISSION opened a fresh episode
 
 
 class ContinuousRuntime:
@@ -650,6 +651,19 @@ class ContinuousRuntime:
                     if self._controller.session.pending_approvals
                     else self._apply_one_queued()
                 )
+                # A queued NEW_MISSION opened a fresh episode — this runtime is
+                # about to interpolate a stale segment, so stop and let the UI
+                # start a new ContinuousRuntime on the new episode (§22.7.1).
+                if (
+                    queued_result is not None
+                    and queued_result.outcome is TurnOutcome.COMMITTED
+                    and queued_result.intent_kind == "NEW_MISSION"
+                ):
+                    self.halted = True
+                    return ContinuousTick(
+                        boundary_at_start, self.sim_time, boundary=advance,
+                        queued_result=queued_result, episode_changed=True,
+                    )
                 halt = (
                     None
                     if queued_result is None or self._queued_ok(queued_result)

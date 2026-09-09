@@ -374,8 +374,14 @@ def _resource_audit(
 
 def _do_new_mission(turn: _Turn, backend) -> TurnResult:
     session = turn.session
-    new_episode = completed_online_terminal(session)
+    # §22.7.1 (D-068/D-069): a preserved runtime — EXECUTION_PAUSED mid-run or a
+    # completed EXECUTED — is a safe checkpoint to branch a fresh episode from.
+    new_episode = (
+        session.runtime is not None
+        and session.phase is not SessionPhase.PLANNING
+    )
     if session.state is not None and not new_episode:
+        # PLANNING with an unexecuted mission: don't silently overwrite it.
         return _clarify(
             turn,
             GroundingOutcome(
@@ -388,8 +394,8 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
             ),
         )
 
-    # §22.7.1 (D-068): a fresh episode inherits UAV positions from the terminal
-    # checkpoint; UGVs restart from the scene base node.
+    # A fresh episode inherits UAV positions from the current checkpoint;
+    # UGVs restart from the scene base node.
     inherited_uav = (
         {
             aid: agent.position
@@ -454,9 +460,11 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
         resolved.active_agents,
     )
     if new_episode:
-        # The previous ExecutionAudit stays in the append-only stream; the
-        # runtime/execution now belong to the fresh episode, and PLANNING lets
-        # native auto-run pick it up.
+        # The old mission's audit trail (its CheckpointAudits, and an
+        # ExecutionAudit only if it finished) stays in the append-only stream.
+        # An EXECUTION_PAUSED mission is simply abandoned here — its unfinished
+        # tasks never get an ExecutionAudit. PLANNING lets native auto-run pick
+        # the fresh episode up.
         session.runtime = None
         session.execution = None
         session.online_started_at = None
@@ -845,12 +853,13 @@ def _dispatch(turn: _Turn, backend) -> TurnResult:
         k: v for k, v in intent.model_dump().items() if k != "kind" and v is not None
     }
 
-    # §22.7.1 (D-068): a preserved terminal checkpoint is a standing console —
-    # NEW_MISSION opens a fresh episode, UPDATE_RESOURCES sets the next team.
-    if (
-        intent.kind == "NEW_MISSION"
-        and session.phase is not SessionPhase.PLANNING
-        and not completed_online_terminal(session)
+    # §22.7.1 (D-068/D-069): a session with a preserved runtime is a standing
+    # console — NEW_MISSION opens a fresh episode from that checkpoint, whether
+    # the run is paused mid-mission or finished. Only a dead end (no runtime to
+    # branch from, or a failed run) refuses it.
+    if intent.kind == "NEW_MISSION" and (
+        session.phase is SessionPhase.EXECUTION_FAILED
+        or (session.phase is not SessionPhase.PLANNING and session.runtime is None)
     ):
         return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
     if intent.kind == "UPDATE_RESOURCES" and session.phase not in {

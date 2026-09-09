@@ -643,7 +643,22 @@ class OperatorWindow(QMainWindow):
         self._render_continuous_tick(tick)
         if tick.boundary is not None:
             self.refresh()
+        if tick.episode_changed:
+            self._restart_continuous_for_new_episode()
+            return
         self._settle_continuous(tick)
+
+    def _restart_continuous_for_new_episode(self) -> None:
+        """A queued NEW_MISSION opened a fresh episode — play that one now."""
+        self._continuous_timer.stop()
+        self._continuous_runtime = None
+        self._continuous = False
+        self._busy = False
+        self.status.setText("CONTINUOUS RUNTIME · 새 임무 episode로 전환")
+        self._refresh_simulator()
+        self.refresh()
+        if self._can_advance():
+            QTimer.singleShot(0, self.play_continuous)
 
     def _render_continuous_tick(self, tick) -> None:
         if tick.frame is not None:
