@@ -82,14 +82,13 @@ route_graph:
     - [R_D, R_H]
     - [R_L, R_H]
 
-# 3 identical UAVs + 2 UGVs (§5, D-060). The UAVs pre-position along the
-# southern edge (left / centre / right) rather than sharing one depot point:
-# their starts are identical in capability, so the CBBA split is driven purely
-# by geometry, and spread launch points keep the three recon routes legible
-# instead of collapsing them into one bundle. Both UGVs start at the depot.
+# 3 identical UAVs + 2 UGVs (§5, D-060). All five launch from the depot; the
+# UAV points differ by a few metres only so the plan/execution figures do not
+# draw their first legs exactly on top of each other. The CBBA split is
+# whatever the geometry produces from a shared start.
 fleet:
-  - { agent_id: U1, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [ 40.0, 14.0], speed: 8.0 }
-  - { agent_id: U2, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [235.0, 14.0], speed: 8.0 }
-  - { agent_id: U3, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [430.0, 14.0], speed: 8.0 }
+  - { agent_id: U1, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [22.0, 12.0], speed: 8.0 }
+  - { agent_id: U2, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [38.0, 12.0], speed: 8.0 }
+  - { agent_id: U3, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [30.0, 26.0], speed: 8.0 }
   - { agent_id: G1, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: R_DEPOT, speed: 3.0 }
   - { agent_id: G2, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: R_DEPOT, speed: 3.0 }
