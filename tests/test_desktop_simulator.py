@@ -83,6 +83,20 @@ def test_playback_uses_every_frozen_frame_and_emits_boundaries(qt_app):
     window.shutdown()
 
 
+def test_minimal_view_is_the_default_and_both_paint_paths_render(qt_app):
+    default = MissionSimulatorWindow()
+    assert default.canvas.minimal is True
+    default.shutdown()
+
+    full = MissionSimulatorWindow(minimal=False)
+    assert full.canvas.minimal is False
+    spec = _plan_spec()
+    for window in (MissionSimulatorWindow(), full):
+        window.show_spec(spec)
+        window.canvas.grab()  # forces the offscreen paint path for this mode
+        window.shutdown()
+
+
 def test_closing_the_simulator_hides_it_without_destroying_its_spec(qt_app):
     window = MissionSimulatorWindow()
     spec = _plan_spec()

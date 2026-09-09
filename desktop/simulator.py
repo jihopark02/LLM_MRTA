@@ -55,11 +55,15 @@ def _agent_offsets(agents) -> dict[str, tuple[float, float]]:
 class MissionCanvas(QWidget):
     """A scalable Qt painter for an already-built ``MapRenderSpec``."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, *, minimal: bool = True) -> None:
         super().__init__(parent)
         self.setMinimumSize(760, 560)
         self.spec: MapRenderSpec | None = None
         self.frame: AnimationFrameSpec | None = None
+        #: MP4MR-clean view: drop the route-lane / zone / incident backdrop so
+        #: the CBBA allocation polylines carry the picture (matches
+        #: ``demo.visualization.render_mission_map(minimal=True)`` for slides).
+        self.minimal = minimal
 
     def set_spec(
         self,
@@ -129,9 +133,10 @@ class MissionCanvas(QWidget):
         viewport = QRectF(self.rect()).adjusted(52.0, 45.0, -legend_width, -52.0)
         project = self._projector(viewport)
 
-        painter.setPen(QPen(ROUTE, 2.0))
-        for lane in self.spec.route_lanes:
-            self._polyline(painter, lane, project)
+        if not self.minimal:
+            painter.setPen(QPen(ROUTE, 2.0))
+            for lane in self.spec.route_lanes:
+                self._polyline(painter, lane, project)
 
         for leg in self.spec.legs:
             color = QColor(
@@ -142,7 +147,7 @@ class MissionCanvas(QWidget):
             )
             if leg.phase == "remaining":
                 color.setAlpha(120)
-            pen = QPen(color, 3.4)
+            pen = QPen(color, 2.0 if self.minimal else 3.4)
             pen.setStyle(_pen_style(leg.phase))
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(pen)
@@ -153,27 +158,30 @@ class MissionCanvas(QWidget):
                 painter.setFont(QFont("Sans Serif", 8, QFont.Weight.Bold))
                 painter.drawText(end + QPointF(6, -6), str(leg.order + 1))
 
-        painter.setFont(QFont("Sans Serif", 8))
-        for zone in self.spec.zones:
-            point = project((zone.x, zone.y))
-            painter.setPen(QPen(ZONE, 2.0))
-            painter.setBrush(QBrush(PANEL))
-            painter.drawRoundedRect(QRectF(point.x() - 7, point.y() - 7, 14, 14), 3, 3)
-            painter.drawText(point + QPointF(-25, -12), zone.label)
+        if not self.minimal:
+            painter.setFont(QFont("Sans Serif", 8))
+            for zone in self.spec.zones:
+                point = project((zone.x, zone.y))
+                painter.setPen(QPen(ZONE, 2.0))
+                painter.setBrush(QBrush(PANEL))
+                painter.drawRoundedRect(QRectF(point.x() - 7, point.y() - 7, 14, 14), 3, 3)
+                painter.drawText(point + QPointF(-25, -12), zone.label)
 
         painter.setPen(QPen(TASK, 1.0))
         painter.setBrush(QBrush(TASK))
+        task_radius = 3.0 if self.minimal else 2.4
         for task in self.spec.task_points:
             point = project((task.x, task.y))
-            painter.drawEllipse(point, 2.4, 2.4)
+            painter.drawEllipse(point, task_radius, task_radius)
 
-        painter.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
-        for incident in self.spec.incidents:
-            point = project((incident.x, incident.y))
-            painter.setPen(QPen(INCIDENT, 3.0))
-            painter.drawLine(point + QPointF(-7, -7), point + QPointF(7, 7))
-            painter.drawLine(point + QPointF(-7, 7), point + QPointF(7, -7))
-            painter.drawText(point + QPointF(-36, 24), incident.entity_id)
+        if not self.minimal:
+            painter.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+            for incident in self.spec.incidents:
+                point = project((incident.x, incident.y))
+                painter.setPen(QPen(INCIDENT, 3.0))
+                painter.drawLine(point + QPointF(-7, -7), point + QPointF(7, 7))
+                painter.drawLine(point + QPointF(-7, 7), point + QPointF(7, -7))
+                painter.drawText(point + QPointF(-36, 24), incident.entity_id)
 
         activity = {
             item.agent_id: (item.activity, item.task_id) for item in self.frame.agents
@@ -233,7 +241,7 @@ class MissionSimulatorWindow(QMainWindow):
     playback_started = Signal()
     playback_finished = Signal()
 
-    def __init__(self) -> None:
+    def __init__(self, *, minimal: bool = True) -> None:
         super().__init__()
         self.setObjectName("missionSimulatorWindow")
         self.setWindowTitle("LLM-MRTA · Mission Simulator")
@@ -251,7 +259,7 @@ class MissionSimulatorWindow(QMainWindow):
         self.header.setObjectName("simulatorHeader")
         self.clock = QLabel("SIMULATION  t = 0.0 s")
         self.clock.setObjectName("simulatorClock")
-        self.canvas = MissionCanvas()
+        self.canvas = MissionCanvas(minimal=minimal)
         layout.addWidget(self.header)
         layout.addWidget(self.clock)
         layout.addWidget(self.canvas, 1)

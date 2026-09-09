@@ -677,6 +677,25 @@ def test_the_map_renderer_consumes_only_the_spec():
         figure.clear()
 
 
+def test_minimal_style_keeps_the_legs_but_drops_the_scene_backdrop():
+    from demo.visualization import render_mission_map
+
+    spec = _hand_built_map()
+    full = render_mission_map(spec)
+    minimal = render_mission_map(spec, minimal=True)
+    try:
+        # the assignment polyline (the gid'd artist) survives either way
+        assert _map_gids(minimal) == _map_gids(full) == {"A1:0:completed:T1"}
+        # minimal has no route-lane / zone / incident legend, so fewer legends
+        assert len(minimal.axes[0].get_legend().get_texts()) <= len(
+            full.axes[0].get_legend().get_texts()
+        )
+        assert len(minimal.axes[0].artists) < len(full.axes[0].artists)
+    finally:
+        full.clear()
+        minimal.clear()
+
+
 @pytest.mark.parametrize("mode", ["plan", "runtime", "execution"])
 def test_each_mode_gets_its_own_title(mode):
     from demo.visualization import MAP_MODE_TITLES, render_mission_map

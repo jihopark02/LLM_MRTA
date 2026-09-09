@@ -594,13 +594,19 @@ def _map_bounds(spec: "MapRenderSpec"):
     return (min(xs) - pad, max(xs) + pad, min(ys) - pad, max(ys) + pad)
 
 
-def render_mission_map(spec: MapRenderSpec):
+def render_mission_map(spec: MapRenderSpec, *, minimal: bool = False):
     """Draw a ``MapRenderSpec``. Returns a matplotlib ``Figure``.
 
     One renderer for all three modes (§18.14): separate ones would let the
     background, colours, legends and line styles drift apart between a plan and
     the run it is compared against. The spec is the only data input — no
     ``Scene``, executor or result is read here.
+
+    ``minimal`` drops the scene backdrop (route lanes, zone/incident markers,
+    task dots) and the Leg/Map legends, leaving only agent markers, the
+    per-agent assignment polylines with order numbers and the Agents legend —
+    the MP4MR-style allocation scatter for slides. It changes only what is
+    drawn, never the spec, so the determinism gate is unaffected.
     """
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     from matplotlib.figure import Figure
@@ -610,27 +616,32 @@ def render_mission_map(spec: MapRenderSpec):
     FigureCanvasAgg(fig)
     ax = fig.add_subplot()
 
-    # Route graph first, as a neutral backdrop.
-    for lane in spec.route_lanes:
-        ax.plot(
-            [x for x, _ in lane], [y for _, y in lane],
-            color="#d5d9de", linewidth=1.6, zorder=0, solid_capstyle="round",
-        )
-
-    for zone in spec.zones:
-        ax.plot([zone.x], [zone.y], marker="P", markersize=11, linestyle="none",
-                color="#c9ced6", markeredgecolor="#98a0ab", zorder=1)
-        ax.annotate(zone.label, (zone.x, zone.y), textcoords="offset points",
-                    xytext=(0, 11), ha="center", fontsize=7, color="#6b7280")
-    for incident in spec.incidents:
-        ax.plot([incident.x], [incident.y], marker="X", markersize=12,
-                linestyle="none", color="#c0392b", markeredgecolor="#7b1e14", zorder=2)
-        ax.annotate(incident.entity_id, (incident.x, incident.y),
-                    textcoords="offset points", xytext=(0, -15), ha="center",
-                    fontsize=7, color="#7b1e14")
-    for task in spec.task_points:
-        ax.plot([task.x], [task.y], marker=".", markersize=6, linestyle="none",
-                color="#4c566a", zorder=2)
+    leg_width = 1.2 if minimal else 1.8
+    if not minimal:
+        # Route graph first, as a neutral backdrop.
+        for lane in spec.route_lanes:
+            ax.plot(
+                [x for x, _ in lane], [y for _, y in lane],
+                color="#d5d9de", linewidth=1.6, zorder=0, solid_capstyle="round",
+            )
+        for zone in spec.zones:
+            ax.plot([zone.x], [zone.y], marker="P", markersize=11, linestyle="none",
+                    color="#c9ced6", markeredgecolor="#98a0ab", zorder=1)
+            ax.annotate(zone.label, (zone.x, zone.y), textcoords="offset points",
+                        xytext=(0, 11), ha="center", fontsize=7, color="#6b7280")
+        for incident in spec.incidents:
+            ax.plot([incident.x], [incident.y], marker="X", markersize=12,
+                    linestyle="none", color="#c0392b", markeredgecolor="#7b1e14", zorder=2)
+            ax.annotate(incident.entity_id, (incident.x, incident.y),
+                        textcoords="offset points", xytext=(0, -15), ha="center",
+                        fontsize=7, color="#7b1e14")
+        for task in spec.task_points:
+            ax.plot([task.x], [task.y], marker=".", markersize=6, linestyle="none",
+                    color="#4c566a", zorder=2)
+    else:
+        for task in spec.task_points:
+            ax.plot([task.x], [task.y], marker="o", markersize=7, linestyle="none",
+                    markerfacecolor="#1a1a1a", markeredgecolor="#1a1a1a", zorder=2)
 
     colors = {agent.agent_id: agent.color for agent in spec.agents}
     # Tasks can share an endpoint — a UGV suppressing where it just inspected
@@ -659,7 +670,7 @@ def render_mission_map(spec: MapRenderSpec):
         else:
             artist = ax.plot(
                 [x for x, _ in leg.points], [y for _, y in leg.points],
-                color=color, linestyle=leg.linestyle, linewidth=1.8, zorder=4,
+                color=color, linestyle=leg.linestyle, linewidth=leg_width, zorder=4,
                 solid_capstyle="round",
             )[0]
         artist.set_gid(leg.gid)
@@ -672,7 +683,7 @@ def render_mission_map(spec: MapRenderSpec):
         marker = UAV_MARKER if agent.platform_kind is PlatformKind.UAV else UGV_MARKER
         ax.plot(
             [agent.position[0]], [agent.position[1]],
-            marker=marker, markersize=13, linestyle="none",
+            marker=marker, markersize=11 if minimal else 13, linestyle="none",
             color=agent.color, markeredgecolor="#2b2f36", markeredgewidth=0.9, zorder=6,
         )
 
@@ -705,7 +716,7 @@ def render_mission_map(spec: MapRenderSpec):
     # and listing "planned" beside "completed" (both solid) reads as a
     # distinction the picture is not making.
     drawn_phases = {leg.phase for leg in spec.legs}
-    present = [phase for phase in LEG_LINESTYLES if phase in drawn_phases]
+    present = [] if minimal else [phase for phase in LEG_LINESTYLES if phase in drawn_phases]
     if present:
         leg_legend = ax.legend(
             handles=[
@@ -719,19 +730,20 @@ def render_mission_map(spec: MapRenderSpec):
 
     # Without this the grey plus, the red cross and the small dot are unlabelled
     # and a viewer has to guess what the map is showing.
-    ax.legend(
-        handles=[
-            Line2D([], [], marker="P", linestyle="none", markersize=8,
-                   color="#c9ced6", markeredgecolor="#98a0ab", label="Zone"),
-            Line2D([], [], marker="X", linestyle="none", markersize=8,
-                   color="#c0392b", markeredgecolor="#7b1e14", label="Incident"),
-            Line2D([], [], marker=".", linestyle="none", markersize=8,
-                   color="#4c566a", label="Task"),
-            Line2D([], [], color="#d5d9de", linewidth=1.6, label="Route lane"),
-        ],
-        title="Map", loc="lower left", bbox_to_anchor=(1.01, 0.0),
-        fontsize=7.5, title_fontsize=8, frameon=False,
-    )
+    if not minimal:
+        ax.legend(
+            handles=[
+                Line2D([], [], marker="P", linestyle="none", markersize=8,
+                       color="#c9ced6", markeredgecolor="#98a0ab", label="Zone"),
+                Line2D([], [], marker="X", linestyle="none", markersize=8,
+                       color="#c0392b", markeredgecolor="#7b1e14", label="Incident"),
+                Line2D([], [], marker=".", linestyle="none", markersize=8,
+                       color="#4c566a", label="Task"),
+                Line2D([], [], color="#d5d9de", linewidth=1.6, label="Route lane"),
+            ],
+            title="Map", loc="lower left", bbox_to_anchor=(1.01, 0.0),
+            fontsize=7.5, title_fontsize=8, frameon=False,
+        )
     fig.tight_layout()
     return fig
 
