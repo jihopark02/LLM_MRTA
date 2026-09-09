@@ -64,6 +64,15 @@ def test_two_top_level_windows_share_one_controller_session(windows):
     assert operator.windowTitle() != simulator.windowTitle()
 
 
+def test_the_simulator_shows_the_world_before_any_mission(windows):
+    _controller, _operator, simulator = windows
+
+    spec = simulator.canvas.spec
+    assert spec is not None and spec.mode == "world"
+    assert spec.agents and spec.legs == () and spec.task_points == ()
+    assert "WORLD" in simulator.header.text()
+
+
 def test_a_mock_mission_updates_the_compact_console_and_simulator(windows):
     controller, operator, simulator = windows
     _submit(operator, MOCK_COMMANDS[0])

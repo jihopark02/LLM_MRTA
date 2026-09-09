@@ -100,6 +100,9 @@ class OperatorWindow(QMainWindow):
         self.simulator.playback_finished.connect(self._on_playback_finished)
         self._build_ui()
         self.refresh()
+        # Show the world (zones, routes, agent starts) from launch — a mission
+        # is not required for the environment to be known (D-073).
+        self._refresh_simulator()
 
     def _build_ui(self) -> None:
         root = QWidget()
@@ -229,7 +232,7 @@ class OperatorWindow(QMainWindow):
         if scenario_id == self.controller.scenario_id:
             return
         self.controller.new_session(scenario_id)
-        self.simulator.show_spec(None)
+        self._refresh_simulator()
         self.status.setText("새 scenario · 명령 대기")
         self.refresh()
 
@@ -743,7 +746,7 @@ class OperatorWindow(QMainWindow):
         self._continuous_runtime = None
         self.controller.new_session()
         self.mode_combo.setCurrentText(self.controller.mode)
-        self.simulator.show_spec(None)
+        self._refresh_simulator()
         self.status.setText("새 세션 · READY")
         self.refresh()
 
