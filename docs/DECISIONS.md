@@ -2053,3 +2053,38 @@ mock/cached 발표에선 정지가 수 ms, Live는 boundary에 queued 명령이 
   `desktop/controller.py`(field 관측 → enqueue, `resolve_fire_approval`,
   `ContinuousRuntime` halt), `desktop/window.py`(승인 UI).
 - 골든·Validator·allocator·평가: 불변.
+
+## D-066: 승인 게이트 — clock 계속, 결정은 다음 boundary에서 적용 (계약 v1.62)
+
+**배경** D-065는 화재 감지 시 continuous clock을 즉시 멈췄다. 사용자 지적: 세션 초반에
+"재생 정지 말고 나머지는 그대로 움직이도록 해야 실시간성이 반영되지 않을까"라고 이미
+말했는데 D-065 구현이 그걸 어겼다. executor가 checkpoint 기반이라 "일부 agent만 전진"은
+못 하지만, "감지 boundary에서 멈추지 않고 다음 boundary까지 유예를 주는" 건 가능하다.
+
+**결정** 자유텍스트 명령 큐(§23.4.1)와 같은 원리로 승인을 처리한다:
+- 화재 감지 → `PendingFireApproval`을 `pending_approvals`에 넣되 **clock은 안 멈춘다**.
+  tick driver는 다음 segment를 commit하고 나머지 agent는 committed 궤적대로 계속 움직인다.
+- 운용자가 이동 중 아무 때나 버튼 클릭 → `record_fire_decision`이 `decision`/`approved_scope`를
+  큐 항목에 **기록만** 한다(적용 안 함).
+- clock이 다음 boundary 도달 → `advance_checkpoint` 맨 앞에서 `apply_recorded_fire_decisions`가
+  결정된 항목을 FIFO로 적용(승인 → §22.3 transaction, 거절 → DECLINED audit), 첫 미결정에서 멈춤.
+  적용은 executor가 전진하기 전에 하므로 rebid가 새 segment에 바로 반영되고 clock rewind 없음.
+- `ContinuousRuntime._commit_next`: `advance_checkpoint` 전에 `has_undecided_fire`면 halt.
+  감지 직후의 새 fire는 이 검사 뒤에 enqueue되므로 그 segment는 유예로 흐른다.
+- halt 후 운용자가 답하면 `pending_fire_approval`(첫 미결정)이 None이 되고 window가 자동 재개.
+
+**대안 검토**
+- 클릭 즉시 적용(mid-segment): rebid가 현재 `SegmentView`를 stale하게 만들고, `_commit_next`가
+  sim_time을 새 segment 시작으로 되돌려 clock이 뒤로 튄다. 폐기.
+- LLM이 승인 프롬프트/권고 생성: §9(LLM은 구조만, allocation·판정은 결정론) 위반, 검증 안 된
+  LLM 출력을 안전 경로에 추가. 사용자와 논의 후 **하지 않기로** 확정 — 승인은 계속 결정론적.
+
+**영향**
+- 계약: §22.8 "결정"·"continuous runtime 연동" 문단 재서술.
+- 코드: `interaction/session.py`(`PendingFireApproval.decision`/`approved_scope`,
+  `ApprovalDecision`을 여기로 이동), `interaction/observe.py`(`record_fire_decision`,
+  `apply_recorded_fire_decisions`, `has_undecided_fire`; `resolve_fire_approval` 제거),
+  `desktop/controller.py`(`advance_checkpoint` 앞에서 적용, `record_fire_decision` 메서드,
+  `pending_fire_approval` = 첫 미결정), `desktop/window.py`(`_record_fire`, `_can_advance`·
+  input gating을 미결정 기준으로).
+- 골든·Validator·allocator·평가: 불변.

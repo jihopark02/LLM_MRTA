@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.61 (D-065). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.62 (D-066). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.62 (D-066): §22.8 승인 게이트를 "감지 즉시 정지"에서 "clock 계속, 결정은 기록 후 다음
+  boundary에서 적용"으로 재서술한다. 감지된 화재는 그 다음 segment를 유예로 받고, 나머지
+  agent는 계속 움직인다. clock이 다음 boundary에 도달했는데 미결정이면 그때만 halt.
+  `PendingFireApproval`에 `decision`/`approved_scope` 추가, `resolve_fire_approval` →
+  `record_fire_decision` + `apply_recorded_fire_decisions`. 결정론·골든 불변.
 - v1.61 (D-065): §22.8 sensor 화재 감지 승인 게이트. `SimulatedFireField`가 공개하는
   `FIRE_DETECTED`는 자동 대응하지 않고 **무조건** 운용자에게 되묻는다. `pending_approvals`
   FIFO 큐(zone id 순), `PendingClarification`류의 resumable pending 상태(새 phase 없음),
@@ -2054,22 +2059,31 @@ continuous clock·자동 재생·자유텍스트 명령 큐(§23.4.1)를 소비�
 자유텍스트 큐보다 우선한다. 이는 `PendingClarification`과 같은 성질의 resumable pending
 상태이며 별도 `SessionPhase`를 만들지 않는다(phase는 `EXECUTION_PAUSED` 유지).
 
-**결정.** 운용자 응답은 LLM 없이 결정론적으로 처리한다(후보 선택과 동일):
+**결정 (기록 → boundary 적용, D-066).** 운용자 응답은 LLM 없이 결정론적으로 처리한다(후보
+선택과 동일). 감지 즉시 clock을 멈추지 않는다 — 운용자는 다른 agent가 계속 움직이는 동안
+답하고, 그 답은 `PendingFireApproval.decision`에 **기록만** 되며 **다음 task-completion
+boundary**에서 적용된다(mid-segment 적용 없음). 그 boundary에서 `handle_turn` 앞과 같은
+자리에, 결정된 승인을 FIFO 순으로 적용한다:
 - 승인(scope = `GROUND_SUPPRESSION` 또는 `GROUND_INSPECTION`) → §22.3 공통 atomic incident
   transaction을 그 scope, `PolicyOrigin.EXPLICIT`로 수행한다. checkpoint clone에서
   `apply_online_patch(SELECTIVE)` + CBBA epoch 뒤 runtime을 교체하고, 실패하면 runtime·clock·
   graph identity를 보존한다.
 - 거절 → scene·graph·runtime을 바꾸지 않는다. 화재는 audit로만 남는다.
 
-**감사.** 공개 시 `outcome = "AWAITING_APPROVAL"` audit 1건, 처리 시 결정에 따라
+`count`가 후보를 넘거나 하는 오류는 로드 시 거부하고, 적용은 결정된 head부터 진행하다가 첫
+미결정 항목에서 멈춘다(큐 순서 보존).
+
+**감사.** 공개 시 `outcome = "AWAITING_APPROVAL"` audit 1건, 적용 시 결정에 따라
 `outcome ∈ {"COMMITTED", "REJECTED", "DECLINED"}` audit 1건을 append-only event log에 추가한다.
 각 audit은 fixture id, zone, detecting agent, simulation time, 그리고 승인 시 scope·patch·
 release/rebid 차이를 담는다.
 
-**continuous runtime 연동.** tick driver가 boundary에서 checkpoint를 commit하고 sensor
-observation을 공개한 뒤 `pending_approvals`가 있으면 그 자리에서 clock을 멈춘다(§23.4의
-resumable halt). 나머지 agent도 그 boundary 프레임에 정지한다 — 승인은 사람 판단을 기다리는
-blocking 상호작용이고 곧 끝난다. 운용자가 큐를 모두 비우면 continuous 재생을 다시 시작한다.
+**continuous runtime 연동 (D-066).** 화재가 감지된 boundary에서 clock은 멈추지 않는다 —
+tick driver는 새 segment를 commit하고 나머지 agent는 committed 궤적대로 계속 움직인다. 감지
+직후의 그 segment가 운용자의 유예 시간이다. clock이 **다음** boundary에 도달했는데 아직
+미결정 화재가 있으면 그때 resumable halt한다(그 이후 checkpoint는 대응 여부를 알아야 만들 수
+있으므로). 운용자가 유예 안에 답하면 아무도 멈추지 않고, halt 후 답하면 큐를 비운 뒤 자동
+재개한다. `pending_approvals`가 비지 않은 동안 자유텍스트 명령 큐(§23.4.1)는 소비하지 않는다.
 
 두 발표 결과(승인 후 완주, 거절 후 무변경)는 모두 `COMPLETED` 또는 정직한 `EXECUTED`,
 capability/precedence violation 0이어야 한다. 이는 simulated observation에 대한 운용자 승인
