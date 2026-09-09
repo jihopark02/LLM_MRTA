@@ -48,4 +48,4 @@ fleet:
   - { agent_id: U2, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [10.0, 10.0], speed: 8.0 }
   - { agent_id: U3, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [10.0, 10.0], speed: 8.0 }
   - { agent_id: G1, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: R_DEPOT, speed: 3.0 }
-  - { agent_id: G2, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: R_C, speed: 3.0 }
+  - { agent_id: G2, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: R_DEPOT, speed: 3.0 }
