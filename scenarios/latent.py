@@ -9,6 +9,7 @@ AREA_RECON task first appears in a checkpoint's ``completed_now`` list.
 from __future__ import annotations
 
 import math
+import random
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -139,9 +140,134 @@ class SimulatedFireSource:
         return observation
 
 
+_FIELD_REQUIRED_KEYS = frozenset({"field_id", "seed", "count"})
+_FIELD_OPTIONAL_KEYS = frozenset({"candidate_zones"})
+
+
+@dataclass(frozen=True, slots=True)
+class LatentFireField:
+    """A seeded set of latent fires: the world is fixed, only the zones burn.
+
+    ``fixtures`` is ordered by zone id and each entry is an ordinary
+    :class:`LatentIncidentFixture`, so the field composes with everything that
+    already consumes a single fixture.
+    """
+
+    field_id: str
+    seed: int
+    fixtures: tuple[LatentIncidentFixture, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.field_id, str) or not self.field_id.strip():
+            raise ValueError("field_id must be a non-empty str")
+        if not isinstance(self.seed, int) or isinstance(self.seed, bool):
+            raise ValueError("seed must be an int")
+        if not self.fixtures:
+            raise ValueError("a latent fire field needs at least one fixture")
+        zones = [fixture.zone_id for fixture in self.fixtures]
+        if len(set(zones)) != len(zones):
+            raise ValueError("latent fire field has duplicate zones")
+
+    @property
+    def zone_ids(self) -> tuple[str, ...]:
+        return tuple(fixture.zone_id for fixture in self.fixtures)
+
+
+def load_latent_fire_field(path: str | Path, scene: Scene) -> LatentFireField:
+    """Load a pinned field spec and resolve it against its patrol scene.
+
+    ``random.Random(seed).sample`` over the sorted candidate pool makes the
+    chosen zones a deterministic function of (seed, spec, scene).  Nothing here
+    touches the scene, so ``scene_hash`` is unaffected and no prompt can see it.
+    """
+    raw = yaml.safe_load(Path(path).read_text())
+    if not isinstance(raw, dict):
+        raise ValueError("latent fire field spec must be a mapping")
+    keys = frozenset(raw)
+    missing = sorted(_FIELD_REQUIRED_KEYS - keys)
+    extra = sorted(keys - _FIELD_REQUIRED_KEYS - _FIELD_OPTIONAL_KEYS)
+    if missing or extra:
+        raise ValueError(
+            f"latent fire field keys mismatch; missing={missing}, extra={extra}"
+        )
+
+    field_id = _required_text(raw, "field_id")
+    if not normalize_identifier(field_id):
+        raise ValueError("field_id must have a non-empty normalized form")
+    seed = raw["seed"]
+    if not isinstance(seed, int) or isinstance(seed, bool):
+        raise ValueError(f"seed must be an int, got {seed!r}")
+    count = raw["count"]
+    if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+        raise ValueError(f"count must be an int >= 1, got {count!r}")
+
+    if "candidate_zones" in raw:
+        candidates = raw["candidate_zones"]
+        if (
+            not isinstance(candidates, list)
+            or not candidates
+            or not all(isinstance(zone, str) and zone.strip() for zone in candidates)
+        ):
+            raise ValueError("candidate_zones must be a non-empty list of zone ids")
+        if len(set(candidates)) != len(candidates):
+            raise ValueError("candidate_zones has duplicate entries")
+        unknown = sorted(set(candidates) - set(scene.zones))
+        if unknown:
+            raise ValueError(f"candidate_zones references unknown zones: {unknown}")
+        pool = sorted(candidates)
+    else:
+        pool = sorted(scene.zones)
+
+    if count > len(pool):
+        raise ValueError(
+            f"count {count} exceeds the candidate zone pool size {len(pool)}"
+        )
+
+    chosen = sorted(random.Random(seed).sample(pool, count))
+    fixtures = tuple(
+        LatentIncidentFixture(
+            fixture_id=f"{field_id}-{zone_id}",
+            zone_id=zone_id,
+            trigger_task_id=task_id_for(TaskType.AREA_RECON, zone_id),
+        )
+        for zone_id in chosen
+    )
+    return LatentFireField(field_id=field_id, seed=seed, fixtures=fixtures)
+
+
+@dataclass(slots=True)
+class SimulatedFireField:
+    """Reveal every fixture in a field once, zone-id ordered per checkpoint."""
+
+    fire_field: LatentFireField
+    _sources: tuple[SimulatedFireSource, ...] | None = None
+
+    def __post_init__(self) -> None:
+        if self._sources is None:
+            self._sources = tuple(
+                SimulatedFireSource(fixture) for fixture in self.fire_field.fixtures
+            )
+
+    def inspect(
+        self,
+        checkpoint: CheckpointAudit,
+        assignments: Mapping[str, str],
+    ) -> tuple[FireDetectedObservation, ...]:
+        revealed = [
+            observation
+            for source in self._sources
+            if (observation := source.inspect(checkpoint, assignments)) is not None
+        ]
+        revealed.sort(key=lambda observation: observation.zone_id)
+        return tuple(revealed)
+
+
 __all__ = [
     "FireDetectedObservation",
+    "LatentFireField",
     "LatentIncidentFixture",
+    "SimulatedFireField",
     "SimulatedFireSource",
+    "load_latent_fire_field",
     "load_latent_incident_fixture",
 ]

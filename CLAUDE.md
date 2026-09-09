@@ -27,10 +27,17 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.5,
 P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
-`feature/operator-interaction`). 계약 v1.57, 최신 결정 D-061.**
+`feature/operator-interaction`). 계약 v1.58, 최신 결정 D-062.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 899개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 916개 통과, ruff clean.
+
+**발표 시각화 (진행 중)**: `render_mission_map(minimal=True)`와 native simulator의
+`minimal` 뷰 = MP4MR-clean 할당 스캐터(`d3ad6d1`). D-062 seeded latent fire field —
+`scenarios/latent.py`의 `LatentFireField` / `SimulatedFireField`, 고정 spec
+`scenarios/response_district_latent.yaml`(seed 99, count 2), native `district-latent-fire`
+프로파일. 지형은 고정, seed가 정하는 건 화재 zone뿐. "무조건 되묻는" 승인 게이트(§22.8)와
+continuous runtime(P13.4)은 후속.
 
 **D-060+D-061 re-baseline (아래 D-060/D-061 항목 참조)**: fleet 동일 UAV 3대 + UGV 2,
 vocabulary 3종(`AREA_RECON` / `GROUND_INSPECTION` → `GROUND_SUPPRESSION`). 결정론적 골든

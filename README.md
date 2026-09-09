@@ -22,7 +22,9 @@ canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행
 P11 네이티브 운영자 콘솔·별도 2D simulator 창, P12 LLM-driven incident contingency와
 P12.7 completed-patrol follow-on incident response까지 완료**. **P13.0~P13.3
 자연어 resource constraint + 결정론적 active-team resolution 및 실행 중 safe-boundary
-resource 교체, scenario-free Live 기본 진입점 완료**. 테스트 898개 통과.
+resource 교체, scenario-free Live 기본 진입점 완료**. 발표 시각화는 MP4MR-clean
+`minimal` 지도 스타일과 D-062 seeded latent fire field(`LatentFireField`)까지 진행 중.
+테스트 916개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -37,7 +39,7 @@ graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
 priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
 LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.54 / 최신 결정 D-058 (P8 = 실행 전 다중 턴 자연어 계획
+workflow (D-016). 계약 버전 v1.58 / 최신 결정 D-062 (P8 = 실행 전 다중 턴 자연어 계획
 세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
 dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는

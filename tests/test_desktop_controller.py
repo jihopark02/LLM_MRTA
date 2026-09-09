@@ -236,6 +236,23 @@ def test_execution_requires_a_committed_plan(tmp_path):
         controller.advance_checkpoint()
 
 
+def test_district_latent_fire_profile_wires_a_seeded_field(tmp_path):
+    from scenarios.latent import SimulatedFireField
+
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="district-latent-fire"
+    )
+
+    assert controller.mode == "live"
+    assert isinstance(controller.observation_source, SimulatedFireField)
+    assert controller.fixture_id == "district-latent-fire-v1"
+    field = controller.observation_source.fire_field
+    assert len(field.zone_ids) == 2
+    assert set(field.zone_ids) <= set(controller.session.scene.zones)
+    # the field is not part of the world the LLM plans against
+    assert field.field_id not in controller.session.context_for_llm()
+
+
 def test_sensor_scenario_reveals_fixture_once_and_adds_response_in_one_event(tmp_path):
     controller = DesktopController(
         runtime_root=tmp_path,

@@ -40,7 +40,13 @@ from interaction.orchestrator import (
 from interaction.session import MissionSession, SessionPhase
 from llm.backend import DEFAULT_MODEL, OpenAIBackend
 from llm.cache import CachedBackend, RecordingBackend
-from scenarios.latent import SimulatedFireSource, load_latent_incident_fixture
+from scenarios.latent import (
+    FireDetectedObservation,
+    SimulatedFireField,
+    SimulatedFireSource,
+    load_latent_fire_field,
+    load_latent_incident_fixture,
+)
 from scenarios.scene import load_scene
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +54,7 @@ SCENE_PATH = ROOT / "scenarios" / "industrial_park.yaml"
 PATROL_SCENE_PATH = ROOT / "scenarios" / "patrol_park.yaml"
 DISTRICT_SCENE_PATH = ROOT / "scenarios" / "response_district_patrol.yaml"
 SENSOR_FIXTURE_PATH = ROOT / "scenarios" / "patrol_zone_b_fire.yaml"
+DISTRICT_LATENT_FIELD_PATH = ROOT / "scenarios" / "response_district_latent.yaml"
 DEFAULT_RUNTIME_ROOT = ROOT / "data"
 SUPPORTED_MODES = ("live", "cached", "mock")
 DEFAULT_FRAME_COUNT = 36
@@ -80,6 +87,7 @@ class ScenarioProfile:
     mock_script: str | None
     latent_fixture_path: Path | None = None
     live_examples: tuple[str, ...] = ()
+    latent_field_path: Path | None = None
 
 
 SCENARIO_PROFILES = {
@@ -96,6 +104,14 @@ SCENARIO_PROFILES = {
         DISTRICT_SCENE_PATH,
         None,
         live_examples=DISTRICT_LIVE_EXAMPLES,
+    ),
+    "district-latent-fire": ScenarioProfile(
+        "district-latent-fire",
+        "Dynamic Live · 8-zone district · seeded latent fires",
+        DISTRICT_SCENE_PATH,
+        None,
+        live_examples=DISTRICT_LIVE_EXAMPLES,
+        latent_field_path=DISTRICT_LATENT_FIELD_PATH,
     ),
     "sensor-detection": ScenarioProfile(
         "sensor-detection",
@@ -171,7 +187,7 @@ class DesktopController:
         self.backends: dict[str, object] = {}
         self.chat: list[ChatMessage] = []
         self.queued_command: str | None = None
-        self.observation_source: SimulatedFireSource | None = None
+        self.observation_source: SimulatedFireSource | SimulatedFireField | None = None
         self.session = self._fresh_session()
 
     @property
@@ -184,7 +200,11 @@ class DesktopController:
 
     def _fresh_session(self) -> MissionSession:
         scene = load_scene(self.scene_path)
-        if self.profile.latent_fixture_path is not None:
+        if self.profile.latent_field_path is not None:
+            self.observation_source = SimulatedFireField(
+                load_latent_fire_field(self.profile.latent_field_path, scene)
+            )
+        elif self.profile.latent_fixture_path is not None:
             fixture = load_latent_incident_fixture(
                 self.profile.latent_fixture_path, scene
             )
@@ -313,7 +333,6 @@ class DesktopController:
         playback = None
         playback_error = None
         observation_audit = None
-        observation_response = None
         if session.runtime is not None:
             after = session.runtime.checkpoint()
             if after.now > before.now:
@@ -326,18 +345,23 @@ class DesktopController:
                     )
                 except Exception as exc:  # noqa: BLE001 - committed state is preserved
                     playback_error = f"{type(exc).__name__}: {exc}"
+        observation_responses: list[str] = []
         if isinstance(audit, CheckpointAudit) and self.observation_source is not None:
-            observation = self.observation_source.inspect(
+            revealed = self.observation_source.inspect(
                 audit,
                 session.runtime.assignments,
             )
-            if observation is not None:
+            if revealed is None:
+                revealed = ()
+            elif isinstance(revealed, FireDetectedObservation):
+                revealed = (revealed,)
+            for observation in revealed:
                 observation_audit = apply_fire_observation(
                     session,
                     observation,
                     mode=self.mode,
                 )
-                observation_response = (
+                observation_responses.append(
                     f"[SIMULATED SENSOR · {observation.fixture_id}] "
                     f"{observation.zone_id} FIRE_DETECTED → "
                     f"{observation_audit.outcome}"
@@ -355,7 +379,7 @@ class DesktopController:
             if audit.error_type:
                 response += f" · {audit.error_type}: {audit.error_detail}"
         self._record("[다음 checkpoint]", response)
-        if observation_response is not None:
+        for observation_response in observation_responses:
             self._record("[simulated sensor observation]", observation_response)
         self._persist()
         return AdvancePresentation(audit, playback, playback_error, observation_audit)
@@ -367,7 +391,11 @@ class DesktopController:
     @property
     def fixture_id(self) -> str | None:
         source = self.observation_source
-        return source.fixture.fixture_id if source is not None else None
+        if isinstance(source, SimulatedFireField):
+            return source.fire_field.field_id
+        if isinstance(source, SimulatedFireSource):
+            return source.fixture.fixture_id
+        return None
 
     @property
     def mock_commands(self) -> tuple[str, ...]:
