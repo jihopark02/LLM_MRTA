@@ -168,14 +168,20 @@ def fresh_session_state(graph: TaskGraph, scene: Scene) -> MissionState:
     )
 
 
+class ApprovalDecision(str, Enum):
+    APPROVE = "APPROVE"
+    DECLINE = "DECLINE"
+
+
 @dataclass(frozen=True, slots=True)
 class PendingFireApproval:
-    """A revealed sensor fire awaiting the operator's yes/no (§22.8, D-065).
+    """A revealed sensor fire and the operator's recorded answer (§22.8, D-065/D-066).
 
     A resumable pending interaction like :class:`PendingClarification`: it gates
     autoplay and the free-text queue without introducing a new ``SessionPhase``.
-    The fields mirror ``scenarios.latent.FireDetectedObservation`` so the
-    approval can run the same §22.3 transaction the auto path would have.
+    The observation fields mirror ``scenarios.latent.FireDetectedObservation``.
+    ``decision`` stays ``None`` until the operator answers; the answer is applied
+    at the next task-completion boundary (D-066), never mid-segment.
     """
 
     fixture_id: str
@@ -183,6 +189,8 @@ class PendingFireApproval:
     trigger_task_id: str
     detecting_agent_id: str
     simulation_time: float
+    decision: ApprovalDecision | None = None
+    approved_scope: TaskType | None = None
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -199,6 +207,17 @@ class PendingFireApproval:
             or self.simulation_time < 0.0
         ):
             raise ValueError("simulation_time must be a non-negative number")
+        if self.decision is not None and not isinstance(self.decision, ApprovalDecision):
+            raise ValueError("decision must be an ApprovalDecision or None")
+        if self.decision is ApprovalDecision.APPROVE:
+            if self.approved_scope not in WORKFLOW_CHAIN:
+                raise ValueError("an approved fire needs a workflow scope")
+        elif self.approved_scope is not None:
+            raise ValueError("only an APPROVE decision carries a scope")
+
+    @property
+    def decided(self) -> bool:
+        return self.decision is not None
 
 
 @dataclass(slots=True)
@@ -421,6 +440,7 @@ __all__ = [
     "ReferentKind",
     "Referent",
     "PendingClarification",
+    "ApprovalDecision",
     "PendingFireApproval",
     "MissionSession",
     "fresh_session_state",

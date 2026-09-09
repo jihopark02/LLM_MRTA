@@ -385,7 +385,7 @@ def _attach_fire_field(controller, zone_id):
     return field
 
 
-def test_continuous_runtime_halts_on_a_sensor_fire_until_the_operator_approves(tmp_path):
+def test_continuous_runtime_halts_when_a_fire_stays_undecided_past_a_boundary(tmp_path):
     from core.enums import TaskType
     from interaction.observe import ApprovalDecision
 
@@ -397,7 +397,7 @@ def test_continuous_runtime_halts_on_a_sensor_fire_until_the_operator_approves(t
 
     runtime, ticks = _run_continuous(controller, step=6.0)
 
-    assert not runtime.finished and runtime.halted  # stopped for the operator
+    assert not runtime.finished and runtime.halted  # nobody answered, so it stopped
     assert controller.pending_fire_approval is not None
     assert controller.pending_fire_approval.zone_id == "ZONE_A"
     assert "AWAITING_APPROVAL" in [
@@ -407,15 +407,46 @@ def test_continuous_runtime_halts_on_a_sensor_fire_until_the_operator_approves(t
     # graph is untouched while the fire is held
     assert "FIRE_SITE_1" not in controller.session.scene.incidents
 
-    audit = controller.resolve_fire_approval(
+    # record the answer; still not applied until the next boundary
+    controller.record_fire_decision(
         decision=ApprovalDecision.APPROVE, response_up_to=TaskType.GROUND_SUPPRESSION
     )
-    assert audit.outcome == "COMMITTED"
     assert controller.pending_fire_approval is None
-    assert "FIRE_SITE_1" in controller.session.scene.incidents
+    assert "FIRE_SITE_1" not in controller.session.scene.incidents
 
     runtime2, ticks2 = _run_continuous(controller, step=6.0)
     assert runtime2.finished
+    assert "FIRE_SITE_1" in controller.session.scene.incidents
+    assert controller.session.execution.termination.value == "COMPLETED"
+
+
+def test_a_fire_answered_within_its_grace_segment_never_stops_the_clock(tmp_path):
+    from core.enums import TaskType
+    from interaction.observe import ApprovalDecision
+
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="operator-report"
+    )
+    controller.submit(OPERATOR_MOCK_COMMANDS[0])
+    _attach_fire_field(controller, "ZONE_A")
+
+    runtime = ContinuousRuntime(controller)
+    runtime.start()
+    answered = False
+    guard = 0
+    while runtime.active and guard < 400:
+        runtime.advance_to(runtime.sim_time + 4.0)
+        if not answered and controller.pending_fire_approval is not None:
+            controller.record_fire_decision(
+                decision=ApprovalDecision.APPROVE,
+                response_up_to=TaskType.GROUND_SUPPRESSION,
+            )
+            answered = True
+        guard += 1
+
+    assert answered
+    assert runtime.finished and not runtime.halted  # never had to stop
+    assert "FIRE_SITE_1" in controller.session.scene.incidents
     assert controller.session.execution.termination.value == "COMPLETED"
 
 
@@ -431,12 +462,13 @@ def test_continuous_runtime_decline_leaves_the_mission_unchanged(tmp_path):
     _run_continuous(controller, step=6.0)
     graph_len = len(controller.session.state.graph)
 
-    controller.resolve_fire_approval(decision=ApprovalDecision.DECLINE)
+    controller.record_fire_decision(decision=ApprovalDecision.DECLINE)
     assert controller.pending_fire_approval is None
-    assert len(controller.session.state.graph) == graph_len
 
     runtime, _ = _run_continuous(controller, step=6.0)
     assert runtime.finished
+    assert len(controller.session.state.graph) == graph_len
+    assert "FIRE_SITE_1" not in controller.session.scene.incidents
     assert controller.session.execution.termination.value == "COMPLETED"
 
 

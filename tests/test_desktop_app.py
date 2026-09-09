@@ -383,12 +383,14 @@ def test_sensor_fire_approval_gate_pauses_continuous_and_resumes_on_approve(
             load_latent_fire_field(spec, controller.session.scene)
         )
 
+        # nobody answers, so after one grace segment the clock stops for the operator
         _drain_until(qt_app, lambda: not operator._busy, timeout=6.0)
 
         assert controller.pending_fire_approval is not None
         assert operator.approval_frame.isVisible()
         assert not operator._continuous
         assert not operator.command_input.isEnabled()
+        assert "FIRE_SITE_1" not in controller.session.scene.incidents
 
         buttons = [
             operator.approval_buttons.itemAt(i).widget()
@@ -397,14 +399,16 @@ def test_sensor_fire_approval_gate_pauses_continuous_and_resumes_on_approve(
         approve = next(b for b in buttons if "진압까지" in b.text())
         approve.click()
 
+        # recorded, not yet applied — the clock auto-resumes and applies it at
+        # the next boundary, then runs to a terminal
         assert controller.pending_fire_approval is None
-        assert "FIRE_SITE_1" in controller.session.scene.incidents
-        # the continuous clock auto-resumes and runs to a terminal
+        assert "FIRE_SITE_1" not in controller.session.scene.incidents
         _drain_until(
             qt_app,
             lambda: controller.session.phase.value == "EXECUTED",
             timeout=8.0,
         )
+        assert "FIRE_SITE_1" in controller.session.scene.incidents
         assert controller.session.execution.termination.value == "COMPLETED"
     finally:
         operator.close()

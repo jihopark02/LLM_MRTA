@@ -193,45 +193,65 @@ def test_enqueue_fire_approval_holds_the_fire_without_touching_scene_or_graph():
     assert "FIRE_SITE_1" not in session.scene.incidents
 
 
-def test_approving_a_held_fire_runs_the_incident_transaction():
-    from interaction.observe import ApprovalDecision, enqueue_fire_approvals, resolve_fire_approval
+def test_a_recorded_decision_is_not_applied_until_the_boundary():
+    from interaction.observe import (
+        ApprovalDecision,
+        apply_recorded_fire_decisions,
+        enqueue_fire_approvals,
+        record_fire_decision,
+    )
 
-    session = _session(policy=None)  # no session policy: the operator's scope decides
+    session = _session(policy=None)
+    before = scene_hash(session.scene), _graph_shape(session)
     enqueue_fire_approvals(session, (_observation(session, zone_id="ZONE_B"),), mode="mock")
 
-    audit = resolve_fire_approval(
+    recorded = record_fire_decision(
         session,
         decision=ApprovalDecision.APPROVE,
         response_up_to=TaskType.GROUND_SUPPRESSION,
-        mode="mock",
     )
+    assert recorded.decided and recorded.approved_scope is TaskType.GROUND_SUPPRESSION
+    # still queued, nothing applied yet
+    assert len(session.pending_approvals) == 1
+    assert (scene_hash(session.scene), _graph_shape(session)) == before
 
-    assert audit.outcome == "COMMITTED"
-    assert audit.policy_origin == "EXPLICIT"
-    assert audit.response_up_to == "GROUND_SUPPRESSION"
+    audits = apply_recorded_fire_decisions(session, mode="mock")
+
+    assert [a.outcome for a in audits] == ["COMMITTED"]
+    assert audits[0].policy_origin == "EXPLICIT"
     assert session.pending_approvals == ()
     assert "FIRE_SITE_1" in session.scene.incidents
-    targets = {task.target for task in session.state.graph.tasks}
-    assert "FIRE_SITE_1" in targets
 
 
 def test_declining_a_held_fire_changes_nothing():
-    from interaction.observe import ApprovalDecision, enqueue_fire_approvals, resolve_fire_approval
+    from interaction.observe import (
+        ApprovalDecision,
+        apply_recorded_fire_decisions,
+        enqueue_fire_approvals,
+        record_fire_decision,
+    )
 
     session = _session()
     before = scene_hash(session.scene), _graph_shape(session)
     enqueue_fire_approvals(session, (_observation(session, zone_id="ZONE_B"),), mode="mock")
 
-    audit = resolve_fire_approval(session, decision=ApprovalDecision.DECLINE, mode="mock")
+    record_fire_decision(session, decision=ApprovalDecision.DECLINE)
+    audits = apply_recorded_fire_decisions(session, mode="mock")
 
-    assert audit.outcome == "DECLINED"
+    assert [a.outcome for a in audits] == ["DECLINED"]
     assert session.pending_approvals == ()
     assert (scene_hash(session.scene), _graph_shape(session)) == before
     assert "FIRE_SITE_1" not in session.scene.incidents
 
 
-def test_two_fires_are_resolved_in_queue_order():
-    from interaction.observe import ApprovalDecision, enqueue_fire_approvals, resolve_fire_approval
+def test_apply_stops_at_the_first_undecided_fire_preserving_order():
+    from interaction.observe import (
+        ApprovalDecision,
+        apply_recorded_fire_decisions,
+        enqueue_fire_approvals,
+        has_undecided_fire,
+        record_fire_decision,
+    )
 
     session = _session(policy=None)
     obs = (
@@ -241,32 +261,46 @@ def test_two_fires_are_resolved_in_queue_order():
     enqueue_fire_approvals(session, obs, mode="mock")
     assert [p.zone_id for p in session.pending_approvals] == ["ZONE_A", "ZONE_C"]
 
-    first = resolve_fire_approval(
-        session, decision=ApprovalDecision.DECLINE, mode="mock"
+    # decide only the second one: the FIFO head is still undecided
+    record_fire_decision(session, decision=ApprovalDecision.DECLINE)  # decides ZONE_A
+    record_fire_decision(
+        session, decision=ApprovalDecision.APPROVE, response_up_to=TaskType.GROUND_INSPECTION
+    )  # decides ZONE_C
+
+    audits = apply_recorded_fire_decisions(session, mode="mock")
+    assert [a.zone_id for a in audits] == ["ZONE_A", "ZONE_C"]
+    assert not has_undecided_fire(session)
+
+
+def test_apply_leaves_an_undecided_head_in_place():
+    from interaction.observe import (
+        apply_recorded_fire_decisions,
+        enqueue_fire_approvals,
+        has_undecided_fire,
     )
-    assert first.zone_id == "ZONE_A"
-    assert [p.zone_id for p in session.pending_approvals] == ["ZONE_C"]
 
-    second = resolve_fire_approval(
-        session,
-        decision=ApprovalDecision.APPROVE,
-        response_up_to=TaskType.GROUND_INSPECTION,
-        mode="mock",
-    )
-    assert second.zone_id == "ZONE_C"
-    assert session.pending_approvals == ()
+    session = _session(policy=None)
+    enqueue_fire_approvals(session, (_observation(session, zone_id="ZONE_A"),), mode="mock")
+
+    audits = apply_recorded_fire_decisions(session, mode="mock")
+    assert audits == ()
+    assert has_undecided_fire(session)
+    assert len(session.pending_approvals) == 1
 
 
-def test_approving_without_a_scope_is_rejected():
+def test_recording_without_a_scope_or_a_pending_fire_is_rejected():
     import pytest
 
-    from interaction.observe import ApprovalDecision, enqueue_fire_approvals, resolve_fire_approval
+    from interaction.observe import (
+        ApprovalDecision,
+        enqueue_fire_approvals,
+        record_fire_decision,
+    )
 
     session = _session()
     enqueue_fire_approvals(session, (_observation(session, zone_id="ZONE_B"),), mode="mock")
     with pytest.raises(ValueError, match="workflow scope"):
-        resolve_fire_approval(session, decision=ApprovalDecision.APPROVE, mode="mock")
-    with pytest.raises(ValueError, match="no fire approval is pending"):
-        resolve_fire_approval(
-            _session(), decision=ApprovalDecision.DECLINE, mode="mock"
-        )
+        record_fire_decision(session, decision=ApprovalDecision.APPROVE)
+    record_fire_decision(session, decision=ApprovalDecision.DECLINE)
+    with pytest.raises(ValueError, match="no undecided fire approval"):
+        record_fire_decision(session, decision=ApprovalDecision.DECLINE)

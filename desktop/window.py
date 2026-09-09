@@ -326,14 +326,20 @@ class OperatorWindow(QMainWindow):
     def _refresh_approvals(self) -> None:
         _clear_layout(self.approval_buttons)
         pending = self.controller.pending_fire_approval
-        self.approval_frame.setVisible(pending is not None)
-        if pending is None:
+        held = self.controller.session.pending_approvals
+        self.approval_frame.setVisible(bool(held))
+        if not held:
             return
-        extra = len(self.controller.session.pending_approvals) - 1
+        if pending is None:
+            self.approval_question.setText(
+                f"화재 대응 {len(held)}건 · 다음 checkpoint에서 적용됩니다."
+            )
+            return
+        extra = len(held) - 1
         self.approval_question.setText(
             f"{pending.zone_id}에 화재를 감지했습니다 "
             f"(정찰: {pending.detecting_agent_id}, t={pending.simulation_time:.1f}s). "
-            f"지상 로봇을 출동시킬까요?"
+            f"지상 로봇을 출동시킬까요? (다음 checkpoint 적용)"
             + (f"  · 대기 중인 화재 {extra}건" if extra > 0 else "")
         )
         for label, scope in (
@@ -361,7 +367,7 @@ class OperatorWindow(QMainWindow):
             session.state is not None
             and session.plan is not None
             and session.pending_clarification is None
-            and not session.pending_approvals
+            and self.controller.pending_fire_approval is None  # undecided fire blocks
             and (
                 session.phase
                 in {SessionPhase.PLANNING, SessionPhase.EXECUTION_PAUSED}
@@ -428,7 +434,8 @@ class OperatorWindow(QMainWindow):
         self._refresh_approvals()
 
         pending = (
-            session.pending_clarification is not None or bool(session.pending_approvals)
+            session.pending_clarification is not None
+            or self.controller.pending_fire_approval is not None
         )
         can_queue = self._busy and (self.simulator.is_playing or self._continuous)
         can_input = not pending and (not self._busy or can_queue)
@@ -503,24 +510,27 @@ class OperatorWindow(QMainWindow):
         self.refresh()
 
     def approve_fire(self, scope: TaskType) -> None:
-        self._resolve_fire(ApprovalDecision.APPROVE, scope)
+        self._record_fire(ApprovalDecision.APPROVE, scope)
 
     def decline_fire(self) -> None:
-        self._resolve_fire(ApprovalDecision.DECLINE, None)
+        self._record_fire(ApprovalDecision.DECLINE, None)
 
-    def _resolve_fire(self, decision: ApprovalDecision, scope: TaskType | None) -> None:
-        if self._busy or self.controller.pending_fire_approval is None:
+    def _record_fire(self, decision: ApprovalDecision, scope: TaskType | None) -> None:
+        # Recording is safe mid-motion (§22.8/D-066): it stamps the queue entry
+        # and the decision is applied at the next boundary by advance_checkpoint.
+        if self.controller.pending_fire_approval is None:
             return
         try:
-            audit = self.controller.resolve_fire_approval(
+            recorded = self.controller.record_fire_decision(
                 decision=decision, response_up_to=scope
             )
         except Exception as exc:  # noqa: BLE001 - wiring errors, not mission decisions
-            self.status.setText(f"승인 처리 실패 · {type(exc).__name__}: {exc}")
+            self.status.setText(f"승인 기록 실패 · {type(exc).__name__}: {exc}")
             self.refresh()
             return
-        self.status.setText(f"화재 {audit.zone_id} · {audit.outcome}")
-        self._refresh_simulator()
+        self.status.setText(
+            f"화재 {recorded.zone_id} · {decision.value} 기록 · 다음 checkpoint 적용"
+        )
         self.refresh()
         if (
             self.controller.pending_fire_approval is None
@@ -528,7 +538,7 @@ class OperatorWindow(QMainWindow):
             and self._can_advance()
         ):
             self._resume_continuous_after_approval = False
-            self.status.setText("CONTINUOUS RUNTIME · 승인 완료, 재생 재개")
+            self.status.setText("CONTINUOUS RUNTIME · 승인 기록됨, 재생 재개")
             QTimer.singleShot(0, self.play_continuous)
 
     def _advance_segment(self) -> None:

@@ -42,14 +42,18 @@ P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
 - D-064 (`e56235b`) — P13.4 continuous tick driver. `demo.animation.SegmentView.frame_at`이
   구간 내 임의 sim-time pose를 주고, `desktop.controller.ContinuousRuntime`이 QTimer tick으로
   구동. "끝까지 연속 재생"이 이 경로, "다음 checkpoint"는 기존 frame-list 재생 유지.
-- D-065 (`294693c` 계약, `98ca80f` 코드) — §22.8 sensor 화재 감지 승인 게이트. `SimulatedFireField`가
-  공개하는 `FIRE_DETECTED`는 자동 대응 안 하고 `session.pending_approvals` FIFO 큐(zone id 순)에
-  들어가 무조건 운용자에게 되묻는다. `PendingClarification`류 resumable pending(새 phase 없음),
-  결정론적 승인/거절(LLM 없음). `interaction/observe.py`의 `enqueue_fire_approvals` /
-  `resolve_fire_approval`. `ContinuousRuntime`이 화재 감지 boundary에서 halt, operator 창에
-  승인 패널(진압까지/점검만/거절), 큐 비면 자동 재개. 단일 `SimulatedFireSource`·운용자
-  `REPORT_INCIDENT`는 게이트 밖.
-- 후속: 없음 (Phase B/C/D 완료). 발표 리허설 + 지도교수·Codex 리뷰.
+- D-065 (`294693c` 계약, `98ca80f` 코드) + D-066 (`86b79dc` 계약) — §22.8 sensor 화재 감지
+  승인 게이트. `SimulatedFireField`가 공개하는 `FIRE_DETECTED`는 자동 대응 안 하고
+  `session.pending_approvals` FIFO 큐(zone id 순)에 들어가 무조건 운용자에게 되묻는다.
+  `PendingClarification`류 resumable pending(새 phase 없음), 결정론적 승인/거절(LLM 없음 —
+  사용자와 논의 후 확정). **D-066: 감지 시 clock 안 멈춤** — 감지 직후 segment가 유예이고
+  나머지 agent는 계속 이동, 운용자 답은 `record_fire_decision`으로 기록만 되고 다음 boundary의
+  `apply_recorded_fire_decisions`에서 적용(clock rewind 없음), 다음 boundary까지 미결정이면
+  그때만 halt. `interaction/observe.py`의 `enqueue_fire_approvals` / `record_fire_decision` /
+  `apply_recorded_fire_decisions` / `has_undecided_fire`. operator 창 승인 패널(진압까지/점검만/거절).
+  단일 `SimulatedFireSource`·운용자 `REPORT_INCIDENT`는 게이트 밖.
+- 후속: 없음 (Phase B/C/D 완료). 발표 리허설 + 지도교수·Codex 리뷰 — 커밋은
+  `de61780`(v1.57 재-baseline)부터 순서대로.
 
 **D-060+D-061 re-baseline (아래 D-060/D-061 항목 참조)**: fleet 동일 UAV 3대 + UGV 2,
 vocabulary 3종(`AREA_RECON` / `GROUND_INSPECTION` → `GROUND_SUPPRESSION`). 결정론적 골든

@@ -1,15 +1,17 @@
 """Apply a simulated FIRE_DETECTED observation through the §22.3 transaction.
 
 Two entry points: :func:`apply_fire_observation` is the D-062-legacy auto path
-(single ``SimulatedFireSource``, session policy), and the approval pair
-:func:`enqueue_fire_approvals` / :func:`resolve_fire_approval` is the §22.8
-operator gate for the ``SimulatedFireField`` path (D-065).
+(single ``SimulatedFireSource``, session policy), and the approval trio
+:func:`enqueue_fire_approvals` / :func:`record_fire_decision` /
+:func:`apply_recorded_fire_decisions` is the §22.8 operator gate for the
+``SimulatedFireField`` path (D-065/D-066).  The operator's answer is recorded
+during motion and applied only at the next task-completion boundary.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from enum import Enum
+from dataclasses import replace
 
 from allocation.allocate import AllocationResult, allocate
 from allocation.online import OnlinePatchApplication, apply_online_patch
@@ -23,7 +25,12 @@ from interaction.incident_response import (
     publish_incident_transaction,
 )
 from interaction.mode import require_mode
-from interaction.session import MissionSession, PendingFireApproval, ReferentKind
+from interaction.session import (
+    ApprovalDecision,
+    MissionSession,
+    PendingFireApproval,
+    ReferentKind,
+)
 from interaction.workflow import WORKFLOW_CHAIN
 from scenarios.latent import FireDetectedObservation
 from scenarios.scene import Scene
@@ -32,11 +39,6 @@ from validator.patch import graph_edge_keys, graph_hash_nodes
 
 Planner = Callable[[MissionState, Scene], AllocationResult]
 OnlineApplier = Callable[..., OnlinePatchApplication]
-
-
-class ApprovalDecision(str, Enum):
-    APPROVE = "APPROVE"
-    DECLINE = "DECLINE"
 
 
 def _graph_hash(session: MissionSession) -> str | None:
@@ -195,72 +197,110 @@ def enqueue_fire_approvals(
     return tuple(audits)
 
 
-def resolve_fire_approval(
+def record_fire_decision(
     session: MissionSession,
     *,
     decision: ApprovalDecision,
     response_up_to: TaskType | None = None,
+) -> PendingFireApproval:
+    """§22.8/D-066: record the operator's answer to the first undecided fire.
+
+    Nothing is applied here — the decision is stamped onto the queue entry and
+    applied at the next task-completion boundary by
+    :func:`apply_recorded_fire_decisions`.  APPROVE needs a workflow scope.
+    """
+    if not isinstance(decision, ApprovalDecision):
+        raise ValueError("decision must be an ApprovalDecision")
+    if decision is ApprovalDecision.APPROVE and (
+        response_up_to is None or response_up_to not in WORKFLOW_CHAIN
+    ):
+        raise ValueError("approving a fire needs a workflow scope")
+
+    pending = list(session.pending_approvals)
+    index = next(
+        (i for i, item in enumerate(pending) if not item.decided), None
+    )
+    if index is None:
+        raise ValueError("no undecided fire approval is pending")
+    decided = replace(
+        pending[index],
+        decision=decision,
+        approved_scope=response_up_to if decision is ApprovalDecision.APPROVE else None,
+    )
+    pending[index] = decided
+    session.pending_approvals = tuple(pending)
+    return decided
+
+
+def _decline_audit(session: MissionSession, item: PendingFireApproval, mode: str):
+    scene = scene_hash(session.scene)
+    graph = _graph_hash(session)
+    audit = IncidentObservationAudit(
+        session_id=session.session_id,
+        fixture_id=item.fixture_id,
+        zone_id=item.zone_id,
+        trigger_task_id=item.trigger_task_id,
+        detecting_agent_id=item.detecting_agent_id,
+        simulation_time=item.simulation_time,
+        mode=require_mode(mode),
+        outcome="DECLINED",
+        policy_origin=PolicyOrigin.NONE.value,
+        pre_scene_hash=scene,
+        post_scene_hash=scene,
+        pre_graph_hash=graph,
+        post_graph_hash=graph,
+    )
+    session.append_event(audit)
+    return audit
+
+
+def apply_recorded_fire_decisions(
+    session: MissionSession,
+    *,
     mode: str,
     planner: Planner = allocate,
     online_applier: OnlineApplier = apply_online_patch,
-) -> IncidentObservationAudit:
-    """§22.8: apply the operator's yes/no to the head of ``pending_approvals``.
+) -> tuple[IncidentObservationAudit, ...]:
+    """§22.8/D-066: at a boundary, apply the decided fires in FIFO order.
 
-    APPROVE requires a workflow scope (``GROUND_INSPECTION`` / ``GROUND_SUPPRESSION``)
-    and runs the §22.3 transaction as ``PolicyOrigin.EXPLICIT``.  DECLINE changes
-    no scene/graph/runtime state and only records a ``DECLINED`` audit.
+    Stops at the first still-undecided entry so the queue order is preserved.
+    APPROVE runs the §22.3 transaction (``PolicyOrigin.EXPLICIT``); DECLINE
+    only records a ``DECLINED`` audit.  Nothing happens for an undecided head.
     """
-    if not session.pending_approvals:
-        raise ValueError("no fire approval is pending")
-    if not isinstance(decision, ApprovalDecision):
-        raise ValueError("decision must be an ApprovalDecision")
-    head, *rest = session.pending_approvals
-
-    if decision is ApprovalDecision.DECLINE:
-        checked_mode = require_mode(mode)
-        scene = scene_hash(session.scene)
-        graph = _graph_hash(session)
-        audit = IncidentObservationAudit(
-            session_id=session.session_id,
-            fixture_id=head.fixture_id,
-            zone_id=head.zone_id,
-            trigger_task_id=head.trigger_task_id,
-            detecting_agent_id=head.detecting_agent_id,
-            simulation_time=head.simulation_time,
-            mode=checked_mode,
-            outcome="DECLINED",
-            policy_origin=PolicyOrigin.NONE.value,
-            pre_scene_hash=scene,
-            post_scene_hash=scene,
-            pre_graph_hash=graph,
-            post_graph_hash=graph,
-        )
-        session.append_event(audit)
+    audits = []
+    while session.pending_approvals and session.pending_approvals[0].decided:
+        head, *rest = session.pending_approvals
         session.pending_approvals = tuple(rest)
-        return audit
+        if head.decision is ApprovalDecision.DECLINE:
+            audits.append(_decline_audit(session, head, mode))
+            continue
+        audits.append(
+            _run_incident_transaction(
+                session,
+                fixture_id=head.fixture_id,
+                zone_id=head.zone_id,
+                trigger_task_id=head.trigger_task_id,
+                detecting_agent_id=head.detecting_agent_id,
+                simulation_time=head.simulation_time,
+                response_up_to=head.approved_scope,
+                policy_origin=PolicyOrigin.EXPLICIT,
+                mode=mode,
+                planner=planner,
+                online_applier=online_applier,
+            )
+        )
+    return tuple(audits)
 
-    if response_up_to is None or response_up_to not in WORKFLOW_CHAIN:
-        raise ValueError("approving a fire needs a workflow scope")
-    audit = _run_incident_transaction(
-        session,
-        fixture_id=head.fixture_id,
-        zone_id=head.zone_id,
-        trigger_task_id=head.trigger_task_id,
-        detecting_agent_id=head.detecting_agent_id,
-        simulation_time=head.simulation_time,
-        response_up_to=response_up_to,
-        policy_origin=PolicyOrigin.EXPLICIT,
-        mode=mode,
-        planner=planner,
-        online_applier=online_applier,
-    )
-    session.pending_approvals = tuple(rest)
-    return audit
+
+def has_undecided_fire(session: MissionSession) -> bool:
+    return any(not item.decided for item in session.pending_approvals)
 
 
 __all__ = [
     "ApprovalDecision",
     "apply_fire_observation",
+    "apply_recorded_fire_decisions",
     "enqueue_fire_approvals",
-    "resolve_fire_approval",
+    "has_undecided_fire",
+    "record_fire_decision",
 ]

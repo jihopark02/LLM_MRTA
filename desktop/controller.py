@@ -33,8 +33,10 @@ from interaction.audit_io import write_session_audit
 from interaction.observe import (
     ApprovalDecision,
     apply_fire_observation,
+    apply_recorded_fire_decisions,
     enqueue_fire_approvals,
-    resolve_fire_approval,
+    has_undecided_fire,
+    record_fire_decision,
 )
 from interaction.online_execute import advance_online_session
 from interaction.orchestrator import (
@@ -342,32 +344,33 @@ class DesktopController:
 
     @property
     def pending_fire_approval(self):
-        approvals = self.session.pending_approvals
-        return approvals[0] if approvals else None
+        """The first fire the operator has not answered yet, or ``None``."""
+        return next(
+            (item for item in self.session.pending_approvals if not item.decided), None
+        )
 
-    def resolve_fire_approval(self, *, decision: ApprovalDecision, response_up_to=None):
-        """§22.8: apply the operator's yes/no to the head fire approval."""
-        pending = self.pending_fire_approval
-        audit = resolve_fire_approval(
-            self.session,
-            decision=decision,
-            response_up_to=response_up_to,
-            mode=self.mode,
+    def record_fire_decision(self, *, decision: ApprovalDecision, response_up_to=None):
+        """§22.8/D-066: record the operator's answer; it applies at the next boundary."""
+        recorded = record_fire_decision(
+            self.session, decision=decision, response_up_to=response_up_to
         )
         label = (
-            f"화재 승인 · {pending.zone_id} · {response_up_to.value}"
+            f"화재 승인 · {recorded.zone_id} · {response_up_to.value}"
             if decision is ApprovalDecision.APPROVE
-            else f"화재 거절 · {pending.zone_id}"
+            else f"화재 거절 · {recorded.zone_id}"
         )
-        self._record(label, f"{pending.zone_id} FIRE_DETECTED → {audit.outcome}")
+        self._record(label, "다음 checkpoint에서 적용됩니다.")
         self._persist()
-        return audit
+        return recorded
 
     def advance_checkpoint(self) -> AdvancePresentation:
         """Commit exactly one online completion event and prepare its view."""
         session = self.session
         if session.state is None or session.plan is None:
             raise ValueError("a committed mission and plan are required before execution")
+        # §22.8/D-066: fire decisions the operator recorded during the last
+        # segment take effect at this boundary, before the executor advances.
+        approval_audits = apply_recorded_fire_decisions(session, mode=self.mode)
         playback_scene = session.scene
         before = (
             session.runtime.checkpoint()
@@ -392,6 +395,11 @@ class DesktopController:
                 except Exception as exc:  # noqa: BLE001 - committed state is preserved
                     playback_error = f"{type(exc).__name__}: {exc}"
         observation_responses: list[str] = []
+        for applied in approval_audits:
+            observation_audit = applied
+            observation_responses.append(
+                f"[화재 승인 적용] {applied.zone_id} → {applied.outcome}"
+            )
         if isinstance(audit, CheckpointAudit) and self.observation_source is not None:
             revealed = self.observation_source.inspect(
                 audit,
@@ -548,6 +556,21 @@ class ContinuousRuntime:
             else None
         )
         for _ in range(_MAX_ZERO_LENGTH_SKIPS):
+            # §22.8/D-066: a fire the operator has not answered by the time the
+            # clock reaches a boundary blocks that boundary — but a fire
+            # revealed *during* the segment just played does not, it gets this
+            # segment as grace time. So this check is here, before advancing.
+            if has_undecided_fire(self._controller.session):
+                self.halted = True
+                zones = ", ".join(
+                    a.zone_id
+                    for a in self._controller.session.pending_approvals
+                    if not a.decided
+                )
+                return ContinuousTick(
+                    boundary_frame, self.sim_time,
+                    halt_reason=f"화재 감지 · 운용자 승인 대기 ({zones})",
+                )
             try:
                 advance = self._controller.advance_checkpoint()
             except Exception as exc:  # noqa: BLE001 - committed state is preserved
@@ -577,18 +600,14 @@ class ContinuousRuntime:
                 self._segment = advance.segment
                 self.sim_time = advance.segment.start_time
                 boundary_at_start = advance.segment.frame_at(self.sim_time)
-                # §22.8: a sensor fire revealed at this boundary blocks the
-                # clock and the free-text queue until the operator answers.
-                if self._controller.session.pending_approvals:
-                    self.halted = True
-                    zones = ", ".join(
-                        a.zone_id for a in self._controller.session.pending_approvals
-                    )
-                    return ContinuousTick(
-                        boundary_at_start, self.sim_time, boundary=advance,
-                        halt_reason=f"화재 감지 · 운용자 승인 대기 ({zones})",
-                    )
-                queued_result = self._apply_one_queued()
+                # A fire revealed by this advance is left for the operator to
+                # answer during the segment we are about to play; the free-text
+                # queue yields to it (§23.4.1).
+                queued_result = (
+                    None
+                    if self._controller.session.pending_approvals
+                    else self._apply_one_queued()
+                )
                 halt = (
                     None
                     if queued_result is None or self._queued_ok(queued_result)
