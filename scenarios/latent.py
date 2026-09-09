@@ -141,7 +141,30 @@ class SimulatedFireSource:
 
 
 _FIELD_REQUIRED_KEYS = frozenset({"field_id", "seed", "count"})
-_FIELD_OPTIONAL_KEYS = frozenset({"candidate_zones"})
+_FIELD_OPTIONAL_KEYS = frozenset({"candidate_zones", "min_separation"})
+_MAX_SEPARATION_DRAWS = 4000
+
+
+def _min_pairwise_gap(zone_ids, scene: Scene) -> float:
+    pts = [scene.zones[z].recon_waypoint for z in zone_ids]
+    return min(
+        math.dist(pts[i], pts[j])
+        for i in range(len(pts))
+        for j in range(i + 1, len(pts))
+    )
+
+
+def _spread_sample(pool: list[str], count: int, rng, scene: Scene, min_sep: float) -> list[str]:
+    """First draw (in the rng's deterministic sequence) whose zones are all at
+    least ``min_sep`` apart. Same seed -> same draw sequence -> same result."""
+    for _ in range(_MAX_SEPARATION_DRAWS):
+        pick = rng.sample(pool, count)
+        if count < 2 or _min_pairwise_gap(pick, scene) >= min_sep:
+            return sorted(pick)
+    raise ValueError(
+        f"no {count}-zone draw with min_separation {min_sep} found in "
+        f"{_MAX_SEPARATION_DRAWS} attempts; loosen the spec"
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,7 +246,19 @@ def load_latent_fire_field(path: str | Path, scene: Scene) -> LatentFireField:
             f"count {count} exceeds the candidate zone pool size {len(pool)}"
         )
 
-    chosen = sorted(random.Random(seed).sample(pool, count))
+    rng = random.Random(seed)
+    if "min_separation" in raw:
+        min_sep = raw["min_separation"]
+        if (
+            not isinstance(min_sep, (int, float))
+            or isinstance(min_sep, bool)
+            or not math.isfinite(min_sep)
+            or min_sep <= 0.0
+        ):
+            raise ValueError(f"min_separation must be a positive number, got {min_sep!r}")
+        chosen = _spread_sample(pool, count, rng, scene, float(min_sep))
+    else:
+        chosen = sorted(rng.sample(pool, count))
     fixtures = tuple(
         LatentIncidentFixture(
             fixture_id=f"{field_id}-{zone_id}",

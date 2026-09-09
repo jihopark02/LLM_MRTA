@@ -72,6 +72,35 @@ def test_candidate_zones_restrict_the_pool(tmp_path):
     assert set(field.zone_ids) == {"ZONE_C", "ZONE_F"}
 
 
+GRID = SCENARIOS / "demo_grid.yaml"
+GRID_FIELD = SCENARIOS / "demo_grid_latent.yaml"
+
+
+def test_min_separation_keeps_the_seeded_fires_apart_deterministically():
+    scene = load_scene(GRID)
+    a = load_latent_fire_field(GRID_FIELD, scene)
+    b = load_latent_fire_field(GRID_FIELD, scene)
+
+    assert a.zone_ids == b.zone_ids == ("ZONE_A", "ZONE_D", "ZONE_J", "ZONE_O")
+    pts = [scene.zones[z].recon_waypoint for z in a.zone_ids]
+    gaps = [
+        ((pts[i][0] - pts[j][0]) ** 2 + (pts[i][1] - pts[j][1]) ** 2) ** 0.5
+        for i in range(len(pts))
+        for j in range(i + 1, len(pts))
+    ]
+    assert min(gaps) >= 170.0
+
+
+def test_min_separation_that_cannot_be_met_fails_loud(tmp_path):
+    payload = {
+        "field_id": "f", "seed": 1, "count": 4, "min_separation": 100000.0,
+    }
+    path = tmp_path / "field.yaml"
+    path.write_text(yaml.safe_dump(payload))
+    with pytest.raises(ValueError, match="min_separation"):
+        load_latent_fire_field(path, load_scene(GRID))
+
+
 @pytest.mark.parametrize(
     "overrides, message",
     [
@@ -79,6 +108,8 @@ def test_candidate_zones_restrict_the_pool(tmp_path):
         ({"count": 0}, "count must be"),
         ({"count": True}, "count must be"),
         ({"seed": "99"}, "seed must be"),
+        ({"min_separation": -5.0}, "min_separation must be"),
+        ({"min_separation": "x"}, "min_separation must be"),
         ({"candidate_zones": ["ZONE_C", "ZONE_NOPE"]}, "unknown zones"),
         ({"candidate_zones": ["ZONE_C", "ZONE_C"]}, "duplicate"),
     ],
