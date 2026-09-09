@@ -1,8 +1,14 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.60 (D-064). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.61 (D-065). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.61 (D-065): §22.8 sensor 화재 감지 승인 게이트. `SimulatedFireField`가 공개하는
+  `FIRE_DETECTED`는 자동 대응하지 않고 **무조건** 운용자에게 되묻는다. `pending_approvals`
+  FIFO 큐(zone id 순), `PendingClarification`류의 resumable pending 상태(새 phase 없음),
+  결정론적 승인/거절(LLM 없음), 승인 시 §22.3 transaction·거절 시 무변경. 승인 큐가
+  §23.4.1 자유텍스트 큐보다 우선. 단일 `SimulatedFireSource`·운용자 `REPORT_INCIDENT`는
+  게이트 밖. Validator·allocator·골든 불변.
 - v1.60 (D-064): §23.4 continuous tick driver 구현. `demo.animation.SegmentView.frame_at`이
   committed segment 안의 임의 sim-time pose를 주고, `desktop.controller.ContinuousRuntime`이
   boundary마다 checkpoint commit + sensor observation + queued 명령 1건을 **동기적으로**
@@ -2031,6 +2037,43 @@ intent classifier는 `incident_response_up_to`를 **미래 화재가 감지·보
 범위를 설명할 뿐 future incident policy가 아니므로 null이다. 이 prompt 의미 변경은
 `PROMPT_SCHEMA_VERSION = p12-v4`로 격리한다. LLM이 graph·policy 구조를 제안한다는 역할은
 유지하며, allocator·priority·좌표·capability는 계속 결정론적이다.
+
+### 22.8 sensor 화재 감지 승인 게이트 (D-065)
+
+`SimulatedFireField`(§22.2, D-062)가 공개하는 `FIRE_DETECTED`는 자동으로 대응 task를 만들지
+않는다. 운용자가 아직 존재를 모르던 화재이고 home 근처에 사람이 있을 수 있으므로, 감지될
+때마다 **무조건** 운용자에게 되묻는다("ZONE_x에 화재를 감지했습니다. 지상 로봇을
+출동시킬까요?"). D-061에서 제거한 `THERMAL_RECON`의 "행동 전 확인" 역할을 사람 판단이
+대신한다. D-062 이전 단일 `SimulatedFireSource` 경로와 운용자 자연어 `REPORT_INCIDENT`는 이
+게이트를 거치지 않는다 — 전자는 P12 재현 고정, 후자는 운용자가 이미 판단한 보고다.
+
+**pending 승인 큐.** 공개된 각 화재는 `PendingFireApproval`로 session의 `pending_approvals`
+FIFO 큐에 들어간다. 한 checkpoint에서 여럿이 공개되면 zone id 오름차순으로 넣는다. 운용자는
+큐의 head를 처리하고, 처리되면 다음 head가 활성화된다. `pending_approvals`가 비지 않은 동안
+continuous clock·자동 재생·자유텍스트 명령 큐(§23.4.1)를 소비하지 않는다 — 승인 게이트가
+자유텍스트 큐보다 우선한다. 이는 `PendingClarification`과 같은 성질의 resumable pending
+상태이며 별도 `SessionPhase`를 만들지 않는다(phase는 `EXECUTION_PAUSED` 유지).
+
+**결정.** 운용자 응답은 LLM 없이 결정론적으로 처리한다(후보 선택과 동일):
+- 승인(scope = `GROUND_SUPPRESSION` 또는 `GROUND_INSPECTION`) → §22.3 공통 atomic incident
+  transaction을 그 scope, `PolicyOrigin.EXPLICIT`로 수행한다. checkpoint clone에서
+  `apply_online_patch(SELECTIVE)` + CBBA epoch 뒤 runtime을 교체하고, 실패하면 runtime·clock·
+  graph identity를 보존한다.
+- 거절 → scene·graph·runtime을 바꾸지 않는다. 화재는 audit로만 남는다.
+
+**감사.** 공개 시 `outcome = "AWAITING_APPROVAL"` audit 1건, 처리 시 결정에 따라
+`outcome ∈ {"COMMITTED", "REJECTED", "DECLINED"}` audit 1건을 append-only event log에 추가한다.
+각 audit은 fixture id, zone, detecting agent, simulation time, 그리고 승인 시 scope·patch·
+release/rebid 차이를 담는다.
+
+**continuous runtime 연동.** tick driver가 boundary에서 checkpoint를 commit하고 sensor
+observation을 공개한 뒤 `pending_approvals`가 있으면 그 자리에서 clock을 멈춘다(§23.4의
+resumable halt). 나머지 agent도 그 boundary 프레임에 정지한다 — 승인은 사람 판단을 기다리는
+blocking 상호작용이고 곧 끝난다. 운용자가 큐를 모두 비우면 continuous 재생을 다시 시작한다.
+
+두 발표 결과(승인 후 완주, 거절 후 무변경)는 모두 `COMPLETED` 또는 정직한 `EXECUTED`,
+capability/precedence violation 0이어야 한다. 이는 simulated observation에 대한 운용자 승인
+흐름이며 실제 perception이나 물리적 진압 성공 주장이 아니다.
 
 ---
 

@@ -2015,3 +2015,41 @@ mock/cached 발표에선 정지가 수 ms, Live는 boundary에 queued 명령이 
   `ContinuousTick`·`AdvancePresentation.segment`), `desktop/simulator.py`(`render_frame`),
   `desktop/window.py`(QTimer tick driver, `sim_rate`), `desktop/app.py`(param 전달).
 - 테스트: `ContinuousRuntime` 단위테스트, app 테스트를 tick driver 경로로 갱신.
+
+## D-065: sensor 화재 감지 승인 게이트 (계약 v1.61)
+
+**배경** D-062 seeded latent fire field로 "우리가 모르던 화재를 순찰 중 감지"가 가능해졌다.
+지도교수 시나리오는 "감지 → 양방향 소통(ugv 출동시킬까요?) → 허가하면 출동"이다. 사용자
+결정: "식별하면 무조건 우리에게 되묻는 걸로 가자. home 쪽에 사람이 있는데 갑자기 ugv가
+출발하면 이상하잖아." D-061에서 `THERMAL_RECON`("행동 전 확인")을 제거하며 그 역할을 §22.8
+승인 게이트가 대신한다고 이미 명시해 뒀다.
+
+**결정** `SimulatedFireField`가 공개하는 `FIRE_DETECTED`는 자동 대응 transaction을 실행하지
+않고 `PendingFireApproval`로 session `pending_approvals` FIFO 큐(zone id 오름차순)에 넣는다.
+`PendingClarification`과 같은 성질의 resumable pending 상태이며 새 `SessionPhase`를 만들지
+않는다. 큐가 비지 않는 동안 continuous clock·자동 재생·자유텍스트 명령 큐(§23.4.1)를 소비하지
+않는다(승인 우선). 운용자 응답은 LLM 없이 결정론적으로:
+- 승인 + scope(`GROUND_SUPPRESSION` / `GROUND_INSPECTION`) → §22.3 atomic incident
+  transaction을 `PolicyOrigin.EXPLICIT`로 수행.
+- 거절 → scene·graph·runtime 무변경, `IncidentObservationAudit(outcome="DECLINED")`만 남김.
+공개 시 `AWAITING_APPROVAL` audit 1건, 처리 시 `COMMITTED`/`REJECTED`/`DECLINED` audit 1건.
+
+단일 `SimulatedFireSource`(P12 재현)와 운용자 자연어 `REPORT_INCIDENT`(이미 사람 판단)는
+게이트 밖이다.
+
+**대안 검토**
+- 새 `SessionPhase.AWAITING_APPROVAL`: `_can_advance`·gating이 phase에 강하게 묶여 있어 침습적.
+  `pending_clarification` 패턴(별도 pending 필드, phase 유지)이 이미 검증됐으므로 재사용.
+- 7번째 dialogue act + LLM 파싱: 승인은 yes/no + scope 2택이라 LLM 불필요. 후보 선택
+  (`select_clarification_candidate`)과 같은 결정론적 경로.
+- 감지 즉시 clock 유지하고 다른 agent 계속 이동: boundary에서 이미 clock이 잠깐 멈추므로
+  자연스러운 확장. Phase C가 "매 checkpoint 정지"를 없앴으니 승인 정지는 예외이지 규칙이 아님.
+
+**영향**
+- 계약: §22.8 신설. §23.4.1이 이미 승인 우선을 명시.
+- 코드: `interaction/session.py`(`PendingFireApproval`, `pending_approvals`),
+  `interaction/observe.py`(`enqueue_fire_approvals`·`resolve_fire_approval`),
+  `interaction/audit.py`(`IncidentObservationAudit` outcome 값),
+  `desktop/controller.py`(field 관측 → enqueue, `resolve_fire_approval`,
+  `ContinuousRuntime` halt), `desktop/window.py`(승인 UI).
+- 골든·Validator·allocator·평가: 불변.
