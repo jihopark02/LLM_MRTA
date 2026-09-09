@@ -33,15 +33,29 @@ def _controller(tmp_path):
     )
 
 
-def test_native_default_is_scenario_free_live_world(tmp_path):
+def test_native_default_is_the_15_zone_demo_grid_live(tmp_path):
     controller = DesktopController(runtime_root=tmp_path, frame_count=4)
 
-    assert controller.scenario_id == "dynamic-world"
+    assert controller.scenario_id == "demo-grid"
     assert controller.mode == "live"
-    assert controller.fixture_id is None
-    assert controller.session.scene.incidents == {}
+    assert controller.session.scene.scene_id == "demo_grid"
+    assert len(controller.session.scene.zones) == 15
+    assert controller.session.scene.incidents == {}  # fires are latent
     assert controller.session.state is None
     assert controller.mock_commands == ()
+    # seeded latent field is loaded but reveals nothing until recon runs
+    assert controller.fixture_id == "demo-grid-latent-v1"
+    assert controller.current_map_spec().mode == "world"
+    assert controller.current_map_spec().incidents == ()
+
+
+def test_dynamic_world_is_still_selectable(tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="dynamic-world"
+    )
+    assert controller.mode == "live"
+    assert controller.fixture_id is None
+    assert len(controller.session.scene.zones) == 4
 
 
 def test_dynamic_district_is_an_incident_empty_eight_zone_live_world(tmp_path):

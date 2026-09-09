@@ -64,8 +64,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SCENE_PATH = ROOT / "scenarios" / "industrial_park.yaml"
 PATROL_SCENE_PATH = ROOT / "scenarios" / "patrol_park.yaml"
 DISTRICT_SCENE_PATH = ROOT / "scenarios" / "response_district_patrol.yaml"
+GRID_SCENE_PATH = ROOT / "scenarios" / "demo_grid.yaml"
 SENSOR_FIXTURE_PATH = ROOT / "scenarios" / "patrol_zone_b_fire.yaml"
 DISTRICT_LATENT_FIELD_PATH = ROOT / "scenarios" / "response_district_latent.yaml"
+GRID_LATENT_FIELD_PATH = ROOT / "scenarios" / "demo_grid_latent.yaml"
 DEFAULT_RUNTIME_ROOT = ROOT / "data"
 SUPPORTED_MODES = ("live", "cached", "mock")
 DEFAULT_FRAME_COUNT = 36
@@ -88,6 +90,11 @@ DISTRICT_LIVE_EXAMPLES = (
     "종합병원에 화재가 발생했어. 지상 진압 단계까지 대응해줘",
     "이제 UAV 두 대만 사용하고 S2는 제외해줘",
 )
+GRID_LIVE_EXAMPLES = (
+    "열다섯 개 구역 전체를 항공 정찰하고 새 화재가 발견되면 지상 진압 단계까지 대응해줘",
+    "모든 구역을 UAV로 정찰해줘",
+    "이제 UAV 두 대만 사용해서 나머지 구역을 정찰해줘",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +109,14 @@ class ScenarioProfile:
 
 
 SCENARIO_PROFILES = {
+    "demo-grid": ScenarioProfile(
+        "demo-grid",
+        "Demo · 15-zone grid · seeded latent fires (default)",
+        GRID_SCENE_PATH,
+        None,
+        live_examples=GRID_LIVE_EXAMPLES,
+        latent_field_path=GRID_LATENT_FIELD_PATH,
+    ),
     "dynamic-world": ScenarioProfile(
         "dynamic-world",
         "Dynamic Live · world only (no mission fixture)",
@@ -174,7 +189,7 @@ class DesktopController:
         self,
         *,
         scene_path: str | Path | None = None,
-        scenario_id: str = "dynamic-world",
+        scenario_id: str = "demo-grid",
         runtime_root: str | Path | None = None,
         frame_count: int = DEFAULT_FRAME_COUNT,
     ) -> None:
