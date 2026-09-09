@@ -24,7 +24,7 @@ P12.7 completed-patrol follow-on incident response까지 완료**. **P13.0~P13.3
 자연어 resource constraint + 결정론적 active-team resolution 및 실행 중 safe-boundary
 resource 교체, scenario-free Live 기본 진입점 완료**. 발표 시각화는 MP4MR-clean
 `minimal` 지도 스타일과 D-062 seeded latent fire field(`LatentFireField`)까지 진행 중.
-테스트 921개 통과.
+테스트 929개 통과.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는

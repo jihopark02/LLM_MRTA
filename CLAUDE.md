@@ -30,7 +30,7 @@ P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
 `feature/operator-interaction`). 계약 v1.61, 최신 결정 D-065.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 921개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 929개 통과, ruff clean.
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.
@@ -42,7 +42,14 @@ P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
 - D-064 (`e56235b`) — P13.4 continuous tick driver. `demo.animation.SegmentView.frame_at`이
   구간 내 임의 sim-time pose를 주고, `desktop.controller.ContinuousRuntime`이 QTimer tick으로
   구동. "끝까지 연속 재생"이 이 경로, "다음 checkpoint"는 기존 frame-list 재생 유지.
-- 후속: "무조건 되묻는" 승인 게이트(§22.8, Phase D).
+- D-065 (`294693c` 계약, `98ca80f` 코드) — §22.8 sensor 화재 감지 승인 게이트. `SimulatedFireField`가
+  공개하는 `FIRE_DETECTED`는 자동 대응 안 하고 `session.pending_approvals` FIFO 큐(zone id 순)에
+  들어가 무조건 운용자에게 되묻는다. `PendingClarification`류 resumable pending(새 phase 없음),
+  결정론적 승인/거절(LLM 없음). `interaction/observe.py`의 `enqueue_fire_approvals` /
+  `resolve_fire_approval`. `ContinuousRuntime`이 화재 감지 boundary에서 halt, operator 창에
+  승인 패널(진압까지/점검만/거절), 큐 비면 자동 재개. 단일 `SimulatedFireSource`·운용자
+  `REPORT_INCIDENT`는 게이트 밖.
+- 후속: 없음 (Phase B/C/D 완료). 발표 리허설 + 지도교수·Codex 리뷰.
 
 **D-060+D-061 re-baseline (아래 D-060/D-061 항목 참조)**: fleet 동일 UAV 3대 + UGV 2,
 vocabulary 3종(`AREA_RECON` / `GROUND_INSPECTION` → `GROUND_SUPPRESSION`). 결정론적 골든
