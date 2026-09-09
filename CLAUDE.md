@@ -23,14 +23,17 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
-## 지금 어디까지 왔는지 (2026-09-08 기준)
+## 지금 어디까지 왔는지 (2026-09-09 기준)
 
-**P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.5,
-P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
-`feature/operator-interaction`). 계약 v1.66, 최신 결정 D-070.**
+**P1~P13.4 + D-059~D-070 완료. `main`은 이제 여기(D-070)까지 fast-forward됐고 태그
+`v0.13.4-baseline`이 review·재현 기준점이다** (직전 baseline은 `v0.6.5-baseline` = P6.5).
+계약 v1.66, 최신 결정 D-070. pytest 936개 통과, ruff clean.
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
-(P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 936개 통과, ruff clean.
+(P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
+(D-027), `λ = 0.999`.
+
+**이 baseline 이후 개발은 새 feature branch에서** (latency profiling, single-call ablation,
+intent robustness 등 LLM pipeline·실험 조건에 영향을 주는 변경이라 D-070 시스템을 고정해 둔다).
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.

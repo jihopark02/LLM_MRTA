@@ -12,8 +12,8 @@ Unmanned Systems
 
 ## 현재 단계
 
-**계약 v1.66 / 최신 결정 D-070. 브랜치 `feature/operator-interaction`, pytest 936개 통과, ruff clean.**
-(`main`은 아직 P6.5 baseline이며 이 브랜치가 최신이다.)
+**계약 v1.66 / 최신 결정 D-070. `main` = 태그 `v0.13.4-baseline`, pytest 936개 통과, ruff clean.**
+이 baseline 이후 개발은 새 feature branch에서 진행한다.
 
 **P1~P6.5 완료** — `validator/`(P2) + `allocation/`(P3) + `execution/`(P4: `SimExecutor`)
 + `llm/`(P5: Step1/Step2/repair 파이프라인 §12) + `evaluation/`(P6: 9개 입력 평가 하네스;
