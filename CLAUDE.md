@@ -30,7 +30,7 @@ P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
 `feature/operator-interaction`). 계약 v1.65, 최신 결정 D-069.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 933개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 936개 통과, ruff clean.
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.
@@ -61,6 +61,11 @@ P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
   위치 이어받기, UGV 기지 재시작, 이전 `ExecutionAudit` 보존). "임무 완료" 종착점 제거, UI는
   "대기" 표시. 반복 순찰 task는 여전히 미구현. (B) §3 `IncidentStatus.RESOLVED` — 
   `GROUND_SUPPRESSION` 완료 시 incident RESOLVED, 지도에서 흐린 회색 X.
+- D-069 (`321dfc0` 계약, `75a983a` 코드) — Live 데모 피드백. `NEW_MISSION`을 `EXECUTION_PAUSED`
+  (실행 중 safe checkpoint)에서도 수용 → 옛 mission 중단, 그 checkpoint UAV 위치에서 새 episode.
+  `EXECUTION_FAILED`는 계속 거부. continuous 재생 중 큐에 든 `NEW_MISSION`이 commit되면
+  `ContinuousTick.episode_changed` → `ContinuousRuntime` 정지, window가 새 episode로 새
+  `ContinuousRuntime` 시작(매끄러운 전환).
 - 후속: 없음. 발표 리허설 + 지도교수·Codex 리뷰 — 커밋은 `de61780`(v1.57 재-baseline)부터 순서대로.
 
 **D-060+D-061 re-baseline (아래 D-060/D-061 항목 참조)**: fleet 동일 UAV 3대 + UGV 2,
