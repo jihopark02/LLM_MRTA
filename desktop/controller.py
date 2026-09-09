@@ -27,6 +27,7 @@ from demo.visualization import (
     execution_map_spec,
     plan_map_spec,
     runtime_map_spec,
+    world_map_spec,
 )
 from execution.executor import SimExecutor, Termination
 from interaction.audit import CheckpointAudit, ExecutionAudit, IncidentObservationAudit
@@ -520,7 +521,10 @@ class DesktopController:
         """Best truthful static view for the session's current phase."""
         session = self.session
         if session.state is None:
-            return None
+            # Before the first mission: the environment is already known
+            # (§18.14 world mode, D-073) — zones, routes, agent starts, and
+            # any incident the scene ships with. Nothing mission-derived.
+            return world_map_spec(session.scene)
         if (
             session.phase is SessionPhase.EXECUTED
             and session.execution is not None

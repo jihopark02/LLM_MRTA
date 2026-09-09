@@ -184,7 +184,7 @@ class MissionCanvas(QWidget):
             painter.setPen(QPen(colour, 2.0 if incident.resolved else 3.0))
             painter.drawLine(point + QPointF(-7, -7), point + QPointF(7, 7))
             painter.drawLine(point + QPointF(-7, 7), point + QPointF(7, -7))
-            painter.drawText(point + QPointF(-36, 24), incident.entity_id)
+            painter.drawText(point + QPointF(-36, 24), incident.label)
 
         activity = {
             item.agent_id: (item.activity, item.task_id) for item in self.frame.agents

@@ -147,6 +147,18 @@ def test_mock_mission_uses_the_existing_orchestrator_and_writes_audit(tmp_path):
     assert '"mode": "mock"' in audit.read_text(encoding="utf-8")
 
 
+def test_before_the_first_mission_the_map_shows_the_world(tmp_path):
+    controller = _controller(tmp_path)  # "reference" scene, no mission yet
+
+    spec = controller.current_map_spec()
+
+    assert spec is not None and spec.mode == "world"
+    assert {a.agent_id for a in spec.agents} == {
+        a.agent_id for a in controller.session.scene.fleet
+    }
+    assert spec.legs == () and spec.task_points == ()
+
+
 def test_checkpoint_action_returns_the_frozen_p10_playback(tmp_path):
     controller = _controller(tmp_path)
     controller.submit(MOCK_COMMANDS[0])

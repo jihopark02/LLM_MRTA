@@ -481,6 +481,44 @@ def test_map_specs_are_deterministic(fixture_scene, graph, planned, paused, fini
     )
 
 
+# -- world map mode (D-073) -----------------------------------------------
+
+
+def test_world_map_spec_shows_environment_without_a_mission(scene):
+    from demo.visualization import world_map_spec
+
+    spec = world_map_spec(scene)
+
+    assert spec.mode == "world"
+    assert {z.entity_id for z in spec.zones} == set(scene.zones)
+    assert {a.agent_id for a in spec.agents} == {a.agent_id for a in scene.fleet}
+    assert spec.route_lanes  # the UGV network is drawn
+    # nothing mission-derived
+    assert spec.legs == ()
+    assert spec.task_points == ()
+    assert spec.simulation_time is None
+
+
+def test_world_map_spec_shows_known_incidents_labelled_fire_n(scene):
+    from demo.visualization import world_map_spec
+
+    incidents = world_map_spec(scene).incidents
+    assert {i.entity_id for i in incidents} == set(scene.incidents)
+    assert {i.label for i in incidents} == {"Fire 1", "Fire 2"}
+
+
+def test_world_map_spec_is_deterministic(scene):
+    from demo.visualization import world_map_spec
+
+    assert world_map_spec(scene) == world_map_spec(scene)
+
+
+def test_map_mode_titles_cover_exactly_the_supported_modes():
+    from demo.visualization import MAP_MODE_TITLES, MAP_MODES
+
+    assert tuple(MAP_MODE_TITLES) == MAP_MODES
+
+
 def test_plan_legs_follow_task_start_order(fixture_scene, planned):
     from demo.visualization import plan_map_spec
 

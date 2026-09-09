@@ -16,6 +16,7 @@ without the optional ``viz`` extra still starts and falls back to the §18.12
 tables.
 """
 
+import re
 from dataclasses import dataclass
 
 from allocation.allocate import AllocationResult
@@ -235,7 +236,7 @@ LEG_LINESTYLES = {
     "in_progress": "dashed",
     "remaining": "dotted",
 }
-MAP_MODES = ("plan", "runtime", "execution", "playback")
+MAP_MODES = ("world", "plan", "runtime", "execution", "playback")
 
 
 @dataclass(frozen=True, slots=True)
@@ -330,6 +331,13 @@ def _leg_points(agent, from_ref, task, scene: Scene):
     return _ugv_leg_points(from_ref, destination, scene), destination
 
 
+def _incident_label(incident_id: str) -> str:
+    """Map display label: ``FIRE_SITE_3`` -> ``"Fire 3"``. An id that does not
+    fit that shape is shown verbatim — grounding always uses the real id."""
+    m = re.fullmatch(r"FIRE_SITE_(\d+)", incident_id)
+    return f"Fire {m.group(1)}" if m else incident_id
+
+
 def _scene_background(scene: Scene):
     """Zones, incidents and lanes — identical whichever mode is drawn."""
     zones = tuple(
@@ -338,7 +346,7 @@ def _scene_background(scene: Scene):
     )
     incidents = tuple(
         MapPointSpec(
-            iid, *map(float, incident.position), "incident", iid,
+            iid, *map(float, incident.position), "incident", _incident_label(iid),
             resolved=incident.status is IncidentStatus.RESOLVED,
         )
         for iid, incident in sorted(scene.incidents.items())
@@ -384,6 +392,34 @@ def _walk(agent, task_ids, graph, scene, phase, start):
         if points:
             legs.append(MapLegSpec(agent.agent_id, task_id, order, points, phase))
     return legs, current
+
+
+def world_map_spec(scene: Scene) -> MapRenderSpec:
+    """The environment before any mission exists (§18.14, D-073).
+
+    Zones, route lanes, agent start positions and the incidents the scene
+    already knows — nothing mission-derived (no task points, no assignment
+    legs, no order numbers). Latent / undetected fires are not in
+    ``scene.incidents`` so they are absent here by construction (§3, D-062).
+    """
+    colors = _agent_colors(scene)
+    zones, incidents, lanes = _scene_background(scene)
+    agents = tuple(
+        AgentMapSpec(
+            agent.agent_id, agent.platform_kind, colors[agent.agent_id],
+            _ref_point(start_ref(agent, scene), scene),
+        )
+        for agent in sorted(scene.fleet, key=lambda a: a.agent_id)
+    )
+    return MapRenderSpec(
+        mode="world",
+        zones=zones,
+        incidents=incidents,
+        route_lanes=lanes,
+        agents=agents,
+        task_points=(),
+        legs=(),
+    )
 
 
 def plan_map_spec(
@@ -563,9 +599,11 @@ def figure_height(row_count: int) -> float:
     return min(MAX_HEIGHT_IN, max(MIN_HEIGHT_IN, MIN_HEIGHT_IN + ROW_HEIGHT_IN * row_count))
 
 
-#: Title per mode. The three maps are never overlaid — the operator must be able
-#: to tell an intended plan from what actually ran (§18.14).
+#: Title per mode. The maps are never overlaid — the operator must be able
+#: to tell the bare environment from an intended plan from what actually ran
+#: (§18.14). Keys are exactly ``MAP_MODES``.
 MAP_MODE_TITLES = {
+    "world": "Mission environment — no mission generated yet",
     "plan": "Plan-time CBBA baseline — route computed before execution",
     "runtime": "Online execution paused — last confirmed positions",
     "execution": "Completed execution — route actually driven",
@@ -877,6 +915,7 @@ __all__ = [
     "AgentMapSpec",
     "MapLegSpec",
     "MapRenderSpec",
+    "world_map_spec",
     "plan_map_spec",
     "runtime_map_spec",
     "execution_map_spec",
