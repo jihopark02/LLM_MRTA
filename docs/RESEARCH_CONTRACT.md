@@ -1,8 +1,14 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.57 (D-061). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.58 (D-062). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.58 (D-062): §22.2에 seeded 다중 latent fire field를 추가한다. 단일 하드코딩 fixture
+  대신 정수 `seed`로 알려진 후보 zone에서 `count`개(기본 2)를 결정론적으로 뽑아 각 zone의
+  `AREA_RECON`을 trigger로 하는 latent fixture 튜플을 만든다. 지형·fleet·route는 전부
+  기존대로 고정이며 오직 "어느 zone에 화재가 있는가"만 seed로 정해진다. 기존
+  `LatentIncidentFixture` 단일 경로는 P12 재현용으로 유지한다. §22.2 불변식(scene·prompt·
+  `scene_hash` 분리, 1회 공개, rerun 멱등)은 그대로다. 승인 게이트(§22.8)는 후속(Phase D).
 - v1.57 (D-061): task vocabulary를 5종 → **3종**으로 줄인다. `THERMAL_RECON`(대응 전 열원
   확인)과 `SUPPRESSANT_DROP`(UAV 공중 투하)을 제거하고 incident workflow를
   `GROUND_INSPECTION → GROUND_SUPPRESSION` 2단계로 한다. UAV는 정찰 전담(AREA_RECON), 실제
@@ -1903,6 +1909,18 @@ zone의 `AREA_RECON` task여야 하고 checkpoint의 `completed_now`에 처음 �
 observation은 `source=SENSOR_SIMULATED`, detecting agent id, zone, simulation time, fixture id를
 typed audit에 남긴다. 실제 센서 confidence나 영상 결과를 발명하지 않는다. task가 완료됐다는
 사실과 fixture 조건이 맞았다는 것만 뜻한다.
+
+**다중 latent fire field (D-062).** `LatentFireField`는 `field_id`, 정수 `seed`, `count`,
+선택적 `candidate_zones`를 strict하게 저장한다. `candidate_zones`가 없으면 scene의 모든 zone이
+후보다. `random.Random(seed)`가 정렬된 후보에서 `count`개를 뽑아(sample) 각 zone의 `AREA_RECON`을
+trigger로 하는 `LatentIncidentFixture` 튜플을 만든다. 같은 seed·scene·spec은 항상 같은 zone
+집합을 준다. 지형·fleet·route·zone 위치는 전부 고정이고 seed가 정하는 것은 화재가 있는 zone뿐이며
+화재 위치는 그 zone의 기존 response point다. field는 단일 fixture와 동일하게 scene·LLM prompt·
+초기 graph·`scene_hash`에 포함되지 않는다. 각 fixture는 자기 trigger가 checkpoint
+`completed_now`에 처음 나타난 경우에만 `FireDetectedObservation`을 한 번 낸다. 한 checkpoint에서
+여러 trigger가 완료되면 zone id 오름차순으로 발행한다. `count`가 후보 zone 수보다 크거나 1 미만이면
+로드 시 거부한다. `seed`·`field_id`·뽑힌 zone 수는 UI에 표시하되(§22.5) 어느 zone인지는 공개
+전까지 표시하지 않는다.
 
 ### 22.3 공통 atomic incident transaction
 

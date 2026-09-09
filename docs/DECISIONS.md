@@ -1921,3 +1921,30 @@ AREA_RECON UAV 3, GROUND_* UGV 2로 모두 ≥ 2. `VALIDATOR_VERSION` 1.4 유지
   (P8.4), `data/p12_counterfactual*.yaml`, `data/online_reallocation_fixture.yaml`.
 - 골든: P3/P4/P6.5/P9는 D-060과 함께 재계산. LLM 평가(P6/P12/P13)는 재실행하고 새 결과 파일에
   기록하며, D-060/D-061 이전 artifact는 fleet v1 / vocab v1 기록으로 보존한다.
+
+## D-062: seeded 다중 latent fire field (계약 v1.58)
+
+**배경** 지금 latent 화재는 `patrol_zone_b_fire.yaml` 한 파일에 ZONE_B로 하드코딩돼 있다.
+지도교수 시나리오는 "world에 랜덤으로 화재를 몇 군데 두고(우리는 위치를 모름) UAV가 전체
+구역을 순찰하다 감지"다. 지형·fleet·route는 우리가 다 아는 고정 world이고, 랜덤이어야 하는
+것은 "어느 zone에 화재가 있는가"뿐이다. 재현성을 유지하려면 이 랜덤이 seed로 결정론적이어야
+한다.
+
+**결정** `scenarios/latent.py`에 `LatentFireField`를 추가한다. 고정 spec YAML
+(`field_id`, 정수 `seed`, `count`, 선택적 `candidate_zones`)을 읽어 `random.Random(seed)`로
+후보 zone에서 `count`개(발표 기본 2)를 뽑고, 각 zone의 `AREA_RECON`을 trigger로 하는
+`LatentIncidentFixture` 튜플을 만든다. `SimulatedFireField` source가 N개 sub-source를 들고
+checkpoint마다 trigger가 `completed_now`에 처음 든 fixture를 zone id 오름차순으로 공개한다.
+기존 `LatentIncidentFixture` / `load_latent_incident_fixture` / `SimulatedFireSource` 단일
+경로는 P12 재현용으로 그대로 둔다(순수 additive). §22.2 불변식(scene·prompt·초기 graph·
+`scene_hash` 분리, fixture당 1회 공개, rerun·cached 재생 멱등)은 동일하게 적용된다. 감지된
+화재는 Phase B에서는 기존 §22.3 transaction을 현재 session policy로 통과한다 — "무조건 되묻는"
+승인 게이트(§22.8)는 D-063(Phase D)다.
+
+**영향**
+- 계약: §22.2에 "다중 latent fire field" 문단 추가. §22.5 UI 표시 항목에 seed·field id·
+  뽑힌 zone 수(어느 zone인지는 비공개).
+- 코드: `scenarios/latent.py`(신규 `LatentFireField`·`load_latent_fire_field`·
+  `SimulatedFireField`), `desktop/controller.py`(신규 `district-latent-fire` 프로파일).
+- 데이터: `scenarios/response_district_latent.yaml`(신규 고정 spec).
+- 골든·평가·Validator·allocator·executor: 불변.
