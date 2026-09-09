@@ -1948,3 +1948,34 @@ checkpoint마다 trigger가 `completed_now`에 처음 든 fixture를 zone id 오
   `SimulatedFireField`), `desktop/controller.py`(신규 `district-latent-fire` 프로파일).
 - 데이터: `scenarios/response_district_latent.yaml`(신규 고정 spec).
 - 골든·평가·Validator·allocator·executor: 불변.
+
+## D-063: P13.4 입력 queue 순서·취소 정책 (계약 v1.59)
+
+**배경** §23.4가 continuous runtime의 골격은 정해 뒀지만 "여러 입력의 순서·교체·취소
+정책은 구현 전 별도 계약으로 확정한다"고 미뤄 뒀다. P12.6은 재생 중 자유텍스트를 단일
+`queued_command`로만 받고 2번째 입력을 무시한다("덮어쓰기 금지"). 발표 시나리오에서
+운영자가 순찰 중 여러 지시를 연달아 내릴 수 있어야 하므로 1건 제한은 부적절하다.
+
+**결정** 재생 중 명령은 제출 순 FIFO 큐(`queued_commands: list[str]`)에 쌓는다. safe
+boundary마다 정확히 1건을 소비해 (commit된 checkpoint + 그 checkpoint의 sensor
+observation) 상태에서 기존 `handle_turn`으로 한 번 처리한다. `COMMITTED`/`NO_CHANGE`/
+`ANSWERED`면 다음 segment 자동 재생 후 다음 항목 처리, 그 외 결과면 자동 진행 정지·나머지
+큐 보존. 한 boundary에서 배치 drain하지 않는다(같은 sim time에 감사 턴 중첩 회피). 미소비
+항목은 운영자가 취소 가능 — graph·scene·runtime·referent 불변(P8.3 후보 취소와 동일 성질).
+큐는 처리 전 presentation state이고 `TurnAudit`이 아니다. last-write-wins·자동 병합은
+채택하지 않는다(각 발화 = 독립 결정·감사 대상). 승인 게이트(§22.8, D-064 예정)의 pending
+승인이 이 큐보다 우선한다.
+
+**대안 검토**
+- last-write-wins(2번째가 1번째 교체): "오타 정정"엔 편하나 독립 명령을 삼켜 콘솔에 부적합.
+- 배치 drain(한 boundary에서 큐 전체를 N턴으로): responsiveness는 좋으나 같은 sim time에
+  여러 감사 턴이 쌓이고 뒤 턴이 앞 턴 효과를 못 본 상태로 처리돼 감사·재현 스토리가 흐려짐.
+  데모 segment가 짧아 1건씩으로 충분.
+
+**영향**
+- 계약: §23.4에서 정책 미정 문장 제거, §23.4.1 신설. §23.4.1가 §22.8보다 먼저 확정되며
+  §22.8이 큐 우선순위를 참조한다.
+- 코드: `interaction/session.py` 또는 desktop presentation layer의
+  `queued_command` → `queued_commands` FIFO, 취소 API, 큐 표시. `advance` 자동진행 루프가
+  boundary마다 1건 소비. `handle_turn`·Validator·CBBA·executor 의미 불변.
+- 골든·평가: 불변.

@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.58 (D-062). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.59 (D-063). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.59 (D-063): §23.4.1로 P13.4 continuous runtime의 입력 queue 정책을 확정한다. 재생 중
+  자유텍스트 명령은 FIFO 큐(`queued_commands`)에 쌓이고 safe boundary마다 1건씩 기존
+  `handle_turn`으로 처리한다. P12.6의 단일 `queued_command` 1건 제한을 대체하되 "덮어쓰기
+  금지"는 유지하고, 미소비 항목은 운영자가 취소할 수 있다(graph·scene·runtime 불변). 승인
+  게이트(§22.8, 후속)가 이 큐보다 우선한다.
 - v1.58 (D-062): §22.2에 seeded 다중 latent fire field를 추가한다. 단일 하드코딩 fixture
   대신 정수 `seed`로 알려진 후보 zone에서 `count`개(기본 2)를 결정론적으로 뽑아 각 zone의
   `AREA_RECON`을 trigger로 하는 latent fixture 튜플을 만든다. 지형·fleet·route는 전부
@@ -2111,9 +2116,32 @@ LLM 해석 결과와 도착 시각을 pending transaction으로 보존한다. pe
 
 UI thread·network latency가 결과를 바꾸지 않게 LLM 호출은 executor state mutation과 분리한다.
 동일 utterance, pre-state hash와 적용 boundary가 같으면 graph/resource/team/assignment 결과도
-같아야 한다. 여러 입력의 순서·교체·취소 정책은 구현 전에 별도 계약으로 확정한다. P13.4는
-robot telemetry가 아니라 P10 schedule 기반 kinematic runtime이며, 이를 실제 비행으로 표시하지
-않는다.
+같아야 한다. P13.4는 robot telemetry가 아니라 P10 schedule 기반 kinematic runtime이며, 이를
+실제 비행으로 표시하지 않는다.
+
+### 23.4.1 입력 queue 순서·취소 정책 (D-063)
+
+재생 중 도착한 자유텍스트 명령은 제출 순서대로 FIFO 큐(`queued_commands`)에 쌓인다. P12.6의
+단일 `queued_command`(2번째 입력이 1번째를 덮어쓰지 않되 1건만 허용) 제한을 대체한다. 각
+발화는 독립된 운영자 결정이자 감사 대상이므로 큐에서 조용히 병합·삭제·교체하지 않는다.
+
+큐는 safe boundary(task-completion checkpoint)마다 **정확히 한 건**을 소비한다. 소비 순서는
+제출 순이고, 단일 운영자의 순차 입력이라 동률이 없다. 소비된 발화는 그 boundary의 commit된
+checkpoint와 그 checkpoint의 simulated sensor observation을 먼저 반영한 상태에서 기존
+`handle_turn`으로 한 번 처리된다. 결과가 `COMMITTED`/`NO_CHANGE`/`ANSWERED`이고 세션이 계속
+실행 가능하면 다음 segment를 자동 재생하고 남은 큐의 다음 항목을 그 다음 boundary에서 처리한다.
+`CLARIFICATION`/`UNSUPPORTED`/`REJECTED`/`TURN_ERROR` 또는 pending clarification이면 자동
+진행을 멈추고 나머지 큐를 보존한 채 입력·후보 선택을 기다린다. 한 boundary에서 여러 턴을 몰아
+처리하지 않는다 — 같은 simulation time에 감사 턴이 겹쳐 뒤 턴이 앞 턴의 효과를 보지 못한 채
+처리되는 것을 피한다.
+
+큐는 처리 전 presentation state이며 `TurnAudit`이 아니다. UI는 대기 항목을 제출 순서로
+표시하고, 아직 소비되지 않은 항목은 운영자가 취소할 수 있다 — 취소는 graph·scene·runtime·
+referent를 바꾸지 않으며 P8.3 후보 취소와 같은 성질이다. 소비 시점에 stale해진 명령(참조
+대상이 이미 완료 등)은 특별 처리 없이 `handle_turn`이 그대로 거부·clarification한다.
+
+승인 게이트(§22.8, 후속)의 pending 승인은 이 자유텍스트 큐보다 우선한다: 승인 대기 중에는
+큐를 소비하지 않는다. 세부 순서는 §22.8 계약에서 확정한다.
 
 ### 23.5 ROS2/Gazebo adapter 경계
 
