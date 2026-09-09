@@ -2,7 +2,7 @@
 
     python3 presentation/build_deck.py
 
-Every figure here is traceable to docs/RESEARCH_CONTRACT.md v1.51 or a
+Every figure here is traceable to docs/RESEARCH_CONTRACT.md v1.66 or a
 docs/*_RESULTS.md file. No unrun numbers (CLAUDE.md).
 """
 
@@ -34,7 +34,7 @@ EMU_W, EMU_H = Inches(13.333), Inches(7.5)
 MARGIN = Inches(0.62)
 CONTENT_W = EMU_W - 2 * MARGIN
 
-FOOT = "계약 v1.51 · Validator 1.4 · pytest 854"
+FOOT = "계약 v1.66 · Validator 1.4 · pytest 936"
 
 prs = Presentation()
 prs.slide_width = EMU_W
@@ -277,7 +277,7 @@ text(s, MARGIN, Inches(4.35), Inches(9.4), Inches(1.4),
       [("검증하고, 통과한 그래프만 CBBA와 시뮬레이터에 전달한다",
         dict(size=15, color=MUTED))]], leading=1.4)
 text(s, MARGIN, EMU_H - Inches(0.95), CONTENT_W, Inches(0.6),
-     [[("근거 · docs/RESEARCH_CONTRACT.md v1.51 · D-001~D-055 · "
+     [[("근거 · docs/RESEARCH_CONTRACT.md v1.66 · D-001~D-070 · "
         "docs/{P6,P8_4,P9,P12}_RESULTS.md",
         dict(mono=True, size=9, color=MUTED))]])
 
@@ -537,7 +537,7 @@ items = [
     ("4종 hash  ", "graph_hash · scene_hash · patch_hash · pre_state_hash — 모든 판정에 스탬프"),
     ("gold pre-commit  ", "모든 평가 정답을 LLM 호출 전에 커밋 — P12 held-out은 첫 결과를 본 뒤 별도로 다시 커밋"),
     ("결정론적 layout  ", "같은 graph → 같은 RenderSpec. 발표 그림도 UI와 같은 renderer가 산출"),
-    ("contract-first  ", "계약을 코드보다 먼저 커밋 — 결정 이력 D-001~D-055"),
+    ("contract-first  ", "계약을 코드보다 먼저 커밋 — 결정 이력 D-001~D-070"),
 ]
 iy = Inches(2.7)
 for lead, rest in items:

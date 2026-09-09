@@ -73,9 +73,11 @@ P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
 **D-060+D-061 re-baseline (아래 D-060/D-061 항목 참조)**: fleet 동일 UAV 3대 + UGV 2,
 vocabulary 3종(`AREA_RECON` / `GROUND_INSPECTION` → `GROUND_SUPPRESSION`). 결정론적 골든
 (P3 150.766 / P4 149.920 / P9 0·3·4)과 전체 테스트·계약 커밋 완료(`de61780` = 계약, 후속
-= 코드). LLM 평가(P6 / P8.4 / P12 counterfactual / P13)는 **아직 새 어휘로 재실행하지
-않았다** — 기존 `docs/P6_RESULTS`·`P8_4_RESULTS`·`P12_RESULTS`·`p12_counterfactual*`·
-`P9_RESULTS` 본문은 5종/fleet v1 기록이다.
+= 코드). **LLM 평가는 3종 어휘로 재실행 완료**(`a0763b0`): P6 9/9 exact·repair 0, P6.5 3/3
+demo_pass, P12 counterfactual main 6/6·held-out 6/6, P8.4 grounder 12/12·live e2e 6/12(5종
+baseline과 동일, 조사 slot 추출 실패), P9 no-reset 0·selective 3·full-reset 4. 각 RESULTS
+문서 상단에 "D-061 재실행" 절. D-061 이전(5종/fleet v1) artifact는
+`data/eval_results/pre_d061_5type/`에 보존.
 
 P12 (§22, D-051/D-052): 자연어 `NEW_MISSION`이 초기 graph와 별도 future-incident response
 policy를 만들고, strict simulated `FIRE_DETECTED` 또는 실행 중 자연어 `REPORT_INCIDENT`가
@@ -123,8 +125,9 @@ capability: UAV `{AERIAL_RECON}`, UGV 불변. `VALIDATOR_VERSION` 1.4 유지. �
 정찰, 직선) vs UGV(지상 대응, route graph). 새 골든: P3 allocate 150.766 / P4 exec 149.920 /
 P9 release no-reset 0·selective 3·full-reset 4. `industrial_park`·`patrol_park`·`reference_fixture`
 ·`response_district*`·prompts·schemas·enums·compiler·workflow·whole_graph·P6 annotation 9개·
-P8.4 dialogue 12개·p12 fixture 갱신. pytest 899 green, ruff clean. **P6/P8.4/P12/P13 LLM
-평가는 아직 새 어휘로 재실행하지 않음** — 기존 RESULTS는 5종/fleet v1 기록.
+P8.4 dialogue 12개·p12 fixture 갱신. **LLM 평가 3종 재실행 완료(`a0763b0`)** — P6 9/9 exact,
+P6.5 3/3, P12 main·held-out 6/6, P8.4 grounder 12/12·live 6/12, P9 0·3·4. 5종/fleet v1
+artifact는 `data/eval_results/pre_d061_5type/`.
 
 D-059 (§3.1, 계약 v1.55): 발표·CBBA 시각화용 확장 reference scene을 허용한다. 동일
 vocabulary·fleet 2/2/2·workflow·Validator 규칙, zone·incident·route node 수만 증가.

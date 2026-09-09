@@ -12,19 +12,30 @@ Unmanned Systems
 
 ## 현재 단계
 
-**P1~P6.5 완료** — `validator/`(P2) + `allocation/`(P3) + `execution/`(P4:
-`SimExecutor`) + `llm/`(P5: Step1/Step2/repair 파이프라인 §12) + `evaluation/`(P6:
-9개 입력 평가 하네스 + 감사 JSON + 시각화; P6.5: 통합 runner). **P8.1~P8.3 승인 완료** —
-`interaction/`(intent schema, planning session, 결정론적 grounder, incident 등록,
-canonical patch builder, 세션 orchestrator, 구조화된 clarification, 실행 감사, live/cached/mock)
-+ `demo/app.py`(Streamlit 운영자 UI) + Validator 1.4. **P8.4 interaction 평가, P9
-실행 중 명령·선택적 재할당, P8.5 정적 DAG/2D 지도, P10 checkpoint 구간 애니메이션,
-P11 네이티브 운영자 콘솔·별도 2D simulator 창, P12 LLM-driven incident contingency와
-P12.7 completed-patrol follow-on incident response까지 완료**. **P13.0~P13.3
-자연어 resource constraint + 결정론적 active-team resolution 및 실행 중 safe-boundary
-resource 교체, scenario-free Live 기본 진입점 완료**. 발표 시각화는 MP4MR-clean
-`minimal` 지도 스타일과 D-062 seeded latent fire field(`LatentFireField`)까지 진행 중.
-테스트 936개 통과.
+**계약 v1.66 / 최신 결정 D-070. 브랜치 `feature/operator-interaction`, pytest 936개 통과, ruff clean.**
+(`main`은 아직 P6.5 baseline이며 이 브랜치가 최신이다.)
+
+**P1~P6.5 완료** — `validator/`(P2) + `allocation/`(P3) + `execution/`(P4: `SimExecutor`)
++ `llm/`(P5: Step1/Step2/repair 파이프라인 §12) + `evaluation/`(P6: 9개 입력 평가 하네스;
+P6.5: 통합 runner). **P8.0~P8.5, P9.0~P9.4, P10, P11, P12.0~P12.7, P13.0~P13.3 완료** —
+`interaction/`(6종 dialogue act, 결정론적 grounder, incident 등록, canonical patch builder,
+세션 orchestrator, 구조화된 clarification, 실행 감사) + `demo/app.py`(Streamlit) +
+`desktop/`(네이티브 2창 콘솔) + Validator 1.4.
+
+**D-059~D-070 (발표·온라인 재계획 확장, 이 브랜치):**
+- D-060/D-061 re-baseline — fleet 동일 UAV 3 + UGV 2, task 어휘 3종
+  (`AREA_RECON` / `GROUND_INSPECTION → GROUND_SUPPRESSION`).
+- D-062 seeded latent fire field — 지형 고정, seed가 화재 zone만 정함.
+- D-063/D-064 P13.4 continuous tick driver — `SegmentView.frame_at` 연속 보간, FIFO 명령 큐.
+- D-065~D-067 §22.8 sensor 화재 감지 승인 게이트 — 무조건 되묻기, clock 안 멈춤,
+  유예 = 남은 recon 전체 (결정론적, LLM 없음).
+- D-068 §22.7.1 상시 운용 콘솔 + `IncidentStatus.RESOLVED` (진압되면 지도에서 흐린 회색 X).
+- D-069/D-070 실행 중 `NEW_MISSION` — "새 episode 리셋"이 아니라 현재 sim time·위치에서
+  이어지는 timeline.
+- 발표 시각화 — `render_mission_map(minimal=True)` MP4MR-clean 스타일.
+
+**정직한 한계**: 반복 순찰/지속 감시는 구현하지 않는다(§22.7). agent는 task가 있을 때만
+움직이고 임무 사이엔 마지막 위치에서 idle이다. 콘솔이 다음 명령을 항상 받을 뿐이다.
 
 P6 실측(gpt-5-mini, 2026-09-02, validator 1.3): 9/9 approved, task precision/recall
 1.00/1.00, edge P/R 1.00/1.00(family A·C), exact graph match 9/9, repair 0회. 상세는
@@ -37,17 +48,17 @@ P6.5 통합 runner(D-025, D-026): 대표 명령 A1/B1/C1. NL → `generate_missi
 exact-match + 무위반 완주), A1(=P1 fixture graph)은 P3/P4 골든 makespan(150.8/149.9, D-060+D-061)과
 graph_hash까지 일치. `python3 -m evaluation.integration [--mock]`.
 
-priority·좌표·capability는 LLM이 만들지 않고 결정론적 compiler가 파생한다(D-022) —
-LLM 출력은 graph 구조(task_type·target·edge)뿐이다. task 어휘: `GROUND_SUPPRESSION`
-workflow (D-016). 계약 버전 v1.58 / 최신 결정 D-062 (P8 = 실행 전 다중 턴 자연어 계획
-세션, §18 — P8.0~P8.4 완료). P8.4는 grounder-only 12/12, 실제 LLM end-to-end
-dialogue exact 6/12이며 실패도 그대로 보고한다. 상세는
+priority·좌표·capability·agent 선택·release policy·CBBA 할당은 LLM이 만들지 않고
+결정론적 layer가 담당한다. LLM 출력은 semantic dialogue act + slot + graph 구조
+(task_type·target·edge) + 미래 incident 대응 깊이 + resource 제약뿐이다. task 어휘 3종,
+workflow `GROUND_INSPECTION → GROUND_SUPPRESSION` (D-061). P8.4는 grounder-only 12/12,
+실제 LLM end-to-end dialogue exact 6/12(5종 어휘 기준)이며 실패도 그대로 보고한다. 상세는
 [`docs/P8_4_RESULTS.md`](docs/P8_4_RESULTS.md). 단계 게이트 정의는
 [`docs/RESEARCH_CONTRACT.md`](docs/RESEARCH_CONTRACT.md) §15 참고.
 
 P9는 task-completion checkpoint에서 실행을 멈추고, 운용자 업데이트로 생긴 새 READY task와
 **입찰자가 겹치는 미시작 assignment만** release/rebid한 뒤 재개한다(bidder-connected selective
-release). 대표 비교에서 no-reset/full-reset/selective release 수는 0/2/1, 세 정책 모두
+release). D-060+D-061 재실행에서 no-reset/selective/full-reset release 수는 0/3/4, 세 정책 모두
 COMPLETED·위반 0이며 makespan은 동일했다. 따라서 release 범위 축소만 주장한다. §19.3의
 bundle-suffix 확장은 테스트된 경로에서 동작하지 않았으며(`suffix_extra_release_count = 0`)
 실증된 결과로 서술하지 않는다 — 다른 update 형태에서 도달 가능한지는 미검증이다(D-041/D-042). 상세는 [`docs/P9_RESULTS.md`](docs/P9_RESULTS.md).
@@ -69,8 +80,8 @@ resource request를 지원한다. 전체 fleet roster와 새 입찰/dispatch 대
 실행 중 제외된 RUNNING agent는 현재 task만 마친 뒤 future work에서 빠지고 미시작 assignment만
 release/rebid한다. 실패하면 runtime·clock·graph·policy identity를 보존한다. prompt/cache
 namespace는 `p13-v2`다. P13.3부터 native 기본 진입점은 incident·graph·fixture가 없는
-`dynamic-world + live`다. 버튼 없는 continuous 2D runtime(P13.4),
-ROS2/Gazebo adapter(P14)는 다음 단계다.
+`dynamic-world + live`다. P13.4 continuous 2D runtime(고정 tick clock, `ContinuousRuntime`)은
+완료됐고, 다음 단계는 ROS2/Gazebo adapter(P14 — 계약 §23.5, 미구현)다.
 
 ## 네이티브 운영자 UI (권장)
 
@@ -95,8 +106,8 @@ task-completion safe checkpoint에서 실제 LLM/orchestrator가 처리한다. a
 release/rebid와 새 경로는 바로 다음 segment부터 보인다. `다음 checkpoint`와 `끝까지 연속 재생`
 버튼은 수동 진단·회귀용으로 남아 있다.
 
-Live에서는 `이제 UAV 한 대만 사용하고 S2는 제외해줘`처럼 resource 정책만 교체하거나,
-`Warehouse에 화재가 났어. UAV 한 대로 열화상 확인까지 해줘`처럼 incident·workflow·resource를
+Live에서는 `이제 UAV 두 대만 사용하고 U3는 제외해줘`처럼 resource 정책만 교체하거나,
+`Warehouse에 화재가 났어. 지상 진압까지 대응해줘`처럼 incident·workflow·resource를
 한 턴에 요청할 수 있다. LLM은 제약만 추출하고 실제 active team과 task assignment는 기존 CBBA를
 사용하는 결정론적 resolver가 선택한다. 현재 active team, release 수, deferred exclusion은 콘솔과
 감사 JSON에 표시된다.

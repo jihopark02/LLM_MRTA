@@ -3,9 +3,13 @@
 학부 학술대회 발표용. **연구 방법론 = "우리가 어떤 구조로 만들었는가"** 에 집중한다.
 결과 자랑이 아니라 구조 설명이며, 앞서 만든 구조 아티팩트를 슬라이드로 전개한 것이다.
 
+> **주의**: `build_deck.py`의 슬라이드 내용은 계약 v1.51(D-055) 시점 작성분이다. 발표 전
+> D-059~D-070(3종 어휘 재-baseline, continuous runtime, 승인 게이트, 상시 콘솔, 온라인
+> `NEW_MISSION`)을 반영해 내용을 갱신해야 한다. 버전 각주만 v1.66으로 맞춰 뒀다.
+
 - 생성기: `presentation/build_deck.py`
 - 산출: `presentation/LLM-MRTA_구조.pptx` (16:9, 13매)
-- 근거: `docs/RESEARCH_CONTRACT.md` v1.51 · `docs/*_RESULTS.md` · `data/eval_results/`
+- 근거: `docs/RESEARCH_CONTRACT.md` v1.66 · `docs/*_RESULTS.md` · `data/eval_results/`
 
 ---
 
@@ -67,7 +71,7 @@ PowerPoint `파일 > 옵션 > 저장 > 파일의 글꼴 포함`으로 폰트를 
 │                                              │
 │           [ 본문 영역 ]                       │
 │                                              │
-│ 계약 v1.51 · Validator 1.4              03/13 │  ← 각주
+│ 계약 v1.66 · Validator 1.4              03/13 │  ← 각주
 └─────────────────────────────────────────────┘
 ```
 
