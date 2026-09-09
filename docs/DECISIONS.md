@@ -2111,3 +2111,36 @@ pre-advance `has_undecided_fire` halt 검사를 제거하고, `ExecutionAudit`(r
 - 코드: `desktop/controller.py`(`_commit_next` halt 위치 이동, `apply_pending_fire_decisions`
   메서드), `desktop/window.py`(`_can_advance` 차단 제거, `_record_fire`가 terminal이면 직접 적용).
 - 골든·Validator·allocator·평가: 불변.
+
+## D-068: 상시 운용 콘솔 + incident RESOLVED lifecycle (계약 v1.64)
+
+**배경** 사진으로 확인: 유한 recon graph가 `EXECUTED`가 된 뒤 "전체 재정찰 해줘"가
+`UNSUPPORTED · NEW_MISSION`으로 거부됐다. 사용자: "재난 상황이잖아 계속해서 상황이 업데이트가
+될 수도 있고 ... 임무 완료가 되면 안 돼. 계속해서 임무를 받을 수 있어야." + "화재가 제거가
+되면 그게 지워지거나 따로 표시가 되면 좋겠어" → 회색 X로 흐리게.
+
+**결정**
+(A) **§22.7.1** terminal checkpoint를 보존한 session이 `REPORT_INCIDENT`(§22.7)에 더해
+`NEW_MISSION`·`UPDATE_RESOURCES`도 받는다. terminal 뒤 `NEW_MISSION`은 "이미 활성 임무"
+clarification 대신 새 mission episode를 연다: `generate_mission`으로 새 graph 생성(완료 graph에
+덧붙이지 않음), UAV 시작 위치는 terminal 마지막 위치 이어받기, UGV는 scene 기지 node에서
+재시작(`start_ref` UGV 규칙과 일치), `PLANNING` commit → native auto-run. 직전 `ExecutionAudit`
+보존. scene의 기존 incident는 유지하되 새 episode는 자연어 범위만 생성. phase는 EXECUTED
+유지하되 UI가 "대기 · 다음 명령 가능"으로 표시. 반복 순찰 task는 계속 미구현 — agent는 episode
+사이 idle, "계속 움직이는 척" 안 함(§22.7 한계 유지).
+
+(B) **§3** `IncidentStatus.RESOLVED` 추가. `GROUND_SUPPRESSION__<iid>` 완료 checkpoint에서
+`session.scene.incidents[iid].status`를 `RESPONSE_REQUIRED` → `RESOLVED`로 전이(실행이 만든
+결정론적 상태 변화, LLM 판정 아님). `MapRenderSpec` incident에 `resolved` 플래그, `render_mission_map`
+과 native simulator가 RESOLVED를 흐린 회색 X로 그린다. `scene_hash`는 `status.value`로 그대로
+반영(이미 포함).
+
+**영향**
+- 계약: §22.7.1 신설, §3 incident status 문단, §18.14 render 규칙.
+- 코드: `core/enums.py`(`IncidentStatus.RESOLVED`), `interaction/orchestrator.py`(terminal 뒤
+  NEW_MISSION 게이트·새 episode 빌더, UPDATE_RESOURCES 게이트 완화),
+  `interaction/session.py` 또는 helper(episode state 빌더 + UAV 위치 이어받기),
+  `desktop/controller.py`(`advance_checkpoint`에서 GROUND_SUPPRESSION 완료 → incident RESOLVED,
+  phase "대기" 표시), `demo/visualization.py` + `desktop/simulator.py`(resolved 렌더).
+- 골든·Validator 판정 규칙·allocator: 불변. `industrial_park` P3/P4 골든은 GROUND_SUPPRESSION이
+  실행 끝까지 안 가는 P3(plan-time)엔 영향 없고, P4(exec)는 상태 전이가 makespan을 안 바꾸므로 불변.

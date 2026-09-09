@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.63 (D-067). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.64 (D-068). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.64 (D-068): (A) §22.7.1 — terminal 뒤 session이 `NEW_MISSION`·`UPDATE_RESOURCES`도
+  받아 새 mission episode를 연다(UAV 위치 이어받음, UGV 기지 재시작, 완료 graph에 덧붙이지
+  않음). "임무 완료" 종착점 제거, phase는 EXECUTED 유지하되 UI는 "대기" 표시. 반복 순찰은
+  여전히 미구현(§22.7 한계 유지). (B) §3 — `IncidentStatus.RESOLVED` 추가. `GROUND_SUPPRESSION`
+  완료 checkpoint에서 incident가 `RESOLVED`로 전이, §18.14 지도에서 흐린 회색 X.
 - v1.63 (D-067): §22.8 승인 유예를 "감지 직후 한 segment"에서 "남은 recon 전체"로 넓힌다.
   화재가 미결정이어도 recon은 계속 진행하고(대응 task는 승인 전 graph에 없음), recon terminal에
   도달했는데 미결정이면 그때만 halt한다. recon 종료 전 답 → mid-recon rebid, 종료 후 답 →
@@ -431,6 +436,10 @@ Farm).
 `RESPONSE_REQUIRED` — reference scene에서 이미 대응이 필요한 것으로 주어지며, LLM이나 agent가
 화재 여부를 판정하지 않는다. False alarm과 perception 기반 조건부 graph는 범위 밖이다. 이
 `status`는 주석이 아니라 scene 데이터의 필수 필드로 명시하고 loader가 검증한다(`IncidentStatus`).
+incident의 `GROUND_SUPPRESSION` task가 완료된 checkpoint에서 그 incident는
+`RESOLVED`로 전이한다(D-068). 이는 실행이 만든 결정론적 상태 변화이며 LLM 판정이 아니다.
+`RESOLVED` incident는 §18.14 지도에서 흐린 회색 X로 그려 진압됨을 표시하고, scene_hash에는
+`status.value`로 그대로 반영된다.
 
 화재 위치·상태는 semantic scene 또는 운용자·외부 시스템 보고로만 시스템에 진입한다. P12의
 patrol fixture에서는 초기 planner/LLM context에 보이지 않는 `latent_incidents`를 별도 파일에
@@ -2046,6 +2055,29 @@ intent classifier는 `incident_response_up_to`를 **미래 화재가 감지·보
 범위를 설명할 뿐 future incident policy가 아니므로 null이다. 이 prompt 의미 변경은
 `PROMPT_SCHEMA_VERSION = p12-v4`로 격리한다. LLM이 graph·policy 구조를 제안한다는 역할은
 유지하며, allocator·priority·좌표·capability는 계속 결정론적이다.
+
+### 22.7.1 상시 운용 콘솔 — terminal 뒤 새 mission episode (D-068)
+
+재난 대응은 상황이 계속 갱신되므로 session에 "임무 완료"라는 종착점이 없다. terminal
+checkpoint를 보존한 session은 `REPORT_INCIDENT`(§22.7)뿐 아니라 `NEW_MISSION`과
+`UPDATE_RESOURCES`도 받는다. terminal 뒤 `NEW_MISSION`("전체 재정찰 해줘")은 기존 활성 임무
+clarification 대신 **새 mission episode**를 연다:
+
+- 새 자연어 → 기존 `generate_mission` 경로 → 검증된 **새 task graph**(완료된 graph에 덧붙이지
+  않는다).
+- UAV 시작 위치는 직전 terminal checkpoint의 마지막 확정 위치를 이어받는다. UGV는 scene 기지
+  node(§5)에서 다시 시작한다(출동 후 기지 대기 가정) — `start_ref`이 UGV를 scene node로 잡는
+  기존 규칙과 일치한다.
+- 새 `MissionState`+`allocate` → `PLANNING`에서 commit → native auto-run이 재생한다.
+- 직전 `ExecutionAudit`는 event stream에 남고 episode 순서는
+  `... EXECUTION(COMPLETED) → TURN(COMMITTED NEW_MISSION) → EXECUTION(COMPLETED)`.
+- scene에 쌓인 기존 incident는 그대로 있고, 새 episode graph는 자연어가 지시한 범위만 만든다
+  (`전체 재정찰만` → `AREA_RECON`만). 기존 화재를 자동으로 다시 대응하지 않는다.
+
+**정직한 한계** 반복 순찰 task나 지속 감시는 여전히 구현하지 않는다(§22.7). agent는 episode
+사이에 마지막 위치에서 idle이며 화면이 계속 움직이는 척하지 않는다. 콘솔이 다음 명령을 항상
+받을 수 있을 뿐이다. phase는 `EXECUTED`로 유지하되 UI는 terminal 보존 상태를 "대기 · 다음
+명령 가능"으로 표시한다. LLM·allocator·priority·좌표 역할은 §22.7과 동일하게 불변.
 
 ### 22.8 sensor 화재 감지 승인 게이트 (D-065)
 
