@@ -2199,3 +2199,45 @@ Fix 3(큐 경로)은 1+2로 자동 동작.
   `desktop/controller.py`(`_commit_next` loop-continue, `ContinuousTick.episode_changed` 제거),
   `desktop/window.py`(`_restart_continuous_for_new_episode` 제거, tick 체크 제거).
 - 골든·Validator 판정·allocator: 불변.
+
+## D-073: native 데모 기본 scene 확대 + world 지도 모드 (계약 v1.67)
+
+> 병렬 브랜치: D-071/D-072는 `feature/latency-profiling`에서 계약 v1.67/v1.68로 진행 중.
+> D-073은 `feature/demo-scene-scaleup`에서 main(v1.66) 위에 올린다. 결정 번호는 전역
+> 순번이라 충돌 없음. 계약 버전 라벨은 두 브랜치를 main에 합칠 때 재정렬한다.
+
+**배경** Live 데모에서 시뮬레이터가 정적으로 느껴진다는 피드백이 반복됐다. 원인 두 가지:
+(1) 임무 생성·CBBA 할당 전에는 `current_map_spec()`이 `None`을 반환해 화면에 "AWAITING
+MISSION"만 뜬다 — world/zone/route/agent는 이미 알고 있는데도 안 보인다. (2) 기본 데모 scene이
+4~8 zone이라 UAV 3대의 route가 짧고 겹쳐 보여 CBBA의 task distribution이 잘 드러나지 않는다.
+
+**결정**
+1. **World 항상 표시**: `demo/visualization.py`에 `world_map_spec(scene)` 추가 —
+   `mode="world"`, zone + 알려진 incident + route lane + agent 초기 위치, task_points·legs는
+   빈 튜플. `desktop/controller.py`의 `current_map_spec()`은 `session.state is None`일 때 이걸
+   반환한다. renderer의 지원 mode 집합을 `world/plan/runtime/execution/playback`로 명시하고
+   mode→title registry도 이에 맞춘다. detection semantics 불변: `_scene_background`는 이미
+   `Scene.incidents`만 그리므로 latent/미발견 화재는 자동으로 빠진다.
+2. **15 zone 데모 scene**: `scenarios/demo_grid.yaml`(15 zone A–O, 4열 비대칭 grid,
+   junction 있는 cyclic route, fleet 3 UAV + 2 UGV, `incidents: {}`) 추가. native UI 기본
+   프로파일을 `demo-grid`로 변경. D-058의 `dynamic-world`와 나머지 프로파일·mock/cached
+   재현 경로는 그대로 선택 가능. 화재 4개는 `scenarios/demo_grid_latent.yaml`(고정 seed,
+   count 4)로 결정론적 배치 — D-062 latent field와 동일하게 scene·`scene_hash`·prompt 밖,
+   해당 `AREA_RECON` 완료 전 simulator 비표시. `candidate_zones` 축소 또는 결정론적 최소
+   간격 필터로 4개가 과도하게 인접하지 않게 한다(seed→결과는 항상 동일).
+3. **display label ≠ 내부 id**: 발표 scene은 zone `name`을 `"A"`…`"O"`, incident 화면 표시를
+   `Fire 1`…로 둔다. `ZONE_A`/`FIRE_SITE_n` 내부 id, `scene_hash`, grounding alias(§18.7)는
+   불변 — grounder는 이미 `"A"`/`"A 구역"`/`"Zone A"`/`"ZONE_A"`를 같은 zone으로 본다.
+
+**주장 범위** 이 scene은 §3.1대로 단계 게이트·평가 수치를 만들지 않는다. CBBA 분배는
+scene을 균등하게 튜닝하지 않고 거리·경로·현재 상태로 자연스럽게 결정되게만 한다(5/5/5든
+4/6/5든 무방, 검증은 "인위적 균등 튜닝 없음 + route가 비용대로 형성"). 나중에 이 geometry를
+평가에 재사용하려면 별도 `stress_grid.yaml` evaluation fixture를 둔다.
+
+**영향**
+- 계약: §3.1 D-073 문단, §18.14 `world` 모드 문단, 버전 v1.67.
+- 코드: `demo/visualization.py`(`world_map_spec`, mode registry, incident label),
+  `desktop/controller.py`(`current_map_spec`, `demo-grid` 프로파일, 기본값),
+  `scenarios/demo_grid.yaml` + `scenarios/demo_grid_latent.yaml`(신규),
+  `scenarios/latent.py`(최소 간격 필터, 필요 시), `presentation/render_scene_figures.py`.
+- 기존 scene·프로파일·골든·Validator 판정·allocator·P1~P6.5 게이트: 불변.

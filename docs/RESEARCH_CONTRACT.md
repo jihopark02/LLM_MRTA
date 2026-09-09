@@ -1,8 +1,19 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.66 (D-070). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.67 (D-073). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+> 브랜치 주의: `feature/latency-profiling`이 D-071(v1.67)·D-072(v1.68)를 병렬로 올려 두었다.
+> 이 v1.67(D-073)은 `feature/demo-scene-scaleup`의 것으로, 두 브랜치가 main에 합쳐질 때
+> 버전 라벨을 재정렬한다. 결정 번호(D-071~D-073)는 전역 순번이라 충돌하지 않는다.
+
+- v1.67 (D-073): §3.1 — native 발표 데모 기본 scene을 15 zone(A–O) `demo_grid.yaml`로 확대.
+  incident-empty + 고정 seed latent field(count 4, D-062 메커니즘)로 화재를 결정론적으로 배치,
+  발견 전 simulator 비표시. 기본 프로파일만 `demo-grid`로 바꾸고 기존 scene·프로파일·골든은
+  불변. §18.14 — 첫 임무 생성 전 `MapRenderSpec(mode="world")`로 zone·route·agent 초기 위치·
+  알려진 incident만 표시(task/순서/assignment 없음), 지원 map 모드를
+  `world/plan/runtime/execution/playback`로 명시. 발표 scene은 display label(`"A"`, `Fire 1`)과
+  내부 id(`ZONE_A`, `FIRE_SITE_n`)를 분리하되 `scene_hash`·grounding은 불변.
 - v1.66 (D-070): D-069의 "새 episode(sim time 0 리셋, ContinuousRuntime 재시작)"를
   "**이어지는 timeline**"으로 재서술. 실행/완료 중 `NEW_MISSION`은 새 graph를 현재 sim
   time·현재 agent 위치에서 seed한 executor로 `EXECUTION_PAUSED` 상태에서 이어 실행한다.
@@ -487,6 +498,28 @@ scene은 `industrial_park`의 `reference_fixture.yaml`과 동일하게 손으로
 fixture를 둔다. incident-empty 변형은 §23.3.1의 dynamic-world 방식대로 native UI에 선택 가능한
 world profile로 등록해 첫 자연어부터 graph를 생성하며, D-058의 기본 profile(`patrol_park`)은
 그대로 유지한다.
+
+**D-073 (native 데모 기본 scene 확대)**: §3.1의 확장 scene 허용을 native 발표 데모의 기본
+진입 scene에도 적용한다. `scenarios/demo_grid.yaml` — 15 zone(A–O), fleet 3 UAV + 2 UGV(§5,
+D-060), incident-empty(`incidents: {}`) — 를 추가하고 native UI 기본 프로파일을 `demo-grid`로
+바꾼다. D-058의 `dynamic-world`(patrol_park)와 나머지 scripted·reference·mock 프로파일은 선택
+가능한 상태로 유지되고 mock/cached 재현 경로도 불변 — 바뀌는 것은 앱이 처음 여는 프로파일뿐이다.
+화재 4개는 `scenarios/demo_grid_latent.yaml`(고정 seed, count 4)로 결정론적으로 정해지며,
+D-062의 latent field와 동일하게 `Scene`·`scene_hash`·어떤 prompt에도 없고 해당 zone의
+`AREA_RECON`이 완료되기 전에는 simulator에도 표시되지 않는다. seed가 4 zone을 완전히 재현
+가능하게 정하되, 후보 pool 축소(`candidate_zones`)나 결정론적 최소 간격 필터로 4개가 과도하게
+인접하지 않게 한다. 디버그용 latent overlay는 데모 UI에 노출하지 않는다. 이 scene도 §3.1의
+loader 검증(§8 reachability, §5 eligible bidder ≥ 2, §7 priority)을 그대로 통과하고, 단계
+게이트·평가 수치를 만들지 않는다. 기존 scene(`industrial_park`, `patrol_park`,
+`response_district*`)·프로파일·P3/P4 골든 makespan·P1~P6.5 게이트는 불변. 나중에 이 geometry를
+평가에 재사용하려면 latent 데모 scene을 그대로 끌어오지 말고 같은 geometry/fleet의 별도
+evaluation fixture(`stress_grid.yaml` 등)를 둔다.
+
+**표시 라벨과 내부 id 분리(D-073)**: 발표 scene은 zone `name`을 `"A"`…`"O"`처럼 짧게 두고
+incident를 화면에서 `Fire 1`… 로 표시할 수 있다. 내부 id(`ZONE_A`, `FIRE_SITE_n`),
+`scene_hash`, grounding alias 규칙(§18.7)은 그대로다 — grounder는 이미 `"A"` / `"A 구역"` /
+`"Zone A"` / `"ZONE_A"`를 같은 zone으로 해석한다. renderer는 `MapPointSpec.label`만 display
+문자열로 채운다.
 
 ---
 
@@ -1612,6 +1645,13 @@ cancellation이 미지원이라 정상 시나리오에 나타나지 않지만 Va
 수행 순서 번호. **UAV 이동은 직선, UGV 이동은 route graph를 따르는 polyline**으로 구분한다
 (§8의 이종 이동 모델이 그림에서 드러나야 한다). plan-time 분석과 실제 실행을 **한 그림에
 겹치지 않고** 분리해 보여준다. 완료 후에는 전체 실행 경로를 그린다.
+
+**`world` 지도 모드(D-073)**: 첫 임무가 생성되기 전에는 `MapRenderSpec(mode="world")`로
+zone·route lane·agent 초기 위치·**현재 알려진 incident만** 그린다. mission에서 파생되는 것
+— task 위치, 수행 순서 번호, assignment 경로, task 상태 — 은 임무가 없으므로 표시하지 않는다.
+latent/미발견 화재는 `Scene.incidents`에 없으므로 자동으로 빠진다(§3, D-062). 지원 map 모드
+집합은 `world / plan / runtime / execution / playback`로 명시하고 renderer의 mode→title
+registry도 이 집합으로 정리한다.
 
 **paused runtime의 위치는 정의되지 않는다(D-044).** `SimExecutor`는 task가 완료될 때만
 `agent.position`(UGV는 `access_nodes`)을 갱신하므로, RUNNING 중인 agent를 현재 state에서 읽으면
