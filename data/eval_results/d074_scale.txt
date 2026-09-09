@@ -1,0 +1,20 @@
+single-call vs two-stage graph generation — set: scale (D-074)
+
+[two-stage]  n=15  harness_errors=0
+  exact-match 12/13   first-pass valid 13/13   repaired 0
+  reject correct 0/2   safety-invalid accept 0/1
+  latency mean 12.48s  median 13.35s   LLM calls 30
+
+[single-call]  n=15  harness_errors=0
+  exact-match 12/13   first-pass valid 13/13   repaired 0
+  reject correct 0/2   safety-invalid accept 0/1
+  latency mean 8.59s  median 8.14s   LLM calls 15
+
+paired latency: median reduction 29%  single faster 100%  (n=15)
+D-074 gates:
+  [PASS] exact_match
+  [PASS] first_pass_valid
+  [FAIL] explicit_reject
+  [PASS] safety_invalid_acceptance
+  [PASS] paired_latency
+  => NOT ALL PASS

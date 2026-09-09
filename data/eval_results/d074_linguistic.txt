@@ -1,0 +1,20 @@
+single-call vs two-stage graph generation — set: linguistic (D-074)
+
+[two-stage]  n=19  harness_errors=0
+  exact-match 15/16   first-pass valid 16/16   repaired 0
+  reject correct 0/2   safety-invalid accept 0/1
+  latency mean 10.44s  median 9.37s   LLM calls 38
+
+[single-call]  n=19  harness_errors=0
+  exact-match 15/16   first-pass valid 15/16   repaired 1
+  reject correct 0/2   safety-invalid accept 0/1
+  latency mean 6.10s  median 5.12s   LLM calls 20
+
+paired latency: median reduction 46%  single faster 95%  (n=19)
+D-074 gates:
+  [PASS] exact_match
+  [PASS] first_pass_valid
+  [FAIL] explicit_reject
+  [PASS] safety_invalid_acceptance
+  [PASS] paired_latency
+  => NOT ALL PASS
