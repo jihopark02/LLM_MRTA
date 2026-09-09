@@ -2,5 +2,5 @@
 # The world (scenarios/response_district_patrol.yaml) is fully known; this spec
 # only decides which zones hold fire. Same seed -> same zones every run.
 field_id: district-latent-fire-v1
-seed: 99
+seed: 28
 count: 2

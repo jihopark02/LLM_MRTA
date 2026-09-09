@@ -76,7 +76,7 @@ class OperatorWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.setObjectName("operatorWindow")
-        self.setWindowTitle("LLM-MRTA · Operator Console")
+        self.setWindowTitle("Operator")
         self.resize(650, 900)
         self.controller = controller
         self.simulator = simulator

@@ -13,3 +13,16 @@ results/
 data/interaction_runs/*.json
 data/llm_cache/*.json
 .DS_Store
+
+# ROS2 / colcon workspace artifacts
+install/
+log/
+build_*/
+
+# local Claude Code / agent tooling
+.agents/
+.claude/
+
+# generated presentation figures (build with presentation/render_scene_figures.py)
+presentation/*.png
+presentation/*.pptx

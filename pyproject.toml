@@ -47,6 +47,9 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+# presentation/ is a one-off slide builder with wide Korean string literals;
+# it is not part of the research codebase.
+extend-exclude = ["presentation"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
