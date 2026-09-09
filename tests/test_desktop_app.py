@@ -32,7 +32,7 @@ def windows(qt_app, tmp_path):
         runtime_root=tmp_path, frame_count=4, scenario_id="reference"
     )
     operator, simulator = build_windows(
-        controller, playback_seconds=0.01, auto_run=False
+        controller, playback_seconds=0.01, auto_run=False, sim_rate=1500.0
     )
     operator.show()
     simulator.show()
@@ -204,7 +204,7 @@ def test_sensor_scenario_is_explicit_and_refreshes_after_detection(qt_app, tmp_p
         scenario_id="sensor-detection",
     )
     operator, simulator = build_windows(
-        controller, playback_seconds=0.01, auto_run=False
+        controller, playback_seconds=0.01, auto_run=False, sim_rate=1500.0
     )
     operator.show()
     simulator.show()
@@ -240,33 +240,26 @@ def test_initial_commit_autoplays_and_mid_segment_report_is_applied_once(
         scenario_id="operator-report",
     )
     operator, simulator = build_windows(
-        controller, playback_seconds=0.08, auto_run=True
+        controller, playback_seconds=0.08, auto_run=True, sim_rate=1500.0
     )
     operator.show()
     simulator.show()
     qt_app.processEvents()
-    played_task_sets = []
-    original_play = simulator.play
+    rendered_task_sets = []
+    original_render = simulator.render_frame
 
-    def capture_playback(playback, *, wall_seconds):
-        played_task_sets.append(
-            {
-                leg.task_id
-                for frame in playback.frames
-                for leg in frame.map_spec.legs
-            }
-        )
-        original_play(playback, wall_seconds=wall_seconds)
+    def capture_frame(frame):
+        rendered_task_sets.append({leg.task_id for leg in frame.map_spec.legs})
+        original_render(frame)
 
-    monkeypatch.setattr(simulator, "play", capture_playback)
+    monkeypatch.setattr(simulator, "render_frame", capture_frame)
     try:
         _submit(operator, OPERATOR_MOCK_COMMANDS[0])
-        _drain_until(qt_app, lambda: simulator.is_playing)
+        _drain_until(qt_app, lambda: operator._continuous)
         backend = controller.backends["mock"]
         calls_before = len(backend.calls)
         turns_before = controller.session.turn_count
 
-        assert operator._continuous
         assert operator.command_input.isEnabled()
         _submit(operator, OPERATOR_MOCK_COMMANDS[1])
 
@@ -287,7 +280,7 @@ def test_initial_commit_autoplays_and_mid_segment_report_is_applied_once(
         assert any("[QUEUED #" in message.text for message in controller.chat)
         assert any(
             "GROUND_INSPECTION__FIRE_SITE_1" in task_ids
-            for task_ids in played_task_sets[1:]
+            for task_ids in rendered_task_sets
         )
     finally:
         operator.close()
@@ -303,7 +296,7 @@ def test_completed_patrol_report_opens_and_autoplays_a_follow_on_episode(
         scenario_id="operator-report",
     )
     operator, simulator = build_windows(
-        controller, playback_seconds=0.01, auto_run=True
+        controller, playback_seconds=0.01, auto_run=True, sim_rate=1500.0
     )
     operator.show()
     simulator.show()
@@ -339,14 +332,14 @@ def test_queued_clarification_stops_autoplay_at_the_safe_checkpoint(
         scenario_id="reference",
     )
     operator, simulator = build_windows(
-        controller, playback_seconds=0.08, auto_run=True
+        controller, playback_seconds=0.08, auto_run=True, sim_rate=1500.0
     )
     operator.show()
     simulator.show()
     qt_app.processEvents()
     try:
         _submit(operator, MOCK_COMMANDS[0])
-        _drain_until(qt_app, lambda: simulator.is_playing)
+        _drain_until(qt_app, lambda: operator._continuous)
         _submit(operator, MOCK_COMMANDS[1])
 
         _drain_until(qt_app, lambda: not operator._busy)

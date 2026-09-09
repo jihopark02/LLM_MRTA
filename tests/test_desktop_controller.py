@@ -12,8 +12,19 @@ from demo.mock_script import (
     OPERATOR_MOCK_COMMANDS,
     SENSOR_MOCK_COMMANDS,
 )
-from desktop.controller import DesktopController
+from desktop.controller import ContinuousRuntime, DesktopController
 from interaction.audit import CheckpointAudit, IncidentObservationAudit
+
+
+def _run_continuous(controller, *, step: float = 3.0, max_ticks: int = 400):
+    """Drive a ContinuousRuntime to a terminal or halt, returning every tick."""
+    runtime = ContinuousRuntime(controller)
+    ticks = [runtime.start()]
+    guard = 0
+    while runtime.active and guard < max_ticks:
+        ticks.append(runtime.advance_to(runtime.sim_time + step))
+        guard += 1
+    return runtime, ticks
 
 
 def _controller(tmp_path):
@@ -278,6 +289,67 @@ def test_execution_requires_a_committed_plan(tmp_path):
     controller = _controller(tmp_path)
     with pytest.raises(ValueError, match="mission and plan"):
         controller.advance_checkpoint()
+
+
+def test_continuous_runtime_interpolates_between_task_completion_boundaries(tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="reference"
+    )
+    controller.submit(MOCK_COMMANDS[0])
+
+    runtime = ContinuousRuntime(controller)
+    opening = runtime.start()
+    assert opening.boundary is not None  # first segment committed
+    assert opening.frame is not None
+    seg_end = runtime._segment.end_time
+
+    mid = runtime.advance_to((opening.sim_time + seg_end) / 2)
+    assert mid.boundary is None  # still inside the segment, nothing committed
+    assert opening.sim_time < mid.sim_time < seg_end
+    assert mid.frame.simulation_time == mid.sim_time
+
+
+def test_continuous_runtime_reaches_a_terminal_regardless_of_tick_size(tmp_path):
+    graphs = []
+    for step in (1.0, 7.0, 40.0):
+        controller = DesktopController(
+            runtime_root=tmp_path / f"s{step}", frame_count=4, scenario_id="reference"
+        )
+        controller.submit(MOCK_COMMANDS[0])
+        runtime, ticks = _run_continuous(controller, step=step)
+
+        assert runtime.finished
+        assert ticks[-1].finished
+        assert controller.session.phase.value == "EXECUTED"
+        assert controller.session.execution.termination.value == "COMPLETED"
+        graphs.append(controller.session.execution.makespan)
+
+    assert len(set(round(m, 6) for m in graphs)) == 1  # tick size cannot move state
+
+
+def test_continuous_runtime_applies_one_queued_command_at_the_next_boundary(tmp_path):
+    controller = DesktopController(
+        runtime_root=tmp_path, frame_count=4, scenario_id="operator-report"
+    )
+    controller.submit(OPERATOR_MOCK_COMMANDS[0])
+    turns_before = controller.session.turn_count
+
+    runtime = ContinuousRuntime(controller)
+    runtime.start()
+    runtime.advance_to(runtime.sim_time + 2.0)
+    controller.queue_command(OPERATOR_MOCK_COMMANDS[1])
+
+    applied = None
+    guard = 0
+    while runtime.active and applied is None and guard < 400:
+        tick = runtime.advance_to(runtime.sim_time + 3.0)
+        applied = tick.queued_result
+        guard += 1
+
+    assert applied is not None
+    assert applied.outcome.value == "COMMITTED"
+    assert controller.queued_commands == []
+    assert controller.session.turn_count == turns_before + 1
 
 
 def test_district_latent_fire_profile_wires_a_seeded_field(tmp_path):

@@ -7,12 +7,13 @@ CBBA directly, or advances an executor through a private method.
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
-from demo.animation import PlaybackSpec, build_playback_spec
+from demo.animation import AnimationFrameSpec, PlaybackSpec, SegmentView
 from demo.mock_script import (
     OPERATOR_SCRIPT,
     REFERENCE_SCRIPT,
@@ -32,6 +33,7 @@ from interaction.audit_io import write_session_audit
 from interaction.observe import apply_fire_observation
 from interaction.online_execute import advance_online_session
 from interaction.orchestrator import (
+    TurnOutcome,
     TurnResult,
     cancel_clarification,
     handle_turn,
@@ -153,6 +155,7 @@ class AdvancePresentation:
     playback: PlaybackSpec | None
     playback_error: str | None = None
     observation: IncidentObservationAudit | None = None
+    segment: SegmentView | None = None
 
 
 class DesktopController:
@@ -351,16 +354,13 @@ class DesktopController:
         playback = None
         playback_error = None
         observation_audit = None
+        segment = None
         if session.runtime is not None:
             after = session.runtime.checkpoint()
             if after.now > before.now:
                 try:
-                    playback = build_playback_spec(
-                        playback_scene,
-                        before,
-                        after,
-                        frame_count=self.frame_count,
-                    )
+                    segment = SegmentView.build(playback_scene, before, after)
+                    playback = segment.to_playback(frame_count=self.frame_count)
                 except Exception as exc:  # noqa: BLE001 - committed state is preserved
                     playback_error = f"{type(exc).__name__}: {exc}"
         observation_responses: list[str] = []
@@ -400,7 +400,13 @@ class DesktopController:
         for observation_response in observation_responses:
             self._record("[simulated sensor observation]", observation_response)
         self._persist()
-        return AdvancePresentation(audit, playback, playback_error, observation_audit)
+        return AdvancePresentation(
+            audit,
+            playback,
+            playback_error,
+            observation_audit,
+            segment if playback_error is None else None,
+        )
 
     @property
     def scenario_label(self) -> str:
@@ -445,9 +451,135 @@ class DesktopController:
         return None
 
 
+_RESUMABLE_QUEUED_OUTCOMES = frozenset(
+    {TurnOutcome.COMMITTED, TurnOutcome.NO_CHANGE, TurnOutcome.ANSWERED}
+)
+_MAX_ZERO_LENGTH_SKIPS = 8
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousTick:
+    """One wall-clock tick of the continuous runtime (§23.4)."""
+
+    frame: AnimationFrameSpec | None
+    sim_time: float
+    boundary: AdvancePresentation | None = None
+    queued_result: TurnResult | None = None
+    finished: bool = False
+    halt_reason: str | None = None
+
+
+class ContinuousRuntime:
+    """Fixed-tick wall-clock driver over committed checkpoint segments (§23.4).
+
+    The wall-clock caller advances ``sim_time`` at whatever rate it likes; this
+    only samples ``SegmentView.frame_at`` between task-completion boundaries and
+    commits the next checkpoint (plus one queued command, §23.4.1) exactly when
+    ``sim_time`` reaches the current segment end.  Research state never moves
+    off a boundary, so the tick rate cannot change the outcome.
+    """
+
+    def __init__(self, controller: DesktopController) -> None:
+        self._controller = controller
+        self._segment: SegmentView | None = None
+        self.sim_time = 0.0
+        self.finished = False
+        self.halted = False
+
+    @property
+    def active(self) -> bool:
+        return self._segment is not None and not self.finished and not self.halted
+
+    def start(self) -> ContinuousTick:
+        if self._segment is not None:
+            raise ValueError("continuous runtime already started")
+        return self._commit_next()
+
+    def advance_to(self, sim_time: float) -> ContinuousTick:
+        if not self.active:
+            raise ValueError("continuous runtime is not active")
+        if not isinstance(sim_time, (int, float)) or not math.isfinite(sim_time):
+            raise ValueError("sim_time must be a finite number")
+        if sim_time < self._segment.end_time:
+            self.sim_time = max(float(sim_time), self._segment.start_time)
+            return ContinuousTick(self._segment.frame_at(self.sim_time), self.sim_time)
+        self.sim_time = self._segment.end_time
+        return self._commit_next()
+
+    def _commit_next(self) -> ContinuousTick:
+        boundary_frame = (
+            self._segment.frame_at(self._segment.end_time)
+            if self._segment is not None
+            else None
+        )
+        for _ in range(_MAX_ZERO_LENGTH_SKIPS):
+            try:
+                advance = self._controller.advance_checkpoint()
+            except Exception as exc:  # noqa: BLE001 - committed state is preserved
+                self.finished = True
+                return ContinuousTick(
+                    boundary_frame, self.sim_time, finished=True,
+                    halt_reason=f"{type(exc).__name__}: {exc}",
+                )
+            if isinstance(advance.audit, ExecutionAudit):
+                self.finished = True
+                reason = (
+                    f"{advance.audit.error_type}: {advance.audit.error_detail}"
+                    if advance.audit.error_type
+                    else None
+                )
+                return ContinuousTick(
+                    boundary_frame, self.sim_time, boundary=advance,
+                    finished=True, halt_reason=reason,
+                )
+            if advance.playback_error is not None:
+                self.finished = True
+                return ContinuousTick(
+                    boundary_frame, self.sim_time, boundary=advance, finished=True,
+                    halt_reason=advance.playback_error,
+                )
+            if advance.segment is not None:
+                queued_result = self._apply_one_queued()
+                self._segment = advance.segment
+                self.sim_time = advance.segment.start_time
+                halt = (
+                    None
+                    if queued_result is None or self._queued_ok(queued_result)
+                    else f"queued 명령 {queued_result.outcome.value} · 운용자 확인 필요"
+                )
+                if halt is not None:
+                    self.halted = True
+                return ContinuousTick(
+                    advance.segment.frame_at(self.sim_time),
+                    self.sim_time,
+                    boundary=advance,
+                    queued_result=queued_result,
+                    halt_reason=halt,
+                )
+            # Zero-length boundary (simultaneous completions): try again.
+        self.halted = True
+        return ContinuousTick(
+            boundary_frame, self.sim_time,
+            halt_reason="continuous runtime stalled at a zero-length boundary",
+        )
+
+    def _apply_one_queued(self) -> TurnResult | None:
+        if not self._controller.queued_commands:
+            return None
+        return self._controller.submit_queued()
+
+    def _queued_ok(self, result: TurnResult) -> bool:
+        return (
+            result.outcome in _RESUMABLE_QUEUED_OUTCOMES
+            and self._controller.session.pending_clarification is None
+        )
+
+
 __all__ = [
     "AdvancePresentation",
     "ChatMessage",
+    "ContinuousRuntime",
+    "ContinuousTick",
     "DYNAMIC_LIVE_EXAMPLES",
     "DesktopController",
     "OPERATOR_LIVE_EXAMPLES",

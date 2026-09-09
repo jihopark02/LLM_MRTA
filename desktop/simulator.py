@@ -304,6 +304,18 @@ class MissionSimulatorWindow(QMainWindow):
             f"  ·  {frame.progress * 100:3.0f}%"
         )
 
+    def render_frame(self, frame: AnimationFrameSpec) -> None:
+        """Draw one externally-driven frame (§23.4 continuous tick driver).
+
+        The frame-list ``play`` timer must be idle: this is the other driver,
+        one that owns simulation time itself and pushes frames here per tick.
+        """
+        if self.is_playing:
+            raise RuntimeError("frame-list playback is active")
+        self.canvas.set_spec(frame.map_spec, frame)
+        self.header.setText("MISSION SIMULATOR  ·  CONTINUOUS RUNTIME")
+        self.clock.setText(f"SIMULATION  t = {frame.simulation_time:.1f} s")
+
     def _next_frame(self) -> None:
         self._frame_index += 1
         self._show_frame(self._frames[self._frame_index])

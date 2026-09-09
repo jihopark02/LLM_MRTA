@@ -50,6 +50,7 @@ def build_windows(
     *,
     playback_seconds: float | None = None,
     auto_run: bool = True,
+    sim_rate: float | None = None,
 ) -> tuple[OperatorWindow, MissionSimulatorWindow]:
     controller = controller or DesktopController()
     simulator = MissionSimulatorWindow()
@@ -58,6 +59,7 @@ def build_windows(
         simulator,
         playback_seconds=playback_seconds,
         auto_run=auto_run,
+        sim_rate=sim_rate,
     )
     return operator, simulator
 

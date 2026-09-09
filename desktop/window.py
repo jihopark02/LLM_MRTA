@@ -25,7 +25,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop.controller import SCENARIO_PROFILES, SUPPORTED_MODES, DesktopController
+from desktop.controller import (
+    SCENARIO_PROFILES,
+    SUPPORTED_MODES,
+    ContinuousRuntime,
+    DesktopController,
+)
 from desktop.simulator import MissionSimulatorWindow
 from interaction.audit import CheckpointAudit, ExecutionAudit
 from interaction.orchestrator import TurnOutcome
@@ -64,6 +69,7 @@ class OperatorWindow(QMainWindow):
         *,
         playback_seconds: float | None = None,
         auto_run: bool = True,
+        sim_rate: float | None = None,
     ) -> None:
         super().__init__()
         self.setObjectName("operatorWindow")
@@ -78,6 +84,15 @@ class OperatorWindow(QMainWindow):
         if configured is None:
             configured = float(os.environ.get("LLM_MRTA_PLAYBACK_SECONDS", "3.0"))
         self.playback_seconds = max(0.0, configured)
+        rate = sim_rate
+        if rate is None:
+            rate = float(os.environ.get("LLM_MRTA_SIM_RATE", "12.0"))
+        self._sim_rate = max(0.1, rate)  # simulation seconds per wall-clock second
+        self._tick_ms = 33
+        self._sim_time = 0.0
+        self._continuous_runtime: ContinuousRuntime | None = None
+        self._continuous_timer = QTimer(self)
+        self._continuous_timer.timeout.connect(self._continuous_tick)
         self.simulator.playback_finished.connect(self._on_playback_finished)
         self._build_ui()
         self.refresh()
@@ -371,7 +386,7 @@ class OperatorWindow(QMainWindow):
         self._refresh_candidates()
 
         pending = session.pending_clarification is not None
-        can_queue = self._busy and self.simulator.is_playing
+        can_queue = self._busy and (self.simulator.is_playing or self._continuous)
         can_input = not pending and (not self._busy or can_queue)
         self.command_input.setEnabled(can_input)
         self.send_button.setEnabled(can_input)
@@ -390,13 +405,13 @@ class OperatorWindow(QMainWindow):
         if not utterance:
             return
         if self._busy:
-            if not self.simulator.is_playing:
+            if not self.simulator.is_playing and not self._continuous:
                 return
             try:
                 self.controller.queue_command(utterance)
                 self.command_input.clear()
                 self.status.setText(
-                    "QUEUED · 현재 segment 종료 뒤 safe checkpoint에서 적용"
+                    "QUEUED · 다음 safe checkpoint부터 순서대로 적용"
                 )
             except ValueError as exc:
                 self.status.setText(f"QUEUE REFUSED · {exc}")
@@ -497,8 +512,70 @@ class OperatorWindow(QMainWindow):
     def play_continuous(self) -> None:
         if not self._can_advance() or self._busy:
             return
+        self._busy = True
         self._continuous = True
-        self._advance_segment()
+        self._continuous_runtime = ContinuousRuntime(self.controller)
+        try:
+            opening = self._continuous_runtime.start()
+        except Exception as exc:  # noqa: BLE001 - committed state is preserved
+            self._stop_continuous(f"ERROR · {type(exc).__name__}: {exc}")
+            return
+        self.simulator.show()
+        self.simulator.raise_()
+        self._sim_time = self._continuous_runtime.sim_time
+        self._render_continuous_tick(opening)
+        if self._settle_continuous(opening):
+            return
+        self.status.setText("CONTINUOUS RUNTIME · 이동 중 자연어 명령 입력 가능")
+        self.refresh()
+        self._continuous_timer.start(self._tick_ms)
+
+    def _continuous_tick(self) -> None:
+        runtime = self._continuous_runtime
+        if runtime is None or not runtime.active:
+            self._continuous_timer.stop()
+            return
+        self._sim_time += self._tick_ms / 1000.0 * self._sim_rate
+        try:
+            tick = runtime.advance_to(self._sim_time)
+        except Exception as exc:  # noqa: BLE001 - committed state is preserved
+            self._stop_continuous(f"RUNTIME ERROR · {type(exc).__name__}: {exc}")
+            return
+        self._sim_time = runtime.sim_time
+        self._render_continuous_tick(tick)
+        if tick.boundary is not None:
+            self.refresh()
+        self._settle_continuous(tick)
+
+    def _render_continuous_tick(self, tick) -> None:
+        if tick.frame is not None:
+            try:
+                self.simulator.render_frame(tick.frame)
+            except RuntimeError:
+                pass
+        self.clock_card.value.setText(f"{tick.sim_time:.1f} s")
+
+    def _settle_continuous(self, tick) -> bool:
+        """Stop the clock on a terminal or a boundary that needs the operator."""
+        if not tick.finished and tick.halt_reason is None:
+            return False
+        if tick.finished and tick.halt_reason is None:
+            message = "CONTINUOUS RUNTIME · 실행 완료 · 감사 기록 저장됨"
+        elif tick.finished:
+            message = f"CONTINUOUS RUNTIME · 종료 · {tick.halt_reason}"
+        else:
+            message = f"CONTINUOUS RUNTIME · 일시정지 · {tick.halt_reason}"
+        self._stop_continuous(message)
+        return True
+
+    def _stop_continuous(self, status: str) -> None:
+        self._continuous_timer.stop()
+        self._continuous_runtime = None
+        self._continuous = False
+        self._busy = False
+        self.status.setText(status)
+        self._refresh_simulator()
+        self.refresh()
 
     def _on_playback_finished(self) -> None:
         if self.controller.queued_command is not None:
@@ -562,6 +639,8 @@ class OperatorWindow(QMainWindow):
     def new_session(self) -> None:
         if self._busy:
             return
+        self._continuous_timer.stop()
+        self._continuous_runtime = None
         self.controller.new_session()
         self.mode_combo.setCurrentText(self.controller.mode)
         self.simulator.show_spec(None)
@@ -569,6 +648,7 @@ class OperatorWindow(QMainWindow):
         self.refresh()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        self._continuous_timer.stop()
         self.simulator.shutdown()
         event.accept()
         QApplication.quit()

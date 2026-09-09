@@ -7,6 +7,8 @@ agents stay at the target during dwell.  It neither advances execution nor
 calls allocation, and it deliberately has no matplotlib dependency.
 """
 
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass, replace
 
@@ -189,6 +191,78 @@ def _frame_map(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class SegmentView:
+    """Continuous kinematic view of one already-committed checkpoint segment.
+
+    ``frame_at(when)`` returns the pose spec at any ``when`` inside the segment,
+    so a fixed wall-clock tick driver (§23.4) can sample simulation time
+    directly instead of stepping a pre-baked frame list.  ``before`` and
+    ``after`` stay frozen; nothing here advances execution or calls allocation.
+    """
+
+    scene: Scene
+    _after: ExecutionCheckpoint
+    _base: MapRenderSpec
+    _routes: dict
+    _departure: dict[str, float]
+    _completion: dict[str, float]
+    start_time: float
+    end_time: float
+
+    @classmethod
+    def build(
+        cls,
+        scene: Scene,
+        before: ExecutionCheckpoint,
+        after: ExecutionCheckpoint,
+    ) -> SegmentView:
+        if not math.isfinite(before.now) or not math.isfinite(after.now):
+            raise ValueError("checkpoint times must be finite")
+        if after.now <= before.now:
+            raise ValueError("after checkpoint must be later than before checkpoint")
+        if set(before._work.agents) != set(after._work.agents):
+            raise ValueError("checkpoint agent sets differ")
+        runtime = SimExecutor.from_checkpoint(after, scene)
+        return cls(
+            scene=scene,
+            _after=after,
+            _base=runtime_map_spec(scene, runtime),
+            _routes=_task_routes(after, scene),
+            _departure=dict(after.task_departure),
+            _completion=dict(after.task_completion),
+            start_time=before.now,
+            end_time=after.now,
+        )
+
+    def frame_at(self, when: float) -> AnimationFrameSpec:
+        clamped = min(max(float(when), self.start_time), self.end_time)
+        span = self.end_time - self.start_time
+        progress = 1.0 if span == 0 else (clamped - self.start_time) / span
+        agents = tuple(
+            _agent_at(agent_id, clamped, self._after, self.scene, self._routes)
+            for agent_id in sorted(self._after._work.agents)
+        )
+        return AnimationFrameSpec(
+            simulation_time=clamped,
+            progress=progress,
+            agents=agents,
+            map_spec=_frame_map(
+                self._base, agents, clamped, self._departure, self._completion
+            ),
+        )
+
+    def to_playback(self, *, frame_count: int = 18) -> PlaybackSpec:
+        if not isinstance(frame_count, int) or isinstance(frame_count, bool) or frame_count < 2:
+            raise ValueError("frame_count must be an integer >= 2")
+        span = self.end_time - self.start_time
+        frames = tuple(
+            self.frame_at(self.start_time + span * index / (frame_count - 1))
+            for index in range(frame_count)
+        )
+        return PlaybackSpec(self.start_time, self.end_time, frames)
+
+
 def build_playback_spec(
     scene: Scene,
     before: ExecutionCheckpoint,
@@ -196,48 +270,18 @@ def build_playback_spec(
     *,
     frame_count: int = 18,
 ) -> PlaybackSpec:
-    """Interpolate one already-committed checkpoint segment.
+    """Sample one already-committed checkpoint segment into frozen frames.
 
     ``before`` and ``after`` remain frozen.  The latter contains the complete
     timing information for every agent that moved or dwelled in this segment.
     """
-    if not isinstance(frame_count, int) or isinstance(frame_count, bool) or frame_count < 2:
-        raise ValueError("frame_count must be an integer >= 2")
-    if not math.isfinite(before.now) or not math.isfinite(after.now):
-        raise ValueError("checkpoint times must be finite")
-    if after.now <= before.now:
-        raise ValueError("after checkpoint must be later than before checkpoint")
-    if set(before._work.agents) != set(after._work.agents):
-        raise ValueError("checkpoint agent sets differ")
-
-    runtime = SimExecutor.from_checkpoint(after, scene)
-    base = runtime_map_spec(scene, runtime)
-    routes = _task_routes(after, scene)
-    departure = dict(after.task_departure)
-    completion = dict(after.task_completion)
-    frames = []
-    duration = after.now - before.now
-    for index in range(frame_count):
-        progress = index / (frame_count - 1)
-        when = before.now + duration * progress
-        agents = tuple(
-            _agent_at(agent_id, when, after, scene, routes)
-            for agent_id in sorted(after._work.agents)
-        )
-        frames.append(
-            AnimationFrameSpec(
-                simulation_time=when,
-                progress=progress,
-                agents=agents,
-                map_spec=_frame_map(base, agents, when, departure, completion),
-            )
-        )
-    return PlaybackSpec(before.now, after.now, tuple(frames))
+    return SegmentView.build(scene, before, after).to_playback(frame_count=frame_count)
 
 
 __all__ = [
     "AgentFrameSpec",
     "AnimationFrameSpec",
+    "SegmentView",
     "PlaybackSpec",
     "build_playback_spec",
 ]
