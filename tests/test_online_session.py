@@ -177,27 +177,29 @@ def test_completed_run_accepts_a_new_mission_episode_from_current_positions(
             Step2Output(edges=[]),
         ]
     )
+    terminal_time = planned_session.runtime.now
     result = handle_turn(planned_session, "전체 구역 다시 정찰해줘", backend)
 
     assert result.outcome is TurnOutcome.COMMITTED
-    assert planned_session.phase is SessionPhase.PLANNING  # a fresh episode
-    assert planned_session.runtime is None
+    # D-070: one continuous timeline — not a reset
+    assert planned_session.phase is SessionPhase.EXECUTION_PAUSED
+    assert planned_session.runtime is not None
+    assert planned_session.runtime.now == terminal_time  # clock did not rewind
     assert planned_session.execution is None
-    assert len(planned_session.state.graph) == len(zones)
     assert {t.task_type.value for t in planned_session.state.graph.tasks} == {"AREA_RECON"}
-    # UAV positions carried over from the previous terminal
     for aid, pos in uav_end.items():
         assert planned_session.state.agents[aid].position == pos
 
     while planned_session.phase is not SessionPhase.EXECUTED:
         advance_online_session(planned_session, mode="mock")
     assert planned_session.execution.termination is Termination.COMPLETED
+    assert planned_session.runtime.now > terminal_time  # kept going from there
     event_types = [e.event_type for e in planned_session.event_log]
-    assert event_types.count("EXECUTION") == 2
+    assert event_types.count("EXECUTION") == 2  # only the old completion + the new
     assert event_types[event_types.index("EXECUTION") + 1] == "TURN"
 
 
-def test_new_mission_mid_run_abandons_the_paused_mission_and_opens_a_fresh_episode(
+def test_new_mission_mid_run_continues_the_timeline_and_abandons_the_old_tasks(
     planned_session,
 ):
     from llm.schemas import LLMTask, Step1Output, Step2Output
@@ -205,6 +207,7 @@ def test_new_mission_mid_run_abandons_the_paused_mission_and_opens_a_fresh_episo
     advance_online_session(planned_session, mode="mock")
     advance_online_session(planned_session, mode="mock")
     assert planned_session.phase is SessionPhase.EXECUTION_PAUSED
+    mid_time = planned_session.runtime.now
     uav_mid = {
         aid: agent.position
         for aid, agent in planned_session.runtime.agents.items()
@@ -225,8 +228,8 @@ def test_new_mission_mid_run_abandons_the_paused_mission_and_opens_a_fresh_episo
     result = handle_turn(planned_session, "이거 그만하고 전체 정찰 다시 해줘", backend)
 
     assert result.outcome is TurnOutcome.COMMITTED
-    assert planned_session.phase is SessionPhase.PLANNING
-    assert planned_session.runtime is None
+    assert planned_session.phase is SessionPhase.EXECUTION_PAUSED
+    assert planned_session.runtime.now == mid_time  # same timeline, no rewind
     assert {t.task_type.value for t in planned_session.state.graph.tasks} == {"AREA_RECON"}
     for aid, pos in uav_mid.items():
         assert planned_session.state.agents[aid].position == pos
@@ -238,6 +241,7 @@ def test_new_mission_mid_run_abandons_the_paused_mission_and_opens_a_fresh_episo
     while planned_session.phase is not SessionPhase.EXECUTED:
         advance_online_session(planned_session, mode="mock")
     assert planned_session.execution.termination is Termination.COMPLETED
+    assert planned_session.runtime.now > mid_time
 
 
 def test_new_mission_is_still_refused_from_a_failed_run(planned_session, monkeypatch):

@@ -450,40 +450,55 @@ def test_a_fire_answered_before_recon_ends_never_stops_the_clock(tmp_path):
     assert controller.session.execution.termination.value == "COMPLETED"
 
 
-def test_continuous_runtime_reports_episode_changed_for_a_queued_new_mission(tmp_path):
+def test_continuous_runtime_continues_the_timeline_through_a_queued_new_mission(tmp_path):
+    from types import SimpleNamespace
+
+    from core.enums import TaskType
+    from execution.executor import SimExecutor
     from interaction.orchestrator import TurnOutcome
+    from interaction.session import SessionPhase, fresh_session_state
+    from scenarios.compiler import compile_reference_graph
 
     controller = _controller(tmp_path)
     controller.submit(MOCK_COMMANDS[0])
 
     runtime = ContinuousRuntime(controller)
     runtime.start()
-    runtime.advance_to(runtime.sim_time + 2.0)
+    runtime.advance_to(runtime.sim_time + 4.0)
 
-    # simulate a queued NEW_MISSION landing at the next boundary
     controller.queued_commands.append("전체 재정찰")
-
-    class _Fake:
-        outcome = TurnOutcome.COMMITTED
-        intent_kind = "NEW_MISSION"
-        message = ""
 
     def fake_submit_queued():
         controller.queued_commands.pop(0)
-        return _Fake()
+        sess = controller.session
+        prev_now = sess.runtime.now
+        graph = compile_reference_graph(
+            sess.scene, [(TaskType.AREA_RECON, "ZONE_A")], []
+        )
+        new_state = fresh_session_state(graph, sess.scene)
+        rt = SimExecutor(new_state, sess.scene)
+        rt.now = prev_now
+        sess.runtime, sess.state, sess.execution = rt, rt.work, None
+        sess.phase = SessionPhase.EXECUTION_PAUSED
+        return SimpleNamespace(
+            outcome=TurnOutcome.COMMITTED, intent_kind="NEW_MISSION", message=""
+        )
 
     controller.submit_queued = fake_submit_queued
 
-    tick = None
+    times = [runtime.sim_time]
     guard = 0
     while runtime.active and guard < 400:
         tick = runtime.advance_to(runtime.sim_time + 6.0)
-        if tick.episode_changed:
-            break
+        times.append(tick.sim_time)
         guard += 1
 
-    assert tick is not None and tick.episode_changed
-    assert not runtime.active  # this runtime halted; the UI starts a fresh one
+    assert runtime.finished  # ran the new graph to a terminal, never halted
+    assert not runtime.halted
+    assert times == sorted(times)  # the clock never rewound
+    assert {t.task_type.value for t in controller.session.state.graph.tasks} == {
+        "AREA_RECON"
+    }
 
 
 def test_suppressed_incidents_flip_to_resolved_and_render_faded(tmp_path):

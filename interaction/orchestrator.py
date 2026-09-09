@@ -47,6 +47,7 @@ from allocation.team import (
     resolve_runtime_team,
 )
 from core.enums import PlatformKind, TaskStatus
+from execution.executor import SimExecutor
 from interaction.audit import (
     GenerationAudit,
     GroundingAudit,
@@ -460,16 +461,24 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
         resolved.active_agents,
     )
     if new_episode:
-        # The old mission's audit trail (its CheckpointAudits, and an
-        # ExecutionAudit only if it finished) stays in the append-only stream.
-        # An EXECUTION_PAUSED mission is simply abandoned here — its unfinished
-        # tasks never get an ExecutionAudit. PLANNING lets native auto-run pick
-        # the fresh episode up.
-        session.runtime = None
+        # §22.7.1 (D-070): one continuous timeline, not a reset. Seed an executor
+        # for the new graph at the current sim time and positions; the old
+        # mission's unfinished tasks are abandoned and never get an
+        # ExecutionAudit, but the event stream carries straight on.
+        previous = session.runtime
+        runtime = SimExecutor(
+            candidate_state,
+            session.scene,
+            active_agent_ids=resolved.active_agents,
+        )
+        runtime.now = previous.now
+        runtime.access_nodes = dict(previous.access_nodes)
+        session.runtime = runtime
+        session.state = runtime.work
         session.execution = None
         session.online_started_at = None
-        session.phase = SessionPhase.PLANNING
-    prefix = "새 임무 episode를 시작합니다" if new_episode else "임무를 생성했습니다"
+        session.phase = SessionPhase.EXECUTION_PAUSED
+    prefix = "이어서 새 순찰을 반영합니다" if new_episode else "임무를 생성했습니다"
     return _finish(
         turn,
         TurnOutcome.COMMITTED,
