@@ -1,8 +1,12 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.66 (D-070). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.67 (D-071). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.67 (D-071): §18.9 `TurnAudit`에 `timing` 필드 추가 — 턴의 wall-clock을 LLM 호출별
+  (`IntentWireEnvelope`/`Step1Output`/`Step2Output`/`RepairOutput`)과 deterministic 나머지로
+  분해한다. `TimedBackend` 래퍼가 `backend.complete()`를 계측하고 `handle_turn`이
+  `total_s`를 잰다. 판정·결과·골든 불변. latency profiling(단일 vs single-call 비교)의 전제.
 - v1.66 (D-070): D-069의 "새 episode(sim time 0 리셋, ContinuousRuntime 재시작)"를
   "**이어지는 timeline**"으로 재서술. 실행/완료 중 `NEW_MISSION`은 새 graph를 현재 sim
   time·현재 agent 위치에서 seed한 executor로 `EXECUTION_PAUSED` 상태에서 이어 실행한다.
@@ -1358,6 +1362,12 @@ status_changes},
 `plan_assignment_changes`{`added`, `removed`, `changed`},
 `scene_changed`, `state_changed`, `referent_noted`, `answer`, `resolved_models`,
 `intent_repair_attempted`, `intent_repair_recovered`,
+`timing`{`total_s`, `llm_total_s`, `deterministic_s`, `llm_calls`: `[[schema_name, seconds], …]`}
+| null (D-071) — 그 턴의 wall-clock 분해. `llm_calls`는 `backend.complete()` 호출을 발생 순서로
+schema 이름(`IntentWireEnvelope`·`Step1Output`·`Step2Output`·`RepairOutput`)과 초 단위로
+기록한다. `deterministic_s = total_s − llm_total_s`(grounder·Validator·compiler·CBBA 합).
+계측일 뿐이며 어떤 판정·결과도 바꾸지 않는다. `mock`에서는 LLM 시간이 ~0이므로 `live`에서만
+의미가 있다,
 `error_type`·`error_detail`(`TURN_ERROR`일 때 원인 — 영구 기록에 남긴다),
 `input_kind`(`NATURAL_LANGUAGE` | `CANDIDATE_SELECTION` | `CLARIFICATION_CANCEL`),
 `resumed_from_turn_id`(후보 선택 턴이 재개한 clarification 턴의 `turn_id`, 그 외 null),

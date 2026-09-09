@@ -2199,3 +2199,27 @@ Fix 3(큐 경로)은 1+2로 자동 동작.
   `desktop/controller.py`(`_commit_next` loop-continue, `ContinuousTick.episode_changed` 제거),
   `desktop/window.py`(`_restart_continuous_for_new_episode` 제거, tick 체크 제거).
 - 골든·Validator 판정·allocator: 불변.
+
+## D-071: 턴별 latency instrumentation (계약 v1.67)
+
+**배경** Live에서 한 턴이 ~10초 걸린다는 체감이 있는데 원인이 숫자로 안 잡힌다. 지도교수
+로드맵 Phase 1: single-call ablation(Step1/Step2 → 통합)이나 relevant-context prompting을
+판단하려면 먼저 T_intent / T_step1 / T_step2 / T_repair / T_total을 intent 종류별로 재야 한다.
+NEW_MISSION(intent+step1+step2=LLM 3회), REPORT_INCIDENT/UPDATE_MISSION(intent 1회, patch는
+결정론), UPDATE_RESOURCES(intent 1회)의 콜 수가 달라서 분리 측정이 필요하다.
+
+**결정** `llm/backend.py`에 `TimedBackend` 래퍼 추가 — `complete()` 호출마다
+`(schema.__name__, wall_seconds)`를 `.calls`에 기록하고 `mode`·`resolved_models`는 inner에
+위임한다. `handle_turn`이 backend를 `TimedBackend`로 감싸 `_dispatch`에 넘기고 턴 전체
+wall-clock(`total_s`)을 잰다. `_finish`가 그 턴의 새 `.calls` 구간을 `TimingAudit`
+(`total_s`, `llm_total_s`, `deterministic_s = total_s − llm_total_s`, `llm_calls`)로 얼려
+`TurnAudit.timing`에 붙인다. 집계는 `data/interaction_runs/*.json`을 intent_kind로 그룹핑
+(별도 aggregator, 후속). 결정론적 세부 분해(T_ground/T_validate/T_patch/T_cbba)는
+`deterministic_s`가 유의미하게 나오면(≈ms 넘으면) 추가 — 1차는 LLM 콜 분해 + total만.
+
+**영향**
+- 계약: §18.9 `TurnAudit`에 `timing` 필드. 판정·CBBA·골든·Validator 불변.
+- 코드: `llm/backend.py`(`TimedBackend`), `interaction/audit.py`(`TimingAudit`,
+  `TurnAudit.timing`), `interaction/orchestrator.py`(wrap + total 계측 + `_finish`),
+  `interaction/audit_io.py`(직렬화).
+- 새 브랜치 `feature/latency-profiling` (v0.13.4-baseline 이후).

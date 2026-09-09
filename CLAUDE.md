@@ -19,7 +19,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-070, 계약 v1.66)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-071, 계약 v1.67)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
@@ -27,7 +27,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P13.4 + D-059~D-070 완료. `main`은 이제 여기(D-070)까지 fast-forward됐고 태그
 `v0.13.4-baseline`이 review·재현 기준점이다** (직전 baseline은 `v0.6.5-baseline` = P6.5).
-계약 v1.66, 최신 결정 D-070. pytest 936개 통과, ruff clean.
+계약 v1.67, 최신 결정 D-071. pytest 936개 통과, ruff clean.
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
 (D-027), `λ = 0.999`.
