@@ -1,0 +1,13 @@
+id: L14
+set: linguistic
+category: future-incident
+command: Aerial recon of all four zones. If a new fire is spotted, take it through full ground suppression.
+rationale: 'The conditional clause is a session policy, not tasks: no placeholder incident, recon A-D
+  only.'
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D

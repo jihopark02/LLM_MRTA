@@ -1,0 +1,12 @@
+id: L05
+set: linguistic
+category: negation
+command: Aerial recon of all zones. Do not send any ground units.
+rationale: Explicit ground exclusion -> AREA_RECON of A-D only.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D

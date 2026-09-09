@@ -1,0 +1,23 @@
+id: S05
+set: scale
+category: user-example
+command: Recon zones A, D, G, J and O, take FIRE_SITE_1 and FIRE_SITE_3 through ground suppression, and
+  just inspect FIRE_SITE_2.
+rationale: Five recons, two full chains, one truncated chain; FIRE_SITE_4 untouched.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_D
+  - ZONE_G
+  - ZONE_J
+  - ZONE_O
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_3:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION

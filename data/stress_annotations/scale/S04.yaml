@@ -1,0 +1,26 @@
+id: S04
+set: scale
+category: mixed-depth
+command: 'FIRE_SITE_1 and FIRE_SITE_3: full suppression. FIRE_SITE_2 and FIRE_SITE_4: inspection only.
+  Recon zones A through E.'
+rationale: Two full chains, two truncated chains, five recons - the model must not copy one depth to every
+  incident.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D
+  - ZONE_E
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_3:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    FIRE_SITE_4:
+    - GROUND_INSPECTION

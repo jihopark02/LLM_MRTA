@@ -1,0 +1,11 @@
+id: L06
+set: linguistic
+category: negation
+command: Handle FIRE_SITE_1 completely on the ground, but leave FIRE_SITE_2 alone. No aerial work.
+rationale: Full chain on FIRE_SITE_1; FIRE_SITE_2 and recon both excluded.
+expect: approve
+allowed_graphs:
+- incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

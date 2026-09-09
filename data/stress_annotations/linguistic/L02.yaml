@@ -1,0 +1,14 @@
+id: L02
+set: linguistic
+category: compound
+command: Survey ZONE_A and ZONE_C from the air; FIRE_SITE_1 needs the complete ground workflow.
+rationale: Two named recons plus the full chain on FIRE_SITE_1 only.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_C
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

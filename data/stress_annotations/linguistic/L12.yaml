@@ -1,0 +1,13 @@
+id: L12
+set: linguistic
+category: selective-depth
+command: Everything on FIRE_SITE_1, inspection-only on FIRE_SITE_2, and no aerial work.
+rationale: Full chain vs truncated chain, recon excluded.
+expect: approve
+allowed_graphs:
+- incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION

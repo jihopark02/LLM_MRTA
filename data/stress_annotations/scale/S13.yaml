@@ -1,0 +1,31 @@
+id: S13
+set: scale
+category: long-mixed
+command: Recon zones A, C, D, F, H, I, K, M, N and O, and fully respond to FIRE_SITE_1, FIRE_SITE_2 and
+  FIRE_SITE_4 while only inspecting FIRE_SITE_3.
+rationale: Ten recons, three full chains, one truncated chain - a large graph with mixed depth.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_C
+  - ZONE_D
+  - ZONE_F
+  - ZONE_H
+  - ZONE_I
+  - ZONE_K
+  - ZONE_M
+  - ZONE_N
+  - ZONE_O
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_4:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_3:
+    - GROUND_INSPECTION

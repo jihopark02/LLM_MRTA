@@ -1,0 +1,26 @@
+id: S14
+set: scale
+category: selective-negation
+command: Recon all zones except B, F, J and N. Fully suppress FIRE_SITE_2, inspect FIRE_SITE_4, and leave
+  FIRE_SITE_1 and FIRE_SITE_3 untouched.
+rationale: 11-zone recon by subtraction, one full chain, one truncated chain, two incidents untouched.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_C
+  - ZONE_D
+  - ZONE_E
+  - ZONE_G
+  - ZONE_H
+  - ZONE_I
+  - ZONE_K
+  - ZONE_L
+  - ZONE_M
+  - ZONE_O
+  incident_chains:
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_4:
+    - GROUND_INSPECTION

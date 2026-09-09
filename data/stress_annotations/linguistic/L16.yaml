@@ -1,0 +1,31 @@
+id: L16
+set: linguistic
+category: ambiguity
+command: Deal with the reported fires and check the area.
+rationale: 'Genuinely ambiguous response depth - full chain or inspection-only are both defensible. Diagnostic
+  only: excluded from the exact-match / first-pass adoption denominators.'
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+adoption: diagnostic

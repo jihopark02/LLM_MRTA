@@ -1,0 +1,19 @@
+id: L01
+set: linguistic
+category: compound
+command: Fly aerial recon over the whole park and take both reported fires through the full ground response.
+rationale: Whole-park AREA_RECON of A-D plus the complete two-step chain on both incidents.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

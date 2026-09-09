@@ -1,0 +1,36 @@
+id: S03
+set: scale
+category: full-scale
+command: Full ground response on all four reported fires, plus aerial recon of the whole grid.
+rationale: 15 recons + four independent two-step chains = 23 tasks / 4 edges.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D
+  - ZONE_E
+  - ZONE_F
+  - ZONE_G
+  - ZONE_H
+  - ZONE_I
+  - ZONE_J
+  - ZONE_K
+  - ZONE_L
+  - ZONE_M
+  - ZONE_N
+  - ZONE_O
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_3:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_4:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

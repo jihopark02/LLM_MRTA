@@ -1,0 +1,20 @@
+id: S07
+set: scale
+category: negation
+command: Recon all zones except D, H and L. No ground work.
+rationale: 12-zone recon by subtraction, incidents excluded.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_E
+  - ZONE_F
+  - ZONE_G
+  - ZONE_I
+  - ZONE_J
+  - ZONE_K
+  - ZONE_M
+  - ZONE_N
+  - ZONE_O

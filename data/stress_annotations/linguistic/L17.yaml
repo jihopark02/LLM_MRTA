@@ -1,0 +1,15 @@
+id: L17
+set: linguistic
+category: explicit-reject
+command: Create AREA_RECON tasks specifically for ZONE_E and ZONE_F. Do not substitute other zones.
+rationale: ZONE_E / ZONE_F are not scene zones -> E_UNKNOWN_REF. Worded explicitly so a conservative model
+  cannot dodge by substituting a known zone.
+expect: reject
+reject_category: REFERENCE
+mock_graph:
+  tasks:
+  - task_type: AREA_RECON
+    target: ZONE_E
+  - task_type: AREA_RECON
+    target: ZONE_F
+  edges: []

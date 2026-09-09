@@ -1,0 +1,12 @@
+id: L07
+set: linguistic
+category: negation
+command: Inspect FIRE_SITE_1 on the ground - inspection only, no suppression. Recon ZONE_C.
+rationale: Chain truncated to GROUND_INSPECTION, one recon.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_C
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION

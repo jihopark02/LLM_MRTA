@@ -1,0 +1,16 @@
+id: L09
+set: linguistic
+category: temporal-distractor
+command: Suppress FIRE_SITE_1 on the ground after it has been inspected, and before all that sweep ZONE_A
+  and ZONE_D from the air.
+rationale: 'Discourse order (''before all that'') is not a dependency: recon A and D have no edge to the
+  incident chain.'
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_D
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

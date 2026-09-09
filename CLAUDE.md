@@ -19,7 +19,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-072, 계약 v1.68)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-074, 계약 v1.69)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
@@ -27,7 +27,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P13.4 + D-059~D-070 완료. `main`은 이제 여기(D-070)까지 fast-forward됐고 태그
 `v0.13.4-baseline`이 review·재현 기준점이다** (직전 baseline은 `v0.6.5-baseline` = P6.5).
-계약 v1.68, 최신 결정 D-072. pytest 948개 통과, ruff clean.
+계약 v1.69, 최신 결정 D-074. pytest 954개 통과, ruff clean.
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
 (D-027), `λ = 0.999`.
@@ -43,7 +43,16 @@ D-070 시스템을 고정해 둔다). 진행 중:
   동일(`_initial_candidate`가 앞단만 분기). `LLM_MRTA_GRAPH_GEN=single-call`이 native
   `_do_new_mission`만 전환, P6/integration은 항상 two-stage. A/B는 `python3 -m
   evaluation.graph_gen_ablation [--mock] [--out P]` — graph exact / first-pass valid / repair /
-  latency / call count. 채택 여부는 실측 후 계약 개정. 다음: intent/slot(한국어 조사) robustness.
+  latency / call count.
+- `feature/latency-profiling` — **D-074 (계약 v1.69)**: single-call 채택 gate = pre-registered
+  stress eval 2세트. Stress-L(industrial_park 4z, 어려운 영어 19개) + Stress-S(신규
+  `scenarios/stress_grid.yaml` 15z/4i, 15개). `evaluation/stress_annotations.py` +
+  `data/stress_annotations/{linguistic,scale}/` (freeze — 결과 보고 수정 금지). harness는
+  `--set p6|linguistic|scale` + reject correctness / safety-invalid acceptance / paired
+  latency 지표. gate: exact·first-pass single ≥ two-stage−1 및 ≥85%, reject 전부 correct,
+  safety-invalid=0, `median((T_two−T_single)/T_two) ≥ 0.25` 및 single ≥80% 빠름. 두 세트 다
+  통과해야 default 전환. **live 미실행** — 사용자가 `--set linguistic/scale` 돌린다.
+  한국어 조사 robustness는 별도 후속(로드맵 Phase 3).
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.

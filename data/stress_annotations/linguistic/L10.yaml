@@ -1,0 +1,14 @@
+id: L10
+set: linguistic
+category: temporal-distractor
+command: Take FIRE_SITE_2 all the way through suppression. The inspection comes first, obviously. Recon
+  ZONE_B too.
+rationale: The stated ordering is the workflow edge already; the recon is independent.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_B
+  incident_chains:
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

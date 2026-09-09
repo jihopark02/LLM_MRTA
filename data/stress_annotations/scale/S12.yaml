@@ -1,0 +1,12 @@
+id: S12
+set: scale
+category: explicit-reject
+command: Create a GROUND_INSPECTION task specifically for FIRE_SITE_5. Do not substitute a known fire.
+rationale: FIRE_SITE_5 is not a scene incident -> E_UNKNOWN_REF.
+expect: reject
+reject_category: REFERENCE
+mock_graph:
+  tasks:
+  - task_type: GROUND_INSPECTION
+    target: FIRE_SITE_5
+  edges: []

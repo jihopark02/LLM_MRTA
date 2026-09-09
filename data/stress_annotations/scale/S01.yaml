@@ -1,0 +1,23 @@
+id: S01
+set: scale
+category: long-list
+command: Aerial recon of every zone.
+rationale: AREA_RECON of all 15 zones, no edges.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D
+  - ZONE_E
+  - ZONE_F
+  - ZONE_G
+  - ZONE_H
+  - ZONE_I
+  - ZONE_J
+  - ZONE_K
+  - ZONE_L
+  - ZONE_M
+  - ZONE_N
+  - ZONE_O

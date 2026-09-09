@@ -1,0 +1,11 @@
+id: L08
+set: linguistic
+category: negation
+command: Survey every zone except ZONE_B.
+rationale: Set subtraction -> AREA_RECON of A, C, D.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_C
+  - ZONE_D

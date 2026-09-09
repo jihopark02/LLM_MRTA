@@ -1,0 +1,16 @@
+id: L11
+set: linguistic
+category: selective-depth
+command: 'FIRE_SITE_1: inspection only. FIRE_SITE_2: full workflow. Aerial recon of ZONE_A and ZONE_C.'
+rationale: Different response depth per incident, two recons.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_C
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

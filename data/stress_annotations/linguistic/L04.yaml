@@ -1,0 +1,15 @@
+id: L04
+set: linguistic
+category: compound
+command: Ground inspection on both reported fires, and an aerial sweep of ZONE_B and ZONE_D.
+rationale: Inspection-only on both incidents (no suppression, no edges) plus two recons.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_B
+  - ZONE_D
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION

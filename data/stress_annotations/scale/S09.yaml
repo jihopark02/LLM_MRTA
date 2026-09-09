@@ -1,0 +1,23 @@
+id: S09
+set: scale
+category: future-incident
+command: Aerial recon of the whole grid. Any new fire that turns up gets the full ground workflow.
+rationale: 'Conditional is a policy, not tasks: 15 recons only, no chain on the known incidents.'
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D
+  - ZONE_E
+  - ZONE_F
+  - ZONE_G
+  - ZONE_H
+  - ZONE_I
+  - ZONE_J
+  - ZONE_K
+  - ZONE_L
+  - ZONE_M
+  - ZONE_N
+  - ZONE_O

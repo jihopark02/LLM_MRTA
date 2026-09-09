@@ -1,0 +1,12 @@
+id: L18
+set: linguistic
+category: explicit-reject
+command: Use GROUND_INSPECTION specifically on ZONE_A as the target.
+rationale: GROUND_INSPECTION targets an incident; ZONE_A is a zone -> E_UNKNOWN_REF.
+expect: reject
+reject_category: REFERENCE
+mock_graph:
+  tasks:
+  - task_type: GROUND_INSPECTION
+    target: ZONE_A
+  edges: []

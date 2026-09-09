@@ -1,0 +1,10 @@
+id: L15
+set: linguistic
+category: future-incident
+command: Survey ZONE_A and ZONE_B. Should anything ignite later, inspect it on the ground.
+rationale: Future-incident conditional ignored for task generation; two recons.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B

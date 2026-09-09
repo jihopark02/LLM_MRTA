@@ -1,0 +1,11 @@
+id: L13
+set: linguistic
+category: selective
+command: Just recon ZONE_A, ZONE_B and ZONE_C. Nothing else.
+rationale: Three named recons, no ground work.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C

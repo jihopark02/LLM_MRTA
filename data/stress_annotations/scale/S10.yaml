@@ -1,0 +1,23 @@
+id: S10
+set: scale
+category: inspection-only-all
+command: Ground inspection on all four known fires. Recon zones J through O.
+rationale: Four truncated chains (no edges) plus six recons.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_J
+  - ZONE_K
+  - ZONE_L
+  - ZONE_M
+  - ZONE_N
+  - ZONE_O
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    FIRE_SITE_3:
+    - GROUND_INSPECTION
+    FIRE_SITE_4:
+    - GROUND_INSPECTION

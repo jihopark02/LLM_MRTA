@@ -1,0 +1,13 @@
+id: L03
+set: linguistic
+category: compound
+command: Full suppression workflow on FIRE_SITE_2. Also recon ZONE_A.
+rationale: Full chain on FIRE_SITE_2, one recon.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  incident_chains:
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

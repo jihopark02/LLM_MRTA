@@ -1,0 +1,17 @@
+id: S06
+set: scale
+category: recon-plus-response
+command: Sweep zones B, F, K, L and N from the air and run the complete workflow on FIRE_SITE_4.
+rationale: Five recons plus one full chain.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_B
+  - ZONE_F
+  - ZONE_K
+  - ZONE_L
+  - ZONE_N
+  incident_chains:
+    FIRE_SITE_4:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

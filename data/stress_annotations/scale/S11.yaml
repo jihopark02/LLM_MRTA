@@ -1,0 +1,12 @@
+id: S11
+set: scale
+category: explicit-reject
+command: Create an AREA_RECON task specifically for ZONE_P. Do not substitute another zone.
+rationale: ZONE_P is not a scene zone -> E_UNKNOWN_REF.
+expect: reject
+reject_category: REFERENCE
+mock_graph:
+  tasks:
+  - task_type: AREA_RECON
+    target: ZONE_P
+  edges: []

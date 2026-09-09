@@ -1,0 +1,20 @@
+id: S08
+set: scale
+category: temporal-distractor
+command: Suppress FIRE_SITE_2 and FIRE_SITE_3 after their inspections. First though, aerial recon of A,
+  B and C.
+rationale: '''First though'' is discourse order, not a dependency: three recons independent of the two
+  full chains.'
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  incident_chains:
+    FIRE_SITE_2:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION
+    FIRE_SITE_3:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

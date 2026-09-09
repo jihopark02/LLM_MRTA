@@ -287,26 +287,28 @@ def test_plots_write_png_and_pdf(scene, annotations, tmp_path):
     assert all(p.exists() and p.stat().st_size > 0 for p in out)
 
 
-# -- D-072: single-call vs two-stage ablation harness -------------------
+# -- D-072/D-074: single-call vs two-stage ablation harness ------------
 
 
-def test_graph_gen_ablation_runs_both_modes(scene, annotations):
-    from evaluation.graph_gen_ablation import _mock_backend_for, run
+def test_graph_gen_ablation_p6_runs_both_modes():
+    from evaluation.graph_gen_ablation import _mock_backend_for, load_cases, run
 
-    runs = run(scene, _mock_backend_for(annotations), annotations)
+    scene, cases = load_cases("p6")
+    runs = run(scene, _mock_backend_for(cases), cases)
 
     by_mode = {r.mode: r for r in runs}
     assert set(by_mode) == {"two-stage", "single-call"}
-
     two, one = by_mode["two-stage"].summary(), by_mode["single-call"].summary()
-    assert two["exact_match"] == one["exact_match"] == len(annotations)
-    assert two["llm_calls_total"] == 2 * len(annotations)
-    assert one["llm_calls_total"] == len(annotations)
+    assert two["exact_match"] == one["exact_match"] == len(cases)
+    assert two["llm_calls_total"] == 2 * len(cases)
+    assert one["llm_calls_total"] == len(cases)
 
 
-def test_graph_gen_ablation_graph_results_are_stable_across_runs(scene, annotations):
+def test_graph_gen_ablation_graph_results_are_stable_across_runs():
     # latency is wall-clock and varies; the graph-quality columns must not.
-    from evaluation.graph_gen_ablation import _mock_backend_for, run
+    from evaluation.graph_gen_ablation import _mock_backend_for, load_cases, run
+
+    scene, cases = load_cases("p6")
 
     def quality(runs):
         return {
@@ -317,6 +319,6 @@ def test_graph_gen_ablation_graph_results_are_stable_across_runs(scene, annotati
             for r in runs
         }
 
-    a = quality(run(scene, _mock_backend_for(annotations), annotations))
-    b = quality(run(scene, _mock_backend_for(annotations), annotations))
+    a = quality(run(scene, _mock_backend_for(cases), cases))
+    b = quality(run(scene, _mock_backend_for(cases), cases))
     assert a == b

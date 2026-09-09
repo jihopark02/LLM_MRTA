@@ -1,0 +1,14 @@
+id: S02
+set: scale
+category: multi-select
+command: Recon zones A, D, G, J, M and O.
+rationale: Six named recons scattered across the grid.
+expect: approve
+allowed_graphs:
+- recon_zones:
+  - ZONE_A
+  - ZONE_D
+  - ZONE_G
+  - ZONE_J
+  - ZONE_M
+  - ZONE_O
