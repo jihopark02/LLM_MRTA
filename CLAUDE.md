@@ -19,7 +19,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-066, 계약 v1.62)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-067, 계약 v1.63)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
@@ -27,7 +27,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P6.5 승인 완료 (태그 `v0.6.5-baseline`, `main`은 여기서 동결). P8.0~P8.5,
 P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
-`feature/operator-interaction`). 계약 v1.62, 최신 결정 D-066.**
+`feature/operator-interaction`). 계약 v1.63, 최신 결정 D-067.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
 `VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 931개 통과, ruff clean.
@@ -46,12 +46,14 @@ P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
   승인 게이트. `SimulatedFireField`가 공개하는 `FIRE_DETECTED`는 자동 대응 안 하고
   `session.pending_approvals` FIFO 큐(zone id 순)에 들어가 무조건 운용자에게 되묻는다.
   `PendingClarification`류 resumable pending(새 phase 없음), 결정론적 승인/거절(LLM 없음 —
-  사용자와 논의 후 확정). **D-066: 감지 시 clock 안 멈춤** — 감지 직후 segment가 유예이고
-  나머지 agent는 계속 이동, 운용자 답은 `record_fire_decision`으로 기록만 되고 다음 boundary의
-  `apply_recorded_fire_decisions`에서 적용(clock rewind 없음), 다음 boundary까지 미결정이면
-  그때만 halt. `interaction/observe.py`의 `enqueue_fire_approvals` / `record_fire_decision` /
-  `apply_recorded_fire_decisions` / `has_undecided_fire`. operator 창 승인 패널(진압까지/점검만/거절).
-  단일 `SimulatedFireSource`·운용자 `REPORT_INCIDENT`는 게이트 밖.
+  사용자와 논의 후 확정). **D-066/D-067: 감지 시 clock 안 멈춤** — 운용자 답은
+  `record_fire_decision`으로 기록만 되고 다음 boundary의 `apply_recorded_fire_decisions`에서
+  적용(rewind 없음). **유예 = 남은 recon 전체**(D-067): 미결정 화재는 recon 진행을 안 막고,
+  recon terminal에 미결정이면 그때만 halt, recon 종료 후 답하면 follow-on episode.
+  `interaction/observe.py`의 `enqueue_fire_approvals` / `record_fire_decision` /
+  `apply_recorded_fire_decisions` / `has_undecided_fire`, `controller.apply_pending_fire_decisions`.
+  operator 창 승인 패널(진압까지/점검만/거절). 단일 `SimulatedFireSource`·운용자
+  `REPORT_INCIDENT`는 게이트 밖.
 - 후속: 없음 (Phase B/C/D 완료). 발표 리허설 + 지도교수·Codex 리뷰 — 커밋은
   `de61780`(v1.57 재-baseline)부터 순서대로.
 

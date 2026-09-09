@@ -2088,3 +2088,26 @@ mock/cached 발표에선 정지가 수 ms, Live는 boundary에 queued 명령이 
   `pending_fire_approval` = 첫 미결정), `desktop/window.py`(`_record_fire`, `_can_advance`·
   input gating을 미결정 기준으로).
 - 골든·Validator·allocator·평가: 불변.
+
+## D-067: 승인 유예를 "남은 recon 전체"로 확대 (계약 v1.63)
+
+**배경** D-066은 감지 직후 한 segment를 유예로 줬지만, task 완료 간격이 짧아(12배속에선 1초
+미만) 사람이 읽고 클릭하기 전에 다음 boundary에서 halt했다 — 실질적으로 거의 항상 멈췄다.
+사용자: "지금도 승인 게이트가 열리면 시뮬레이션이 멈추는 것처럼 보이는데".
+
+**결정** 승인 전 대응 task는 graph에 없으므로 executor는 남은 recon을 정상 진행할 수 있다.
+따라서 미결정 화재는 recon 진행을 막지 않는다. `ContinuousRuntime._commit_next`의
+pre-advance `has_undecided_fire` halt 검사를 제거하고, `ExecutionAudit`(recon terminal)
+분기에 옮긴다: recon이 끝났는데 미결정 화재가 있으면 `finished` 대신 resumable halt.
+- recon 종료 전 답: `advance_checkpoint` 앞의 `apply_recorded_fire_decisions`가 다음
+  boundary에서 selective rebid로 반영(mid-recon). clock 안 멈춤.
+- recon 종료 후 답: window가 `controller.apply_pending_fire_decisions()`를 직접 호출,
+  `prepare_incident_transaction`의 EXECUTED/`completed_online_terminal` 분기로 follow-on
+  episode(D-055) 오픈 → EXECUTION_PAUSED → 자동 재개.
+`_can_advance`에서 undecided-fire 차단 제거(recon은 진행돼야 함). 자유텍스트 입력·큐는 계속 차단.
+
+**영향**
+- 계약: §22.8 "continuous runtime 연동" 문단 재서술.
+- 코드: `desktop/controller.py`(`_commit_next` halt 위치 이동, `apply_pending_fire_decisions`
+  메서드), `desktop/window.py`(`_can_advance` 차단 제거, `_record_fire`가 terminal이면 직접 적용).
+- 골든·Validator·allocator·평가: 불변.

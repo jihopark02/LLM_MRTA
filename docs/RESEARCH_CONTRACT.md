@@ -1,8 +1,12 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.62 (D-066). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.63 (D-067). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.63 (D-067): §22.8 승인 유예를 "감지 직후 한 segment"에서 "남은 recon 전체"로 넓힌다.
+  화재가 미결정이어도 recon은 계속 진행하고(대응 task는 승인 전 graph에 없음), recon terminal에
+  도달했는데 미결정이면 그때만 halt한다. recon 종료 전 답 → mid-recon rebid, 종료 후 답 →
+  follow-on episode. `ContinuousRuntime`의 pre-advance halt 검사 제거, terminal 검사에 추가.
 - v1.62 (D-066): §22.8 승인 게이트를 "감지 즉시 정지"에서 "clock 계속, 결정은 기록 후 다음
   boundary에서 적용"으로 재서술한다. 감지된 화재는 그 다음 segment를 유예로 받고, 나머지
   agent는 계속 움직인다. clock이 다음 boundary에 도달했는데 미결정이면 그때만 halt.
@@ -2078,12 +2082,15 @@ boundary**에서 적용된다(mid-segment 적용 없음). 그 boundary에서 `ha
 각 audit은 fixture id, zone, detecting agent, simulation time, 그리고 승인 시 scope·patch·
 release/rebid 차이를 담는다.
 
-**continuous runtime 연동 (D-066).** 화재가 감지된 boundary에서 clock은 멈추지 않는다 —
-tick driver는 새 segment를 commit하고 나머지 agent는 committed 궤적대로 계속 움직인다. 감지
-직후의 그 segment가 운용자의 유예 시간이다. clock이 **다음** boundary에 도달했는데 아직
-미결정 화재가 있으면 그때 resumable halt한다(그 이후 checkpoint는 대응 여부를 알아야 만들 수
-있으므로). 운용자가 유예 안에 답하면 아무도 멈추지 않고, halt 후 답하면 큐를 비운 뒤 자동
-재개한다. `pending_approvals`가 비지 않은 동안 자유텍스트 명령 큐(§23.4.1)는 소비하지 않는다.
+**continuous runtime 연동 (D-066, 유예 범위 D-067).** 화재가 감지돼도 clock은 멈추지 않고
+recon이 계속 진행된다 — 대응 task는 승인 전엔 graph에 없으므로 executor는 남은 순찰을 정상
+실행하고 나머지 agent는 committed 궤적대로 계속 움직인다. **유예 = 남은 recon 전체.** 운용자가
+recon 종료 전에 답하면 그 답은 다음 task-completion boundary의 `apply_recorded_fire_decisions`
+에서 selective rebid로 반영되고(§22.3, mid-recon), recon이 끝난 뒤 답하면 completed terminal
+checkpoint를 보존한 채 follow-on episode로 반영된다(§22.7/D-055). recon이 terminal에 도달했는데
+아직 미결정 화재가 있으면 그때만 resumable halt한다(그 이후엔 대응 여부를 알아야 진행 가능).
+답한 뒤 자동 재개한다. 미결정 화재는 recon 진행을 막지 않지만 자유텍스트 명령 큐(§23.4.1)와
+자유텍스트 입력은 막는다.
 
 두 발표 결과(승인 후 완주, 거절 후 무변경)는 모두 `COMPLETED` 또는 정직한 `EXECUTED`,
 capability/precedence violation 0이어야 한다. 이는 simulated observation에 대한 운용자 승인
