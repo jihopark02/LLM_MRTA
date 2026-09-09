@@ -30,7 +30,7 @@ P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
 `feature/operator-interaction`). 계약 v1.64, 최신 결정 D-068.**
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 평가 + P6.5 `integration.py`) + `interaction/`(P8.1 grounder + P8.2 orchestrator).
-`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 931개 통과, ruff clean.
+`VALIDATOR_VERSION = "1.4"` (D-027), `λ = 0.999`. pytest 933개 통과, ruff clean.
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.
@@ -54,8 +54,14 @@ P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
   `apply_recorded_fire_decisions` / `has_undecided_fire`, `controller.apply_pending_fire_decisions`.
   operator 창 승인 패널(진압까지/점검만/거절). 단일 `SimulatedFireSource`·운용자
   `REPORT_INCIDENT`는 게이트 밖.
-- 후속: 없음 (Phase B/C/D 완료). 발표 리허설 + 지도교수·Codex 리뷰 — 커밋은
-  `de61780`(v1.57 재-baseline)부터 순서대로.
+- 데모 scene 3개(`patrol_park`·`response_district`·`response_district_patrol`)에서 G1·G2
+  둘 다 `R_DEPOT` (`c7f2632`). `industrial_park`는 P3/P4 골든 때문에 G2@R_C 유지.
+- D-068 (`bf50753` 계약, `60ae4a1` 코드) — (A) §22.7.1 상시 운용 콘솔: terminal 뒤
+  `NEW_MISSION`("전체 재정찰")·`UPDATE_RESOURCES` 수용 → 새 mission episode(새 graph, UAV
+  위치 이어받기, UGV 기지 재시작, 이전 `ExecutionAudit` 보존). "임무 완료" 종착점 제거, UI는
+  "대기" 표시. 반복 순찰 task는 여전히 미구현. (B) §3 `IncidentStatus.RESOLVED` — 
+  `GROUND_SUPPRESSION` 완료 시 incident RESOLVED, 지도에서 흐린 회색 X.
+- 후속: 없음. 발표 리허설 + 지도교수·Codex 리뷰 — 커밋은 `de61780`(v1.57 재-baseline)부터 순서대로.
 
 **D-060+D-061 re-baseline (아래 D-060/D-061 항목 참조)**: fleet 동일 UAV 3대 + UGV 2,
 vocabulary 3종(`AREA_RECON` / `GROUND_INSPECTION` → `GROUND_SUPPRESSION`). 결정론적 골든
