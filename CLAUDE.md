@@ -61,11 +61,13 @@ P9.0~P9.4, P10, P11, P12.0~P12.7과 P13.0~P13.3 완료 (브랜치
   위치 이어받기, UGV 기지 재시작, 이전 `ExecutionAudit` 보존). "임무 완료" 종착점 제거, UI는
   "대기" 표시. 반복 순찰 task는 여전히 미구현. (B) §3 `IncidentStatus.RESOLVED` — 
   `GROUND_SUPPRESSION` 완료 시 incident RESOLVED, 지도에서 흐린 회색 X.
-- D-069 (`321dfc0` 계약, `75a983a` 코드) — Live 데모 피드백. `NEW_MISSION`을 `EXECUTION_PAUSED`
-  (실행 중 safe checkpoint)에서도 수용 → 옛 mission 중단, 그 checkpoint UAV 위치에서 새 episode.
-  `EXECUTION_FAILED`는 계속 거부. continuous 재생 중 큐에 든 `NEW_MISSION`이 commit되면
-  `ContinuousTick.episode_changed` → `ContinuousRuntime` 정지, window가 새 episode로 새
-  `ContinuousRuntime` 시작(매끄러운 전환).
+- D-069 (`75a983a`) + **D-070 재서술** (`f27aae8` 계약, `d90e816` 코드) — Live 데모 피드백.
+  실행/완료 중 `NEW_MISSION`을 수용하되 **"새 episode/리셋"이 아니라 이어지는 timeline**:
+  `_do_new_mission`이 새 graph 실행 executor를 **옛 runtime의 `now`·`access_nodes`·UAV 위치**에서
+  seed, `phase=EXECUTION_PAUSED` 유지, sim time 안 튐. 옛 mission 미완료 task는 버려지고
+  `EXECUTION` audit 없음. `EXECUTION_FAILED`는 계속 거부. `ContinuousRuntime._commit_next`가
+  큐의 `NEW_MISSION` commit 시 옛 graph segment 버리고 loop `continue`로 같은 시각에 새 graph
+  segment 이어감(멈춤·재시작 없음). **반복 순찰은 여전히 미구현** — 재순찰 = 새 recon task.
 - 후속: 없음. 발표 리허설 + 지도교수·Codex 리뷰 — 커밋은 `de61780`(v1.57 재-baseline)부터 순서대로.
 
 **D-060+D-061 re-baseline (아래 D-060/D-061 항목 참조)**: fleet 동일 UAV 3대 + UGV 2,
