@@ -1,0 +1,12 @@
+# Seeded latent fire field for the demo_grid scene (§22.2, D-062, D-073).
+# The world (scenarios/demo_grid.yaml) is fully known; this spec only decides
+# which 4 zones hold fire. Same seed -> same zones every run. `min_separation`
+# (world units, on recon waypoints) rejects draws that clump the fires, so the
+# reveal is spread across the district — still a fully deterministic function
+# of (seed, scene).
+#
+# seed 2 + min_separation 170 -> ZONE_A, ZONE_D, ZONE_J, ZONE_O.
+field_id: demo-grid-latent-v1
+seed: 2
+count: 4
+min_separation: 170.0

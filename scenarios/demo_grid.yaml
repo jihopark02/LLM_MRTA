@@ -1,0 +1,94 @@
+# Native demo default scene (RESEARCH_CONTRACT.md §3.1, §23.3.1, D-073).
+#
+# 15 zones A-O on a loose 4-column grid, incident-empty. Bigger than
+# response_district_patrol so 3 UAVs each fly a distinct multi-zone recon route
+# and the CBBA task distribution is visible on screen. Display labels are the
+# bare letters; internal ids stay ZONE_A..ZONE_O and grounding is unchanged.
+#
+# Fires are NOT here — scenarios/demo_grid_latent.yaml places 4 of them
+# deterministically from a fixed seed (D-062 mechanism), revealed only when the
+# zone's AREA_RECON completes. This scene is not a phase gate and produces no
+# evaluation numbers (§3.1).
+
+scene_id: demo_grid
+
+# `reported_incident_*` is the fixed §18.10 response point for an operator-
+# reported incident in this zone. Its access node must exist in the route graph
+# and be reachable from every UGV start; the loader checks both.
+zones:
+  ZONE_A: { name: A, recon_waypoint: [ 60.0, 366.0], reported_incident_position: [ 66.0, 351.0], reported_incident_access_node: R_A }
+  ZONE_B: { name: B, recon_waypoint: [164.0, 354.0], reported_incident_position: [166.0, 340.0], reported_incident_access_node: R_B }
+  ZONE_C: { name: C, recon_waypoint: [321.0, 369.0], reported_incident_position: [320.0, 353.0], reported_incident_access_node: R_C }
+  ZONE_D: { name: D, recon_waypoint: [431.0, 359.0], reported_incident_position: [425.0, 345.0], reported_incident_access_node: R_D }
+  ZONE_E: { name: E, recon_waypoint: [111.0, 271.0], reported_incident_position: [116.0, 258.0], reported_incident_access_node: R_E }
+  ZONE_F: { name: F, recon_waypoint: [213.0, 257.0], reported_incident_position: [211.0, 245.0], reported_incident_access_node: R_F }
+  ZONE_G: { name: G, recon_waypoint: [370.0, 268.0], reported_incident_position: [367.0, 255.0], reported_incident_access_node: R_G }
+  ZONE_H: { name: H, recon_waypoint: [456.0, 262.0], reported_incident_position: [448.0, 250.0], reported_incident_access_node: R_H }
+  ZONE_I: { name: I, recon_waypoint: [ 55.0, 171.0], reported_incident_position: [ 61.0, 181.0], reported_incident_access_node: R_I }
+  ZONE_J: { name: J, recon_waypoint: [158.0, 158.0], reported_incident_position: [161.0, 170.0], reported_incident_access_node: R_J }
+  ZONE_K: { name: K, recon_waypoint: [316.0, 167.0], reported_incident_position: [316.0, 179.0], reported_incident_access_node: R_K }
+  ZONE_L: { name: L, recon_waypoint: [421.0, 160.0], reported_incident_position: [416.0, 172.0], reported_incident_access_node: R_L }
+  ZONE_M: { name: M, recon_waypoint: [121.0,  71.0], reported_incident_position: [125.0,  85.0], reported_incident_access_node: R_M }
+  ZONE_N: { name: N, recon_waypoint: [223.0,  64.0], reported_incident_position: [222.0,  80.0], reported_incident_access_node: R_N }
+  ZONE_O: { name: O, recon_waypoint: [379.0,  72.0], reported_incident_position: [378.0,  86.0], reported_incident_access_node: R_O }
+
+# No known incidents — fires enter only via the seeded latent field or a
+# natural-language REPORT_INCIDENT during the session (§3, §23.3.1, D-062).
+incidents: {}
+
+# UGV lane network: one node per zone at its response point, plus a depot.
+# Grid adjacency with a few missing rungs (F-J, C-G, H-L) so the UGV
+# shortest paths bend around the district instead of going straight.
+route_graph:
+  nodes:
+    R_DEPOT: [ 30.0,  18.0]
+    R_A: [ 66.0, 351.0]
+    R_B: [166.0, 340.0]
+    R_C: [320.0, 353.0]
+    R_D: [425.0, 345.0]
+    R_E: [116.0, 258.0]
+    R_F: [211.0, 245.0]
+    R_G: [367.0, 255.0]
+    R_H: [448.0, 250.0]
+    R_I: [ 61.0, 181.0]
+    R_J: [161.0, 170.0]
+    R_K: [316.0, 179.0]
+    R_L: [416.0, 172.0]
+    R_M: [125.0,  85.0]
+    R_N: [222.0,  80.0]
+    R_O: [378.0,  86.0]
+  lanes:
+    - [R_DEPOT, R_M]
+    - [R_DEPOT, R_I]
+    - [R_A, R_B]
+    - [R_B, R_C]
+    - [R_C, R_D]
+    - [R_E, R_F]
+    - [R_F, R_G]
+    - [R_G, R_H]
+    - [R_I, R_J]
+    - [R_J, R_K]
+    - [R_K, R_L]
+    - [R_M, R_N]
+    - [R_N, R_O]
+    - [R_A, R_E]
+    - [R_E, R_I]
+    - [R_I, R_M]
+    - [R_B, R_F]
+    - [R_J, R_N]
+    - [R_C, R_G]
+    - [R_G, R_K]
+    - [R_K, R_O]
+    - [R_D, R_H]
+    - [R_L, R_H]
+
+# 3 identical UAVs + 2 UGVs (§5, D-060). All five launch from the depot; the
+# UAV points differ by a few metres only so the plan/execution figures do not
+# draw their first legs exactly on top of each other. The CBBA split is
+# whatever the geometry produces from a shared start.
+fleet:
+  - { agent_id: U1, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [22.0, 12.0], speed: 8.0 }
+  - { agent_id: U2, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [38.0, 12.0], speed: 8.0 }
+  - { agent_id: U3, platform_kind: UAV, capabilities: [AERIAL_RECON], position: [30.0, 26.0], speed: 8.0 }
+  - { agent_id: G1, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: R_DEPOT, speed: 3.0 }
+  - { agent_id: G2, platform_kind: UGV, capabilities: [GROUND_MOBILITY, SUPPRESSANT_APPLICATOR], access_node: R_DEPOT, speed: 3.0 }
