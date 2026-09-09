@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.59 (D-063). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.60 (D-064). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.60 (D-064): §23.4 continuous tick driver 구현. `demo.animation.SegmentView.frame_at`이
+  committed segment 안의 임의 sim-time pose를 주고, `desktop.controller.ContinuousRuntime`이
+  boundary마다 checkpoint commit + sensor observation + queued 명령 1건을 **동기적으로**
+  처리한다(별도 thread 없음). §23.4의 "LLM 호출을 executor mutation과 분리"를 "boundary 정지
+  중 동기 처리, 결과는 boundary-anchored라 latency-무관"으로 재서술. 결정론·골든 불변.
 - v1.59 (D-063): §23.4.1로 P13.4 continuous runtime의 입력 queue 정책을 확정한다. 재생 중
   자유텍스트 명령은 FIFO 큐(`queued_commands`)에 쌓이고 safe boundary마다 1건씩 기존
   `handle_turn`으로 처리한다. P12.6의 단일 `queued_command` 1건 제한을 대체하되 "덮어쓰기
@@ -2110,14 +2115,18 @@ key 누락, network 오류, schema 오류 또는 infeasible request는 Live turn
 
 P13.4는 `advance_to_next_completion()` 호출을 UI animation clock으로 쓰지 않는다. 별도 고정
 wall-clock tick driver가 현재 committed segment 안에서 simulation time과 kinematic pose를
-연속 보간하고, task completion boundary에서만 연구 상태를 commit한다. 입력은 이동 중에도 받아
-LLM 해석 결과와 도착 시각을 pending transaction으로 보존한다. pending 결과는 현재 RUNNING task를
-중단하지 않고 다음 safe boundary에서 정확히 한 번 적용된다.
+`SegmentView.frame_at`으로 연속 보간하고, task completion boundary에서만 연구 상태를 commit한다.
+입력은 이동 중에도 FIFO 큐(§23.4.1)로 받는다. pending 명령은 현재 RUNNING task를 중단하지 않고
+다음 safe boundary에서 정확히 한 번 적용된다.
 
-UI thread·network latency가 결과를 바꾸지 않게 LLM 호출은 executor state mutation과 분리한다.
-동일 utterance, pre-state hash와 적용 boundary가 같으면 graph/resource/team/assignment 결과도
-같아야 한다. P13.4는 robot telemetry가 아니라 P10 schedule 기반 kinematic runtime이며, 이를
-실제 비행으로 표시하지 않는다.
+boundary에서 연구 상태 전이(다음 checkpoint commit → sensor observation → queued 명령 1건의
+`handle_turn`)는 tick driver가 **동기적으로** 수행하며, 그 사이 clock은 잠깐 멈춘다(별도
+thread 없음, D-064). mock/cached 발표에서 이 정지는 수 ms이고, Live에서 boundary에 queued
+명령이 있으면 눈에 띄게 끊길 수 있다. 결정론은 유지된다 — 적용 boundary는 wall-clock이 아니라
+sim-time task 완료로 정해지므로 tick 간격·입력 시각·network latency가 **어느 boundary에
+적용되는지**와 **결과 graph/resource/team/assignment**를 바꾸지 않는다. 동일 utterance,
+pre-state hash와 적용 boundary가 같으면 결과도 같다. P13.4는 robot telemetry가 아니라 P10
+schedule 기반 kinematic runtime이며 실제 비행으로 표시하지 않는다.
 
 ### 23.4.1 입력 queue 순서·취소 정책 (D-063)
 

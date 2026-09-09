@@ -1979,3 +1979,39 @@ observation) 상태에서 기존 `handle_turn`으로 한 번 처리한다. `COMM
   `queued_command` → `queued_commands` FIFO, 취소 API, 큐 표시. `advance` 자동진행 루프가
   boundary마다 1건 소비. `handle_turn`·Validator·CBBA·executor 의미 불변.
 - 골든·평가: 불변.
+
+## D-064: continuous tick driver 구현 (계약 v1.60)
+
+**배경** §23.4는 P13.4 continuous runtime의 골격("고정 wall-clock tick이 committed segment
+안에서 pose를 연속 보간, boundary에서만 commit")과 입력 queue(§23.4.1, D-063)를 정해 뒀다.
+남은 것은 실제 구현과, §23.4의 "UI thread·network latency가 결과를 바꾸지 않게 LLM 호출을
+executor state mutation과 분리한다"는 문장을 어떻게 만족시키느냐다.
+
+**결정** `demo.animation`에 `SegmentView`를 추가한다 — 이미 committed된 checkpoint 구간의
+`(scene, after checkpoint, base map spec, routes, departure/completion times)`를 한 번 만들고
+`frame_at(when)`으로 그 구간 안 임의 sim-time의 `AnimationFrameSpec`을 준다. `build_playback_spec`는
+`SegmentView.build(...).to_playback(frame_count=...)`로 재작성(프레임·결정론 게이트 불변).
+`desktop.controller.ContinuousRuntime`이 `sim_time`과 현재 `SegmentView`를 들고: `advance_to(t)`가
+`t < segment.end_time`이면 `frame_at`만, `t >= end_time`이면 `advance_checkpoint()`(다음
+checkpoint commit + sensor observation) + queued 명령 1건 `submit_queued()`를 **동기적으로**
+수행하고 새 `SegmentView`로 넘어간다. terminal `ExecutionAudit`·playback 실패·queued 명령의
+비-정상 결과(CLARIFICATION 등)에서 멈춘다(전자는 finished, 후자는 resumable halt). Qt와 무관해
+단위테스트로 고정한다.
+
+`desktop.window`의 "끝까지 연속 재생" 버튼이 `QTimer`(33ms)로 `sim_time`을 `sim_rate`(기본
+12 sim-s/wall-s, `LLM_MRTA_SIM_RATE`)만큼 올리며 `ContinuousRuntime.advance_to`를 호출하고
+프레임을 `MissionSimulatorWindow.render_frame`으로 push한다. "다음 checkpoint" 버튼은 기존
+segment 재생(`simulator.play`) 경로 그대로.
+
+**§23.4 문장 재서술** boundary의 연구 상태 전이는 별도 thread 없이 동기로 하고 그 사이 clock이
+잠깐 멈춘다. 결정론은 유지된다: 적용 boundary는 wall-clock이 아니라 sim-time task 완료로
+정해지므로 tick 간격·입력 시각·latency가 어느 boundary에 적용되는지와 결과를 바꾸지 않는다.
+mock/cached 발표에선 정지가 수 ms, Live는 boundary에 queued 명령이 있으면 눈에 띄게 끊길 수
+있다(정직하게 명시).
+
+**영향**
+- 계약: §23.4 본문 재서술(위). §23.4.1·골든·Validator·allocator·executor 불변.
+- 코드: `demo/animation.py`(`SegmentView`), `desktop/controller.py`(`ContinuousRuntime`·
+  `ContinuousTick`·`AdvancePresentation.segment`), `desktop/simulator.py`(`render_frame`),
+  `desktop/window.py`(QTimer tick driver, `sim_rate`), `desktop/app.py`(param 전달).
+- 테스트: `ContinuousRuntime` 단위테스트, app 테스트를 tick driver 경로로 갱신.
