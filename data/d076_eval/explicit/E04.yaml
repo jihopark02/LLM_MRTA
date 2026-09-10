@@ -1,0 +1,17 @@
+id: E04
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: FIRE_SITE_1을 지상 진압까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - explicit:
+      - FIRE_SITE_1
+      up_to: suppression
+  outcome: COMMITTED
+  resolved:
+    recon: []
+    responses:
+    - - - FIRE_SITE_1
+      - suppression

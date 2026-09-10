@@ -1,0 +1,24 @@
+id: C08
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: D부터 G까지 구역도 정찰 목록에 추가해줘
+expected:
+  kind: UPDATE_MISSION
+  semantic_ir:
+    recon:
+    - range:
+      - D
+      - G
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_D
+      - ZONE_E
+      - ZONE_F
+      - ZONE_G
+    responses: []
+initial_graph:
+  recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C

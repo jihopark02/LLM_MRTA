@@ -1,0 +1,21 @@
+id: E05
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: 네 구역 A B C D 전부 정찰해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - explicit:
+      - A
+      - B
+      - C
+      - D
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_A
+      - ZONE_B
+      - ZONE_C
+      - ZONE_D
+    responses: []

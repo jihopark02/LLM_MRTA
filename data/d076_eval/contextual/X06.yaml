@@ -1,0 +1,17 @@
+id: X06
+level: contextual
+world: scenarios/stress_grid.yaml
+utterance: 알려진 화재 중 가장 북쪽 것만 점검까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - recency: all
+      spatial_pick: northmost
+      up_to: inspection
+  outcome: COMMITTED
+  resolved:
+    recon: []
+    responses:
+    - - - FIRE_SITE_1
+      - inspection

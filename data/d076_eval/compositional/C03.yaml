@@ -1,0 +1,22 @@
+id: C03
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: 서쪽 구역을 정찰하되 A와 B는 빼줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - region: west
+      exclude:
+      - A
+      - B
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_E
+      - ZONE_F
+      - ZONE_I
+      - ZONE_J
+      - ZONE_M
+      - ZONE_N
+    responses: []

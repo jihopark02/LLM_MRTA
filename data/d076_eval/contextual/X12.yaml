@@ -1,0 +1,25 @@
+id: X12
+level: contextual
+world: scenarios/stress_grid.yaml
+utterance: 최근에 파악된 화재 두 곳을 지상 점검까지만 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - recency: recent
+      count: 2
+      up_to: inspection
+  outcome: COMMITTED
+  resolved:
+    recon: []
+    responses:
+    - - - FIRE_SITE_1
+        - FIRE_SITE_2
+      - inspection
+event_history:
+- incident: FIRE_SITE_1
+  source: sensor
+  t: 10.0
+- incident: FIRE_SITE_2
+  source: operator
+  t: 20.0

@@ -1,0 +1,24 @@
+id: C09
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: A부터 H까지 정찰하되 양 끝 A와 H는 빼줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - range:
+      - A
+      - H
+      exclude:
+      - A
+      - H
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_B
+      - ZONE_C
+      - ZONE_D
+      - ZONE_E
+      - ZONE_F
+      - ZONE_G
+    responses: []

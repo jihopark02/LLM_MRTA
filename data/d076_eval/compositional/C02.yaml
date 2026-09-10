@@ -1,0 +1,21 @@
+id: C02
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: 북쪽 절반 구역을 전부 항공 정찰해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - region: north
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_A
+      - ZONE_B
+      - ZONE_C
+      - ZONE_D
+      - ZONE_E
+      - ZONE_F
+      - ZONE_G
+      - ZONE_H
+    responses: []

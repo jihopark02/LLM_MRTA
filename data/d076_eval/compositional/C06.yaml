@@ -1,0 +1,27 @@
+id: C06
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: A부터 F까지 정찰하고 FIRE_SITE_1은 지상 진압까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - range:
+      - A
+      - F
+    responses:
+    - explicit:
+      - FIRE_SITE_1
+      up_to: suppression
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_A
+      - ZONE_B
+      - ZONE_C
+      - ZONE_D
+      - ZONE_E
+      - ZONE_F
+    responses:
+    - - - FIRE_SITE_1
+      - suppression

@@ -1,0 +1,15 @@
+id: E12
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: Tank Farm 구역만 정찰해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - explicit:
+      - Tank Farm
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_D
+    responses: []

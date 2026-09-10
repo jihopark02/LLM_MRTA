@@ -1,0 +1,20 @@
+id: C13
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: A부터 F까지 정찰하고 FIRE_SITE_1은 점검까지만 하되 진압까지도 해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - range:
+      - A
+      - F
+    responses:
+    - explicit:
+      - FIRE_SITE_1
+      up_to: inspection
+    - explicit:
+      - FIRE_SITE_1
+      up_to: suppression
+  outcome: CLARIFICATION
+  clarification_reason: SEMANTIC_CONFLICT

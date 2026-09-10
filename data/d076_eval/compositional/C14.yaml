@@ -1,0 +1,15 @@
+id: C14
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: A부터 H까지 정찰하되 ZONE_Z는 빼줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - range:
+      - A
+      - H
+      exclude:
+      - ZONE_Z
+  outcome: CLARIFICATION
+  clarification_reason: UNKNOWN_ENTITY

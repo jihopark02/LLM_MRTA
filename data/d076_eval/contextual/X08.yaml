@@ -1,0 +1,17 @@
+id: X08
+level: contextual
+world: scenarios/stress_grid.yaml
+utterance: 방금 센서가 감지한 화재를 지상 진압까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - recency: recent
+      source: sensor
+      up_to: suppression
+  outcome: CLARIFICATION
+  clarification_reason: NO_ENTITIES
+event_history:
+- incident: FIRE_SITE_1
+  source: operator
+  t: 10.0

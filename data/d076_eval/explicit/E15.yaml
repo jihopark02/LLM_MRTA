@@ -1,0 +1,14 @@
+id: E15
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: Processing Area를 정찰하되 Processing Area는 빼줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - explicit:
+      - Processing Area
+      exclude:
+      - Processing Area
+  outcome: CLARIFICATION
+  clarification_reason: NO_ENTITIES

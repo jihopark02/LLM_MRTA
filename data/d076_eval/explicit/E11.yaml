@@ -1,0 +1,22 @@
+id: E11
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: FIRE_SITE_1을 다시 지상 진압까지 처리해줘
+expected:
+  kind: UPDATE_MISSION
+  semantic_ir:
+    responses:
+    - explicit:
+      - FIRE_SITE_1
+      up_to: suppression
+  outcome: NO_CHANGE
+  resolved:
+    recon: []
+    responses:
+    - - - FIRE_SITE_1
+      - suppression
+initial_graph:
+  incident_chains:
+    FIRE_SITE_1:
+    - GROUND_INSPECTION
+    - GROUND_SUPPRESSION

@@ -1,0 +1,20 @@
+id: E07
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: FIRE_SITE_1도 지상 진압까지 처리해줘
+expected:
+  kind: UPDATE_MISSION
+  semantic_ir:
+    responses:
+    - explicit:
+      - FIRE_SITE_1
+      up_to: suppression
+  outcome: COMMITTED
+  resolved:
+    recon: []
+    responses:
+    - - - FIRE_SITE_1
+      - suppression
+initial_graph:
+  recon_zones:
+  - ZONE_A

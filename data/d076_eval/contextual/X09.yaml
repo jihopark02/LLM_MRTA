@@ -1,0 +1,21 @@
+id: X09
+level: contextual
+world: scenarios/stress_grid.yaml
+utterance: 방금 발견한 세 화재를 지상 진압까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - recency: recent
+      count: 3
+      source: sensor
+      up_to: suppression
+  outcome: CLARIFICATION
+  clarification_reason: NO_ENTITIES
+event_history:
+- incident: FIRE_SITE_1
+  source: sensor
+  t: 10.0
+- incident: FIRE_SITE_3
+  source: sensor
+  t: 20.0

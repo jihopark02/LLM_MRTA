@@ -1,0 +1,28 @@
+id: C10
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: 남쪽 구역을 정찰하고 알려진 모든 화재는 점검까지만 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - region: south
+    responses:
+    - recency: all
+      up_to: inspection
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_I
+      - ZONE_J
+      - ZONE_K
+      - ZONE_L
+      - ZONE_M
+      - ZONE_N
+      - ZONE_O
+    responses:
+    - - - FIRE_SITE_1
+        - FIRE_SITE_2
+        - FIRE_SITE_3
+        - FIRE_SITE_4
+      - inspection

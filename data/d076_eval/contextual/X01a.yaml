@@ -1,0 +1,26 @@
+id: X01a
+level: contextual
+world: scenarios/stress_grid.yaml
+utterance: 방금 센서가 발견한 두 화재 중 동쪽 것은 점검까지만 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - recency: recent
+      count: 2
+      source: sensor
+      spatial_pick: eastmost
+      up_to: inspection
+  outcome: COMMITTED
+  resolved:
+    recon: []
+    responses:
+    - - - FIRE_SITE_1
+      - inspection
+event_history:
+- incident: FIRE_SITE_1
+  source: sensor
+  t: 10.0
+- incident: FIRE_SITE_3
+  source: sensor
+  t: 20.0

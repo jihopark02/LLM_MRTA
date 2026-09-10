@@ -1,0 +1,26 @@
+id: X02b
+level: contextual
+world: scenarios/stress_grid.yaml
+utterance: 가장 최근에 보고된 화재를 지상 진압까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - recency: recent
+      count: 1
+      source: operator
+      up_to: suppression
+  outcome: COMMITTED
+  resolved:
+    recon: []
+    responses:
+    - - - FIRE_SITE_1
+      - suppression
+event_history:
+- incident: FIRE_SITE_2
+  source: operator
+  t: 10.0
+- incident: FIRE_SITE_1
+  source: operator
+  t: 20.0
+counterfactual_of: X02a

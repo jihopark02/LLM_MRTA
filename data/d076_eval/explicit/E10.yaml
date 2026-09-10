@@ -1,0 +1,17 @@
+id: E10
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: Warehouse를 정찰하고, 화재가 발견되면 지상 진압까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - explicit:
+      - Warehouse
+    incident_policy:
+      up_to: suppression
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_A
+    responses: []

@@ -1,0 +1,12 @@
+id: E13
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: North Gate 구역을 정찰해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - explicit:
+      - North Gate
+  outcome: CLARIFICATION
+  clarification_reason: UNKNOWN_ENTITY

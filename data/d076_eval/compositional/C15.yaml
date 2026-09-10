@@ -1,0 +1,13 @@
+id: C15
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: H부터 A까지 순서대로 정찰해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - range:
+      - H
+      - A
+  outcome: CLARIFICATION
+  clarification_reason: UNKNOWN_ENTITY

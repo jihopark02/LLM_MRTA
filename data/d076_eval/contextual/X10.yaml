@@ -1,0 +1,12 @@
+id: X10
+level: contextual
+world: scenarios/stress_grid.yaml
+utterance: 그 화재를 지상 진압까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - deixis: 그 화재
+      up_to: suppression
+  outcome: CLARIFICATION
+  clarification_reason: AMBIGUOUS_ENTITY

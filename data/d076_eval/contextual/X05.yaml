@@ -1,0 +1,34 @@
+id: X05
+level: contextual
+world: scenarios/stress_grid.yaml
+utterance: 아직 정찰하지 않은 구역만 다시 항공 정찰해줘
+expected:
+  kind: UPDATE_MISSION
+  semantic_ir:
+    recon:
+    - range:
+      - A
+      - J
+      unvisited_only: true
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_C
+      - ZONE_D
+      - ZONE_E
+      - ZONE_F
+      - ZONE_G
+      - ZONE_H
+      - ZONE_I
+      - ZONE_J
+    responses: []
+initial_graph:
+  recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D
+  - ZONE_E
+completed_recon:
+- ZONE_A
+- ZONE_B

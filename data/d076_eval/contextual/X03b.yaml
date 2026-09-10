@@ -1,0 +1,19 @@
+id: X03b
+level: contextual
+world: scenarios/stress_grid.yaml
+utterance: 거기 지상 진압까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - deixis: 거기
+      up_to: suppression
+  outcome: COMMITTED
+  resolved:
+    recon: []
+    responses:
+    - - - FIRE_SITE_3
+      - suppression
+referents:
+- FIRE_SITE_3
+counterfactual_of: X03a

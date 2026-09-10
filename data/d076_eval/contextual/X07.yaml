@@ -1,0 +1,13 @@
+id: X07
+level: contextual
+world: data/d076_eval/worlds/tie_park.yaml
+utterance: 두 화재 중 동쪽에 있는 것을 지상 진압까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - recency: all
+      spatial_pick: eastmost
+      up_to: suppression
+  outcome: CLARIFICATION
+  clarification_reason: AMBIGUOUS_ENTITY

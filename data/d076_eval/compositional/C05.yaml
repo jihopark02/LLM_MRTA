@@ -1,0 +1,25 @@
+id: C05
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: A부터 D까지, 그리고 M부터 O까지 정찰해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - range:
+      - A
+      - D
+    - range:
+      - M
+      - O
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_A
+      - ZONE_B
+      - ZONE_C
+      - ZONE_D
+    - - ZONE_M
+      - ZONE_N
+      - ZONE_O
+    responses: []

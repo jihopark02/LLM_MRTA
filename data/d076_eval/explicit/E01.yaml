@@ -1,0 +1,15 @@
+id: E01
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: Warehouse 구역을 정찰해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - explicit:
+      - Warehouse
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_A
+    responses: []

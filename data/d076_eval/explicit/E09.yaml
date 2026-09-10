@@ -1,0 +1,19 @@
+id: E09
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: Utility Yard도 정찰 목록에 추가해줘
+expected:
+  kind: UPDATE_MISSION
+  semantic_ir:
+    recon:
+    - explicit:
+      - Utility Yard
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_C
+    responses: []
+initial_graph:
+  recon_zones:
+  - ZONE_A
+  - ZONE_B

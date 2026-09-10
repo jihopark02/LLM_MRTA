@@ -1,0 +1,22 @@
+id: C07
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: FIRE_SITE_1은 점검까지만, FIRE_SITE_2는 진압까지 대응해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    responses:
+    - explicit:
+      - FIRE_SITE_1
+      up_to: inspection
+    - explicit:
+      - FIRE_SITE_2
+      up_to: suppression
+  outcome: COMMITTED
+  resolved:
+    recon: []
+    responses:
+    - - - FIRE_SITE_1
+      - inspection
+    - - - FIRE_SITE_2
+      - suppression

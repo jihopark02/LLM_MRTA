@@ -1,0 +1,17 @@
+id: E02
+level: explicit
+world: scenarios/industrial_park.yaml
+utterance: Warehouse랑 Tank Farm 두 곳을 항공 정찰해줘
+expected:
+  kind: NEW_MISSION
+  semantic_ir:
+    recon:
+    - explicit:
+      - Warehouse
+      - Tank Farm
+  outcome: COMMITTED
+  resolved:
+    recon:
+    - - ZONE_A
+      - ZONE_D
+    responses: []

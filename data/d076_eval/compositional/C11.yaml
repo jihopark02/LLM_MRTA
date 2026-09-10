@@ -1,0 +1,40 @@
+id: C11
+level: compositional
+world: scenarios/stress_grid.yaml
+utterance: FIRE_SITE_1, FIRE_SITE_2, FIRE_SITE_3, FIRE_SITE_4를 전부 지상 진압까지 대응해줘
+expected:
+  kind: UPDATE_MISSION
+  semantic_ir:
+    responses:
+    - explicit:
+      - FIRE_SITE_1
+      - FIRE_SITE_2
+      - FIRE_SITE_3
+      - FIRE_SITE_4
+      up_to: suppression
+  outcome: COMMITTED
+  resolved:
+    recon: []
+    responses:
+    - - - FIRE_SITE_1
+        - FIRE_SITE_2
+        - FIRE_SITE_3
+        - FIRE_SITE_4
+      - suppression
+initial_graph:
+  recon_zones:
+  - ZONE_A
+  - ZONE_B
+  - ZONE_C
+  - ZONE_D
+  - ZONE_E
+  - ZONE_F
+  - ZONE_G
+  - ZONE_H
+  - ZONE_I
+  - ZONE_J
+  - ZONE_K
+  - ZONE_L
+  - ZONE_M
+  - ZONE_N
+  - ZONE_O
