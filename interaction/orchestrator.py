@@ -441,7 +441,7 @@ def _resource_audit(
 # -- dialogue acts -----------------------------------------------------
 
 
-def _do_new_mission(turn: _Turn, backend) -> TurnResult:
+def _do_new_mission(turn: _Turn) -> TurnResult:
     session = turn.session
     # §22.7.1 (D-068/D-069): a preserved runtime — EXECUTION_PAUSED mid-run or a
     # completed EXECUTED — is a safe checkpoint to branch a fresh episode from.
@@ -962,7 +962,7 @@ def _dispatch(turn: _Turn, backend) -> TurnResult:
         return _finish(turn, TurnOutcome.UNSUPPORTED, _AFTER_EXECUTION_TEMPLATE)
 
     if intent.kind == "NEW_MISSION":
-        return _do_new_mission(turn, backend)
+        return _do_new_mission(turn)
     if intent.kind == "UPDATE_RESOURCES":
         return _do_update_resources(turn)
     if intent.kind == "REPORT_INCIDENT":
