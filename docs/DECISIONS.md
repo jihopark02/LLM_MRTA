@@ -2567,3 +2567,23 @@ resolve·compile·commit은 annotation과 동일(benign), ~5개가 실제 semant
   (referent 경로 resolver에서 재사용).
 - 광범위한 테스트 갱신: 모든 `NEW_MISSION`/`UPDATE_MISSION` mock이 `SemanticMissionIR` script로.
 - 불변: `llm/pipeline.py` 코드, D-072/D-074/D-075 artifact, P6 harness, golden.
+
+**결론 (D-077 진행 기준)**
+
+D-076은 "LLM이 자유 자연어를 bounded semantics로 정규화하고, 이후 grounding·compilation·
+validation은 결정론적으로 안정적으로 처리된다"는 점을 held-out으로 확인했다(resolver/compiler
+failure 0/45, counterfactual pair 3/3 발산 = 시나리오 조회가 아닌 현재 world 해석). **동시에
+새 한계를 드러냈다: LLM이 원문의 모순/모호성을 IR 생성 *전에* 임의로 해소하면 IR에는 그 정보가
+없어 deterministic safety boundary(fail-closed)를 우회할 수 있다** (C13, unsafe commit 1/45 =
+LLM→IR 경계의 정보 손실). 즉 현재 구조의 fail-closed는 "LLM이 ambiguity/conflict를 IR에
+보존할 때"에만 성립한다.
+
+- **지표 보고 원칙**: 앞으로 **IR lexical exact**와 **functional semantic correctness**
+  (resolved / graph / outcome)를 분리 보고한다. D-076에서 IR exact 75.6%지만 functional
+  88.9~91.1%인 것은 benign mismatch(조사 slot 부착, implicit default 명시)가 섞였기 때문.
+- **D-077 1순위 RQ**: conflict-preserving semantic interface. "프롬프트를 더 세게" 수준이
+  아니라 — uncertain/conflicting interpretation을 IR에 표현, raw-utterance conflict detector를
+  LLM과 독립 배치, dual-pass consistency check 등이 후보. 이것을 먼저 다룬 뒤 RQ 재정의·rule-
+  based baseline·incident-alias tolerance·kind disambiguation.
+- freeze 규약대로 D-076의 prompt/annotation/gold는 이 결과에 대응해 수정하지 않는다. 후속은
+  새 evaluation 버전.
