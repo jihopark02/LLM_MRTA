@@ -9,9 +9,10 @@ from interaction.orchestrator import handle_turn
 from interaction.schemas import wire_intent
 from interaction.session import MissionSession, fresh_session_state
 from llm.backend import MockBackend, TimedBackend
-from llm.schemas import LLMEdge, LLMTask, Step1Output, Step2Output
+from llm.schemas import LLMTask, Step1Output
 from scenarios.compiler import compile_reference_graph
 from scenarios.scene import load_scene
+from tests.ir_fixtures import response_ir
 
 SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
 
@@ -23,23 +24,8 @@ def scene():
 
 def _new_mission_backend():
     return MockBackend(
-        [
-            wire_intent("NEW_MISSION"),
-            Step1Output(
-                tasks=[
-                    LLMTask(task_type="GROUND_INSPECTION", target="FIRE_SITE_1"),
-                    LLMTask(task_type="GROUND_SUPPRESSION", target="FIRE_SITE_1"),
-                ]
-            ),
-            Step2Output(
-                edges=[
-                    LLMEdge(
-                        predecessor="GROUND_INSPECTION:FIRE_SITE_1",
-                        successor="GROUND_SUPPRESSION:FIRE_SITE_1",
-                    )
-                ]
-            ),
-        ]
+        [wire_intent("NEW_MISSION",
+                     mission=response_ir("GROUND_SUPPRESSION", explicit=("FIRE_SITE_1",)))]
     )
 
 
@@ -66,18 +52,15 @@ def test_timed_backend_measures_real_wall_time():
     assert timed.calls[0][1] >= 0.015
 
 
-def test_new_mission_turn_records_three_llm_calls(scene):
+def test_new_mission_turn_records_one_llm_call(scene):
+    # D-076: kind + Semantic Mission IR are a single semantic-interpretation call.
     session = MissionSession("LAT", scene)
     result = handle_turn(session, "FIRE_SITE_1 대응 시작", _new_mission_backend())
 
     assert result.outcome.value == "COMMITTED"
     timing = result.audit.timing
     assert timing is not None
-    assert [name for name, _ in timing.llm_calls] == [
-        "IntentWireEnvelope",
-        "Step1Output",
-        "Step2Output",
-    ]
+    assert [name for name, _ in timing.llm_calls] == ["IntentWireEnvelope"]
     assert timing.total_s >= 0.0
     assert timing.llm_total_s == pytest.approx(
         sum(seconds for _, seconds in timing.llm_calls)
@@ -119,10 +102,6 @@ def test_latency_aggregator_groups_by_intent_kind(scene, tmp_path):
 
     assert summary["NEW_MISSION"]["n"] == 3
     assert summary["QUERY_STATUS"]["n"] == 3
-    assert set(summary["NEW_MISSION"]["llm_calls"]) == {
-        "IntentWireEnvelope",
-        "Step1Output",
-        "Step2Output",
-    }
+    assert set(summary["NEW_MISSION"]["llm_calls"]) == {"IntentWireEnvelope"}
     assert set(summary["QUERY_STATUS"]["llm_calls"]) == {"IntentWireEnvelope"}
     assert summary["NEW_MISSION"]["total_s"]["mean"] >= 0.0

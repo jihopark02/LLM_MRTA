@@ -22,6 +22,7 @@ from interaction.session import (
 from llm.backend import MockBackend
 from scenarios.fixture import load_reference_fixture
 from scenarios.scene import load_scene
+from tests.ir_fixtures import recon_ir, response_ir
 from validator.hashing import graph_hash, pre_state_hash
 from validator.patch import graph_edge_keys, graph_hash_nodes
 
@@ -63,6 +64,15 @@ def _turn(session, utterance, kind, **slots):
         session,
         utterance,
         MockBackend([wire_intent(kind, **slots)]),
+    )
+
+
+def _update(session, utterance, up_to="GROUND_SUPPRESSION", **incident_kw):
+    """A single-response-clause UPDATE_MISSION turn (D-076 IR)."""
+    return handle_turn(
+        session,
+        utterance,
+        MockBackend([wire_intent("UPDATE_MISSION", mission=response_ir(up_to, **incident_kw))]),
     )
 
 
@@ -157,8 +167,6 @@ def test_completed_online_run_accepts_one_turn_follow_on_response(planned_sessio
 def test_completed_run_accepts_a_new_mission_episode_from_current_positions(
     planned_session,
 ):
-    from llm.schemas import LLMTask, Step1Output, Step2Output
-
     while planned_session.phase is not SessionPhase.EXECUTED:
         advance_online_session(planned_session, mode="mock")
     assert isinstance(planned_session.event_log[-1], ExecutionAudit)
@@ -169,13 +177,8 @@ def test_completed_run_accepts_a_new_mission_episode_from_current_positions(
     }
     assert uav_end  # UAVs finished somewhere other than their scene start
 
-    zones = sorted(planned_session.scene.zones)
     backend = MockBackend(
-        [
-            wire_intent("NEW_MISSION"),
-            Step1Output(tasks=[LLMTask(task_type="AREA_RECON", target=z) for z in zones]),
-            Step2Output(edges=[]),
-        ]
+        [wire_intent("NEW_MISSION", mission=recon_ir(range_from="A", range_to="D"))]
     )
     terminal_time = planned_session.runtime.now
     result = handle_turn(planned_session, "전체 구역 다시 정찰해줘", backend)
@@ -202,8 +205,6 @@ def test_completed_run_accepts_a_new_mission_episode_from_current_positions(
 def test_new_mission_mid_run_continues_the_timeline_and_abandons_the_old_tasks(
     planned_session,
 ):
-    from llm.schemas import LLMTask, Step1Output, Step2Output
-
     advance_online_session(planned_session, mode="mock")
     advance_online_session(planned_session, mode="mock")
     assert planned_session.phase is SessionPhase.EXECUTION_PAUSED
@@ -217,13 +218,8 @@ def test_new_mission_mid_run_continues_the_timeline_and_abandons_the_old_tasks(
         e.event_type for e in planned_session.event_log
     ].count("EXECUTION")
 
-    zones = sorted(planned_session.scene.zones)
     backend = MockBackend(
-        [
-            wire_intent("NEW_MISSION"),
-            Step1Output(tasks=[LLMTask(task_type="AREA_RECON", target=z) for z in zones]),
-            Step2Output(edges=[]),
-        ]
+        [wire_intent("NEW_MISSION", mission=recon_ir(range_from="A", range_to="D"))]
     )
     result = handle_turn(planned_session, "이거 그만하고 전체 정찰 다시 해줘", backend)
 
@@ -258,7 +254,9 @@ def test_new_mission_is_still_refused_from_a_failed_run(planned_session, monkeyp
     monkeypatch.setattr(SimExecutor, "advance_to_next_completion", original)
 
     result = handle_turn(
-        planned_session, "전체 정찰 다시", MockBackend([wire_intent("NEW_MISSION")])
+        planned_session,
+        "전체 정찰 다시",
+        MockBackend([wire_intent("NEW_MISSION", mission=recon_ir(range_from="A", range_to="D"))]),
     )
     assert result.outcome is TurnOutcome.UNSUPPORTED
 
@@ -284,13 +282,7 @@ def test_scene_only_terminal_report_can_be_followed_by_canonical_update(
     assert planned_session.runtime is terminal_runtime
     assert planned_session.runtime.scene is planned_session.scene
 
-    update = _turn(
-        planned_session,
-        "거기 지상 진압까지 대응해줘",
-        "UPDATE_MISSION",
-        target_phrase="거기",
-        up_to_step="GROUND_SUPPRESSION",
-    )
+    update = _update(planned_session, "거기 지상 진압까지 대응해줘", deixis="거기")
 
     assert update.outcome is TurnOutcome.COMMITTED
     assert planned_session.phase is SessionPhase.EXECUTION_PAUSED
@@ -324,13 +316,7 @@ def test_paused_report_then_update_replaces_only_the_accepted_runtime(planned_se
         for task in old_runtime.graph.tasks
         if task.status.value in {"COMPLETED", "RUNNING"}
     }
-    update = _turn(
-        planned_session,
-        "거기 지상 진압까지 추가해줘",
-        "UPDATE_MISSION",
-        target_phrase="거기",
-        up_to_step="GROUND_SUPPRESSION",
-    )
+    update = _update(planned_session, "거기 지상 진압까지 추가해줘", deixis="거기")
 
     assert update.outcome is TurnOutcome.COMMITTED
     assert update.audit.online_reallocation is not None
@@ -374,13 +360,7 @@ def test_paused_no_change_does_not_replace_runtime(planned_session):
     runtime = planned_session.runtime
     signature = _runtime_signature(runtime)
 
-    result = _turn(
-        planned_session,
-        "FIRE_SITE_1 지상 진압까지",
-        "UPDATE_MISSION",
-        target_phrase="FIRE_SITE_1",
-        up_to_step="GROUND_SUPPRESSION",
-    )
+    result = _update(planned_session, "FIRE_SITE_1 지상 진압까지", explicit=("FIRE_SITE_1",))
 
     assert result.outcome is TurnOutcome.NO_CHANGE
     assert result.audit.online_reallocation is None
@@ -412,13 +392,7 @@ def test_online_update_exception_preserves_runtime_state_and_scene(
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("rebid boom")),
     )
 
-    result = _turn(
-        planned_session,
-        "거기 진압까지",
-        "UPDATE_MISSION",
-        target_phrase="거기",
-        up_to_step="GROUND_SUPPRESSION",
-    )
+    result = _update(planned_session, "거기 진압까지", deixis="거기")
 
     assert result.outcome is TurnOutcome.TURN_ERROR
     assert planned_session.runtime is runtime
@@ -432,16 +406,11 @@ def test_paused_clarification_preserves_runtime(planned_session):
     runtime = planned_session.runtime
     signature = _runtime_signature(runtime)
 
-    result = _turn(
-        planned_session,
-        "그 화재 진압까지",
-        "UPDATE_MISSION",
-        target_phrase="그 화재",
-        up_to_step="GROUND_SUPPRESSION",
-    )
+    result = _update(planned_session, "그 화재 진압까지", deixis="그 화재")
 
     assert result.outcome is TurnOutcome.CLARIFICATION
-    assert planned_session.pending_clarification is not None
+    # S8: a mission-edit clarification is non-resumable, so no pending is stored
+    assert planned_session.pending_clarification is None
     assert planned_session.runtime is runtime
     assert _runtime_signature(runtime) == signature
 
@@ -449,34 +418,26 @@ def test_paused_clarification_preserves_runtime(planned_session):
 def test_paused_validator_rejection_preserves_runtime(planned_session, monkeypatch):
     from core.enums import TaskType
     from interaction import orchestrator
-    from interaction.ground import PatchPlan
     from validator.patch import AddEdge, MissionPatch
 
     advance_online_session(planned_session, mode="mock")
     runtime = planned_session.runtime
     signature = _runtime_signature(runtime)
 
-    def invalid_patch(graph, incident_id, up_to_step):
-        return PatchPlan(
-            patch=MissionPatch(
-                [
-                    AddEdge(
-                        (TaskType.GROUND_INSPECTION, "FIRE_SITE_1"),
-                        (TaskType.GROUND_INSPECTION, "FIRE_SITE_2"),
-                    )
-                ]
-            ),
-            note="invalid",
+    def invalid_patch(ir, current):
+        # a cross-incident edge — the compiler never emits one; force it in to
+        # prove the orchestrator does not commit a Validator rejection.
+        return MissionPatch(
+            [
+                AddEdge(
+                    (TaskType.GROUND_INSPECTION, "FIRE_SITE_1"),
+                    (TaskType.GROUND_INSPECTION, "FIRE_SITE_2"),
+                )
+            ]
         )
 
-    monkeypatch.setattr(orchestrator, "build_chain_patch", invalid_patch)
-    result = _turn(
-        planned_session,
-        "FIRE_SITE_1 진압까지",
-        "UPDATE_MISSION",
-        target_phrase="FIRE_SITE_1",
-        up_to_step="GROUND_SUPPRESSION",
-    )
+    monkeypatch.setattr(orchestrator, "compile_patch", invalid_patch)
+    result = _update(planned_session, "FIRE_SITE_1 진압까지", explicit=("FIRE_SITE_1",))
 
     assert result.outcome is TurnOutcome.REJECTED
     assert result.patch_result is not None and not result.patch_result.accepted
@@ -487,15 +448,12 @@ def test_paused_validator_rejection_preserves_runtime(planned_session, monkeypat
 def test_pending_clarification_blocks_online_continue(planned_session):
     planned_session.pending_clarification = PendingClarification(
         source_turn_id="t1",
-        intent_kind="UPDATE_MISSION",
-        extracted_slots={
-            "target_phrase": "그 화재",
-            "up_to_step": "GROUND_SUPPRESSION",
-        },
-        unresolved_slot="target_phrase",
-        entity_kind=ReferentKind.INCIDENT,
-        candidates=("FIRE_SITE_1", "FIRE_SITE_2"),
-        original_utterance="그 화재 진압까지",
+        intent_kind="REPORT_INCIDENT",
+        extracted_slots={"zone_ref": "Shared 구역"},
+        unresolved_slot="zone_ref",
+        entity_kind=ReferentKind.ZONE,
+        candidates=("ZONE_A", "ZONE_B"),
+        original_utterance="Shared 구역에 불",
     )
 
     with pytest.raises(ValueError, match="pending clarification"):

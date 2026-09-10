@@ -12,10 +12,10 @@ from interaction.resources import CountConstraint, ResourceRequest
 from interaction.schemas import wire_intent
 from interaction.session import MissionSession, fresh_session_state
 from llm.backend import MockBackend
-from llm.schemas import LLMTask, Step1Output, Step2Output
 from scenarios.compiler import compile_reference_graph
 from scenarios.fixture import load_reference_fixture
 from scenarios.scene import load_scene
+from tests.ir_fixtures import recon_ir
 
 SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
 
@@ -106,25 +106,15 @@ def test_infeasible_constraint_never_falls_back_to_full_fleet(scene):
         )
 
 
-def _patrol_outputs(scene):
-    return [
-        Step1Output(
-            tasks=[
-                LLMTask(task_type="AREA_RECON", target=zone_id)
-                for zone_id in sorted(scene.zones)
-            ]
-        ),
-        Step2Output(edges=[]),
-    ]
+def _patrol_ir(scene):
+    zones = sorted(scene.zones)
+    return recon_ir(range_from=zones[0].split("_")[-1], range_to=zones[-1].split("_")[-1])
 
 
 def test_new_mission_commits_the_resolved_team_and_audits_it(scene):
     session = MissionSession("RESOURCE-ONE", scene)
     backend = MockBackend(
-        [
-            wire_intent("NEW_MISSION", uav_exact=1, ugv_exact=0),
-            *_patrol_outputs(scene),
-        ]
+        [wire_intent("NEW_MISSION", mission=_patrol_ir(scene), uav_exact=1, ugv_exact=0)]
     )
 
     result = handle_turn(session, "UAV 한 대로 전체 구역을 정찰해줘", backend)
@@ -142,10 +132,7 @@ def test_new_mission_commits_the_resolved_team_and_audits_it(scene):
 def test_infeasible_new_mission_is_rejected_atomically(scene):
     session = MissionSession("RESOURCE-NONE", scene)
     backend = MockBackend(
-        [
-            wire_intent("NEW_MISSION", uav_exact=0, ugv_exact=0),
-            *_patrol_outputs(scene),
-        ]
+        [wire_intent("NEW_MISSION", mission=_patrol_ir(scene), uav_exact=0, ugv_exact=0)]
     )
 
     result = handle_turn(session, "로봇 없이 전체 구역을 정찰해줘", backend)

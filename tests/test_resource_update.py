@@ -14,9 +14,9 @@ from interaction.resources import CountConstraint, ResourceRequest
 from interaction.schemas import wire_intent
 from interaction.session import MissionSession, fresh_session_state
 from llm.backend import MockBackend
-from llm.schemas import LLMTask, Step1Output, Step2Output
 from scenarios.compiler import compile_reference_graph
 from scenarios.scene import load_scene
+from tests.ir_fixtures import recon_ir
 
 SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
 
@@ -38,16 +38,9 @@ def _paused_patrol(scene) -> SimExecutor:
     return executor
 
 
-def _patrol_outputs(scene):
-    return [
-        Step1Output(
-            tasks=[
-                LLMTask(task_type="AREA_RECON", target=zone_id)
-                for zone_id in sorted(scene.zones)
-            ]
-        ),
-        Step2Output(edges=[]),
-    ]
+def _patrol_ir(scene):
+    zones = sorted(scene.zones)
+    return recon_ir(range_from=zones[0].split("_")[-1], range_to=zones[-1].split("_")[-1])
 
 
 def _patrol_session(scene) -> MissionSession:
@@ -55,7 +48,7 @@ def _patrol_session(scene) -> MissionSession:
     result = handle_turn(
         session,
         "전체 구역을 항공 정찰해줘",
-        MockBackend([wire_intent("NEW_MISSION"), *_patrol_outputs(scene)]),
+        MockBackend([wire_intent("NEW_MISSION", mission=_patrol_ir(scene))]),
     )
     assert result.outcome is TurnOutcome.COMMITTED
     return session
