@@ -11,7 +11,7 @@ results/
 *.log
 .env
 data/interaction_runs/*.json
-data/llm_cache/*.json
+data/llm_cache/
 .DS_Store
 
 # ROS2 / colcon workspace artifacts

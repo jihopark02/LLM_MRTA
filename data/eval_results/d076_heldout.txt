@@ -1,0 +1,51 @@
+D-076 held-out evaluation  (live)
+  cases: 45   models: gpt-5-mini-2025-08-07
+
+[OVERALL]  (45 cases)
+  ir_exact                 34/45  (75.6%)
+  resolved_exact           40/45  (88.9%)
+  graph_exact              41/45  (91.1%)
+  outcome_correct          41/45  (91.1%)
+  structured_output_valid  44/45  (97.8%)
+  unsafe_commits           1
+  intent_repair            1
+  attribution              all=34 ir=11 resolver=0 compiler=0
+  turn latency s           mean=10.246 median=9.616 p95=14.98
+
+[explicit]  (15 cases)
+  ir_exact                 10/15  (66.7%)
+  resolved_exact           13/15  (86.7%)
+  graph_exact              14/15  (93.3%)
+  outcome_correct          13/15  (86.7%)
+  structured_output_valid  14/15  (93.3%)
+  unsafe_commits           0
+  intent_repair            0
+  attribution              all=10 ir=5 resolver=0 compiler=0
+  turn latency s           mean=9.527 median=8.097 p95=14.122
+
+[compositional]  (15 cases)
+  ir_exact                 14/15  (93.3%)
+  resolved_exact           14/15  (93.3%)
+  graph_exact              14/15  (93.3%)
+  outcome_correct          14/15  (93.3%)
+  structured_output_valid  15/15  (100.0%)
+  unsafe_commits           1
+  intent_repair            0
+  attribution              all=14 ir=1 resolver=0 compiler=0
+  turn latency s           mean=9.131 median=8.167 p95=14.009
+
+[contextual]  (15 cases)
+  ir_exact                 10/15  (66.7%)
+  resolved_exact           13/15  (86.7%)
+  graph_exact              13/15  (86.7%)
+  outcome_correct          14/15  (93.3%)
+  structured_output_valid  15/15  (100.0%)
+  unsafe_commits           0
+  intent_repair            1
+  attribution              all=10 ir=5 resolver=0 compiler=0
+  turn latency s           mean=12.08 median=11.133 p95=18.402
+
+counterfactual pairs: 3/3 diverged as designed
+  X01a <> X01b: ok
+  X02a <> X02b: ok
+  X03a <> X03b: ok
