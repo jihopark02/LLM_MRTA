@@ -27,9 +27,11 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P13.4 + D-059~D-070 완료. `main`은 이제 여기(D-070)까지 fast-forward됐고 태그
 `v0.13.4-baseline`이 review·재현 기준점이다** (직전 baseline은 `v0.6.5-baseline` = P6.5).
-계약 v1.71, 최신 결정 D-076 (S1–S11). D-076 코어 구현 완료 (schema·resolver·compiler·
-orchestrator·prompt·전체 테스트 마이그레이션), pytest 982 green + 3 skip(P8.4 harness
-frozen legacy, S11). 남은 것: D-076 held-out eval set, RQ 재정의 D-077.
+계약 v1.72, 최신 결정 D-076 (S1–S12). D-076 코어 구현 완료 (schema·resolver·compiler·
+orchestrator·prompt·전체 테스트 마이그레이션) + held-out evaluation harness/45-case set
+(§18.15, freeze point `8b274fd`, gold self-test 45/45·unsafe-commit 0). pytest 991 green +
+3 skip(P8.4 harness frozen legacy, S11). 남은 것: live smoke 1회 → held-out 전체 실행 →
+결과 문서화, RQ 재정의 D-077.
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
 (D-027), `λ = 0.999`.

@@ -2523,7 +2523,8 @@ D-076의 주장은 "자유로운 언어가 Semantic IR로 정규화되고 → �
 - **rule-based baseline은 이 단계에 넣지 않는다.** 목적은 "LLM > rule" 증명이 아니라 위 파이프라인
   정상 동작 확인. baseline은 D-077 이후 필요 시.
 - **freeze 규약**: annotation + protocol + harness를 **결과 보기 전에** commit하고 그 hash를
-  freeze point로 기록한다. 이후 live smoke 1회 → (infra/API 실패가 아니면) held-out 전체 실행.
+  freeze point로 기록한다. **freeze point = `8b274fd`** (D-076 S12 held-out evaluation harness +
+  45-case set). 이후 live smoke 1회 → (infra/API 실패가 아니면) held-out 전체 실행.
   **결과가 나빠도 annotation/prompt 수정 금지** — 수정은 D-077 이후 새 버전/새 evaluation으로
   분리. API schema probe와 달리 이 시점 live 호출은 실제 semantic behavior를 노출하므로 D-074
   "결과 전 고정" 원칙을 그대로 적용.

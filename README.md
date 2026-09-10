@@ -24,9 +24,12 @@ branch:
   `interaction/compile_clauses.py`(canonical graph/patch). `_do_new_mission`/
   `_do_update_mission` 재작성 — IR → resolve → compile → **동일 whole-graph Validator**
   (S9) → allocate. `TurnAudit.semantic_ir` provenance. 1회 LLM 호출(kind + IR). S8
-  compositional clarification은 non-resumable atomic fail-closed. pytest 982 green
-  (+3 skip = P8.4 harness frozen legacy, S11), ruff clean. 남은 것: D-076 held-out
-  eval set(Explicit/Compositional/Contextual, 결과 전 freeze), RQ 재정의 D-077.
+  compositional clarification은 non-resumable atomic fail-closed. **S12**: held-out
+  evaluation (§18.15) — Explicit/Compositional/Contextual 각 15개, fail-closed +
+  world-counterfactual pair 포함. `evaluation/d076_eval.py` + `data/d076_eval/`, freeze
+  point `8b274fd`, gold self-test 45/45·unsafe-commit 0. 계약 v1.72. pytest 991 green
+  (+3 skip = P8.4 harness frozen legacy, S11), ruff clean. 남은 것: live smoke → held-out
+  전체 실행, RQ 재정의 D-077.
 - `feature/demo-scene-scaleup` — D-073 발표 데모 확대 (15-zone `demo_grid` + world 지도).
 - 계약 버전 라벨은 main 병합 시 재정렬한다.
 
