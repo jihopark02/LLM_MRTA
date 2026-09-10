@@ -1,5 +1,11 @@
 """P8.4 operator-interaction evaluation harness (contract §18.11).
 
+**Frozen legacy (D-076 S11).** The grounder-only track replays the pre-D-076
+flat-slot gold intents through the orchestrator; that path (resumable ambiguous
+``UPDATE_MISSION``) was removed by D-076 S8, so this harness no longer runs
+against the current system. Kept for provenance of the recorded P8.4 numbers.
+
+
 The two evaluation tracks deliberately share the same scoring code:
 
 ``grounder-only``

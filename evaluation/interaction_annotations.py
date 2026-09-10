@@ -1,4 +1,16 @@
-"""Strict human-authored gold dialogues for P8.4 (contract §18.11, D-035..D-037)."""
+"""Strict human-authored gold dialogues for P8.4 (contract §18.11, D-035..D-037).
+
+**Frozen legacy artifact (D-076 S11).** These 12 dialogues and their results
+(``docs/P8_4_RESULTS.md``, ``data/eval_results/p8_4_*``) are the historical
+evaluation of the pre-D-076 flat-slot interaction architecture — in particular
+the resumable-ambiguous-``UPDATE_MISSION`` flow that D-076 S8 deliberately
+removed. The YAML gold is not migrated to the Semantic Mission IR: doing so
+would change what the recorded 6/12 end-to-end and 12/12 grounder-only numbers
+mean. The loader below still validates the old intent shape against a frozen
+key allowlist rather than the live ``IntentEnvelope`` for that reason. D-076's
+own evaluation is a separate Explicit / Compositional / Contextual set, frozen
+before results.
+"""
 
 from __future__ import annotations
 
@@ -11,10 +23,30 @@ from evaluation.annotations import RefGraph, expand_graph_spec
 from interaction.ground import ClarificationReason, GroundingStatus, ResolutionVia
 from interaction.orchestrator import TurnOutcome
 from interaction.scene_mut import register_incident
-from interaction.schemas import IntentEnvelope
 from scenarios.scene import Scene
 from validator.candidate import TaskKey
 from validator.validate import validate_candidate
+
+# Frozen pre-D-076 intent shape (S11) — validated here instead of the live
+# IntentEnvelope, which now carries a Semantic Mission IR these gold files predate.
+_LEGACY_INTENT_KINDS = {
+    "NEW_MISSION", "REPORT_INCIDENT", "UPDATE_MISSION",
+    "UPDATE_RESOURCES", "QUERY_STATUS", "UNSUPPORTED",
+}
+_LEGACY_INTENT_SLOTS = {
+    "kind", "zone_ref", "target_phrase", "up_to_step", "response_up_to",
+    "incident_response_up_to", "about", "note",
+}
+
+
+def _legacy_intent(intent: dict, label: str) -> dict:
+    if intent.get("kind") not in _LEGACY_INTENT_KINDS:
+        raise ValueError(f"{label}.intent has an unknown kind {intent.get('kind')!r}")
+    extra = set(intent) - _LEGACY_INTENT_SLOTS
+    if extra:
+        raise ValueError(f"{label}.intent has invalid keys {sorted(extra)}")
+    return {key: value for key, value in intent.items() if value is not None}
+
 
 _DIR = Path(__file__).resolve().parents[1] / "data" / "interaction_dialogues"
 CASE_IDS = tuple(f"{family}{number}" for family in "ABC" for number in range(1, 5))
@@ -170,8 +202,7 @@ def _turn(raw: object, label: str) -> DialogueTurn:
             raise ValueError(f"{label}.utterance must be non-empty")
         if not isinstance(intent, dict):
             raise ValueError(f"{label}.intent must be a mapping")
-        parsed = IntentEnvelope.model_validate({"intent": intent}).intent
-        intent = parsed.model_dump(exclude_none=True)
+        intent = _legacy_intent(intent, label)
     elif not isinstance(entity_id, str) or not entity_id:
         raise ValueError(f"{label}.entity_id must be non-empty")
     return DialogueTurn(

@@ -12,10 +12,15 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
-from core.enums import TaskType
+from interaction.mission_ir import (
+    ConditionalPolicy,
+    IncidentSelector,
+    ReconClause,
+    ResponseClause,
+    SemanticMissionIR,
+    ZoneSelector,
+)
 from interaction.schemas import IntentWireEnvelope, wire_intent
-from llm.schemas import LLMEdge, LLMTask, Step1Output, Step2Output
-from scenarios.fixture import load_reference_fixture
 
 REFERENCE_SCRIPT = "reference"
 SENSOR_SCRIPT = "sensor-detection"
@@ -94,36 +99,49 @@ def _intent(kind: str, **slots) -> IntentWireEnvelope:
     return wire_intent(kind, **slots)
 
 
-def _mission_items(
-    command: str,
-    intent: IntentWireEnvelope,
-    tasks: list[LLMTask],
-    edges: list[LLMEdge],
-) -> list[_ScriptItem]:
-    return [
-        _ScriptItem(command, "IntentWireEnvelope", intent),
-        _ScriptItem(command, "Step1Output", Step1Output(tasks=tasks)),
-        _ScriptItem(command, "Step2Output", Step2Output(edges=edges)),
-    ]
+def _all_zone_recon() -> ReconClause:
+    return ReconClause(
+        zones=ZoneSelector(
+            explicit=[], range_from="A", range_to="D", region=None,
+            exclude=[], unvisited_only=False,
+        )
+    )
+
+
+def _incidents(**kw) -> IncidentSelector:
+    base = dict(
+        explicit=[], deixis=None, recency=None, recent_count=None,
+        recent_source=None, spatial_pick=None,
+    )
+    base.update(kw)
+    return IncidentSelector(**base)
+
+
+def _mission_ir(*, recon=(), responses=(), incident_policy=None) -> SemanticMissionIR:
+    return SemanticMissionIR(
+        recon=list(recon), responses=list(responses), incident_policy=incident_policy
+    )
+
+
+def _new_mission_item(command: str, mission: SemanticMissionIR) -> _ScriptItem:
+    return _ScriptItem(
+        command, "IntentWireEnvelope", _intent("NEW_MISSION", mission=mission)
+    )
 
 
 def _reference_items() -> list[_ScriptItem]:
-    fixture = load_reference_fixture()
-    graph = fixture.graph
-    tasks = [
-        LLMTask(task_type=task.task_type.value, target=task.target)
-        for task in graph.tasks
-    ]
-    edges = [
-        LLMEdge(
-            predecessor=f"{graph[pred].task_type.value}:{graph[pred].target}",
-            successor=f"{graph[succ].task_type.value}:{graph[succ].target}",
-        )
-        for pred, succ in sorted(graph.edges)
-    ]
     first, query, report, update, status, unsupported = MOCK_COMMANDS
+    mission = _mission_ir(
+        recon=(_all_zone_recon(),),
+        responses=(
+            ResponseClause(
+                incidents=_incidents(recency="ALL_KNOWN"),
+                response_up_to="GROUND_SUPPRESSION",
+            ),
+        ),
+    )
     return [
-        *_mission_items(first, _intent("NEW_MISSION"), tasks, edges),
+        _new_mission_item(first, mission),
         _ScriptItem(
             query,
             "IntentWireEnvelope",
@@ -139,8 +157,14 @@ def _reference_items() -> list[_ScriptItem]:
             "IntentWireEnvelope",
             _intent(
                 "UPDATE_MISSION",
-                target_phrase="거기",
-                up_to_step="GROUND_SUPPRESSION",
+                mission=_mission_ir(
+                    responses=(
+                        ResponseClause(
+                            incidents=_incidents(deixis="거기"),
+                            response_up_to="GROUND_SUPPRESSION",
+                        ),
+                    )
+                ),
             ),
         ),
         _ScriptItem(
@@ -156,25 +180,16 @@ def _reference_items() -> list[_ScriptItem]:
     ]
 
 
-def _patrol_tasks() -> list[LLMTask]:
-    return [
-        LLMTask(task_type=TaskType.AREA_RECON.value, target=f"ZONE_{suffix}")
-        for suffix in "ABCD"
-    ]
-
-
 def _sensor_items() -> list[_ScriptItem]:
     initial, query = SENSOR_MOCK_COMMANDS
-    return [
-        *_mission_items(
-            initial,
-            _intent(
-                "NEW_MISSION",
-                incident_response_up_to="GROUND_SUPPRESSION",
-            ),
-            _patrol_tasks(),
-            [],
+    mission = _mission_ir(
+        recon=(_all_zone_recon(),),
+        incident_policy=ConditionalPolicy(
+            trigger="FIRE_DETECTED", response_up_to="GROUND_SUPPRESSION"
         ),
+    )
+    return [
+        _new_mission_item(initial, mission),
         _ScriptItem(
             query,
             "IntentWireEnvelope",
@@ -186,7 +201,7 @@ def _sensor_items() -> list[_ScriptItem]:
 def _operator_items() -> list[_ScriptItem]:
     initial, report, query = OPERATOR_MOCK_COMMANDS
     return [
-        *_mission_items(initial, _intent("NEW_MISSION"), _patrol_tasks(), []),
+        _new_mission_item(initial, _mission_ir(recon=(_all_zone_recon(),))),
         _ScriptItem(
             report,
             "IntentWireEnvelope",

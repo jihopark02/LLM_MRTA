@@ -1,9 +1,18 @@
 from pathlib import Path
 
+import pytest
+
 from evaluation.interaction_annotations import load_all_dialogues
 from evaluation.interaction_harness import gold_backend, run_interaction_eval
 from evaluation.interaction_report import text_report, to_dict, to_json
 from scenarios.scene import load_scene
+
+pytestmark = pytest.mark.skip(
+    reason="D-076 S11: the P8.4 grounder-only replay drives the pre-D-076 flat-slot "
+    "orchestrator (resumable-ambiguous UPDATE_MISSION, removed by S8). The 12 gold "
+    "dialogues and their results stay frozen as a historical artifact; D-076's own "
+    "evaluation is a separate Explicit/Compositional/Contextual set."
+)
 
 ROOT = Path(__file__).parents[1]
 SCENE = ROOT / "scenarios" / "industrial_park.yaml"
