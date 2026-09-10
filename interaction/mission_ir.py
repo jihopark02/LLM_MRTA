@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 Region = Literal["NORTH", "SOUTH", "EAST", "WEST"]
 SpatialPick = Literal["EASTMOST", "WESTMOST", "NORTHMOST", "SOUTHMOST"]
 Recency = Literal["MOST_RECENT_DETECTED", "PREVIOUS_DETECTED", "ALL_KNOWN"]
+RecentSource = Literal["SENSOR", "OPERATOR", "ANY"]
 ResponseDepth = Literal["GROUND_INSPECTION", "GROUND_SUPPRESSION"]
 
 
@@ -77,6 +78,7 @@ class IncidentSelector(_StrictModel):
     deixis: str | None = None               # "거기", "아까 그곳"
     recency: Recency | None = None
     recent_count: int | None = None         # e.g. "방금 발견한 두 화재" -> 2
+    recent_source: RecentSource | None = None  # SENSOR / OPERATOR / ANY (default ANY at resolve)
     spatial_pick: SpatialPick | None = None
 
     @model_validator(mode="after")
@@ -87,11 +89,12 @@ class IncidentSelector(_StrictModel):
                 "an IncidentSelector needs exactly one base selector "
                 "(explicit / deixis / recency)"
             )
-        if self.recent_count is not None:
-            if self.recency is None:
-                raise ValueError("recent_count only applies with a recency selector")
-            if self.recent_count < 1:
-                raise ValueError("recent_count must be >= 1")
+        for name, value in (("recent_count", self.recent_count),
+                            ("recent_source", self.recent_source)):
+            if value is not None and self.recency is None:
+                raise ValueError(f"{name} only applies with a recency selector")
+        if self.recent_count is not None and self.recent_count < 1:
+            raise ValueError("recent_count must be >= 1")
         return self
 
 
@@ -133,6 +136,7 @@ __all__ = [
     "Region",
     "SpatialPick",
     "Recency",
+    "RecentSource",
     "ResponseDepth",
     "ZoneSelector",
     "IncidentSelector",

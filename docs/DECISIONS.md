@@ -2422,6 +2422,47 @@ representation으로 정규화**하는 것으로 한정하고, 실제 실행 의
    §1 RQ1의 "LLM이 graph 구조를 생성"은 stale이며, "동적 재할당" 주장 규칙(§1 RQ3)은 그대로
    유효하다.
 
+**확정 semantics (resolver 구현 전 고정 — 1회 LLM 호출)**
+
+LLM 호출은 **1회**다. kind + `SemanticMissionIR`를 하나의 semantic-interpretation 호출로
+생성한다 — latency가 아니라, D-076에서 dialogue act와 semantic operator가 같은 질문("이
+발화로 무엇을 하려는가")의 답이기 때문. kind-first 별도 호출도, 2-call fallback도 두지 않는다.
+
+- **S1. `mission` ↔ kind strict 결속**: wire envelope에서 `mission != null` **iff**
+  `kind ∈ {NEW_MISSION, UPDATE_MISSION}`. 그 외 kind가 `mission`을 채우거나 NEW/UPDATE가
+  `mission=null`이면 **schema failure**(무시 아님) — 기존 `_kind_owns_non_null_slots` 철학
+  유지. NEW/UPDATE의 **legality**(현재 phase에서 허용되는가)는 계속 orchestrator가 판정한다
+  (LLM은 "새 임무를 요청한다"까지, "지금 허용되는가"는 결정론적 lifecycle).
+- **S2. `RECENT_INCIDENTS` source**: IR에 `recent_source: SENSOR | OPERATOR | ANY` 추가.
+  "방금 발견한 화재" → `SENSOR`, "최근 보고된 화재" → `OPERATOR`, "최근 화재" → `ANY`.
+  실제 ID는 실행 시점 `event_log`에서: `SENSOR` = `IncidentObservationAudit`(FIRE_DETECTED)만,
+  `OPERATOR` = `IncidentActionAudit`(REPORT_INCIDENT)만, `ANY` = 둘 다. 최신순 distinct.
+- **S3. `UNVISITED_ONLY` 시간 범위**: **현재 mission episode** 기준 — 현재 `MissionState`에서
+  `AREA_RECON`이 COMPLETED가 아닌 zone. 첫 임무 전이면 모든 zone unvisited. episode를 넘는
+  global visitation memory는 범위 밖.
+- **S4. multi-clause 충돌 정책**:
+  - 같은 target + 같은 action depth (recon zone 중복, 동일 incident+동일 depth) → **canonical
+    dedup** (silent, 정상).
+  - 같은 incident + **서로 다른** `response_up_to` → `SEMANTIC_CONFLICT` → **fail-closed
+    clarification** (compiler가 임의로 더 깊은 쪽 선택 금지 — "점검까지만"에는 진압 금지 의미).
+  - `exclude`가 unknown entity를 가리킴 → **clarification** (silent ignore 금지).
+- **S5. resolver 출력 shape** (entity-centric `GroundingOutcome` 아님):
+  ```
+  ResolvedReconClause    { zone_ids: tuple[str, ...] }
+  ResolvedResponseClause { incident_ids: tuple[str, ...], response_up_to }
+  ResolvedMissionIR      { recon: (...), responses: (...) }
+  ```
+  cardinality는 selector가 결정: `RANGE`/`REGION`/`ALL_KNOWN` → ≥1 정상; `RECENT_INCIDENTS(n)`
+  → 정확히 n; `DEIXIS` → singular(정확히 1); `SPATIAL_PICK` → 결과를 1로 축약, 동률 → clarify.
+  0개 또는 under-determined singular → `CLARIFICATION_REQUIRED`.
+- **S6. `REGION` generic 공식**: `xmin/xmax/ymin/ymax = Scene.zones의 recon_waypoint 극값`,
+  `cx=(xmin+xmax)/2`, `cy=(ymin+ymax)/2`. `WEST: x<cx` / `EAST: x>=cx` / `SOUTH: y<cy` /
+  `NORTH: y>=cy`. Scene 무관 — demo_grid 외 어떤 scene에서도 그대로 동작.
+- **S7. compositional scope**: D-076의 "compositional"은 **한 mission dialogue act 내부의
+  multi-clause**까지다. "B에 화재 났고 진압해, 그리고 A~F도 정찰해"처럼 `REPORT_INCIDENT` +
+  `UPDATE_MISSION`을 한 문장에 섞는 **cross-dialogue-act conjunction은 범위 밖** — top-level
+  kind는 하나. "1번은 진압까지, 2번은 점검까지, D~H도 정찰"처럼 전부 mission edit인 경우만 지원.
+
 **영향**
 - 계약: §12(generate_mission → legacy), §18.2/§18.3/§18.7 재작성, 버전 v1.71.
 - 코드(신규): `interaction/mission_ir.py` · `interaction/resolve.py` ·

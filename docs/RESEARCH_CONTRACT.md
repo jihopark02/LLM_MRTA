@@ -1399,6 +1399,22 @@ allocation·MissionPatch op·lifecycle operation을 **생성하지 않는다**(�
 고정 입력→기대출력 매칭은 runtime에 존재하면 안 됨). 같은 IR + 다른 world state → 다른
 concrete graph. latent fire = world event source, mission scenario 아님.
 
+**확정 semantics (D-076, DECISIONS S1–S7)**: LLM 호출 **1회**(kind + IR 동시, 2-call fallback
+없음). `mission != null` **iff** `kind ∈ {NEW_MISSION, UPDATE_MISSION}`(위반 = schema failure);
+NEW/UPDATE의 phase legality는 orchestrator가 판정. `RECENT_INCIDENTS`는 `recent_source`
+(SENSOR = `IncidentObservationAudit` / OPERATOR = `IncidentActionAudit` / ANY = 둘 다)로
+event_log를 필터. `UNVISITED_ONLY` = 현재 mission episode에서 `AREA_RECON` 미완료 zone
+(episode 넘는 memory 없음). multi-clause: 동일 target+동일 depth → dedup; 동일 incident+
+**다른** `response_up_to` → `SEMANTIC_CONFLICT` clarification; unknown `exclude` → clarification.
+`REGION` = `Scene.zones` recon_waypoint 극값의 bbox 중심 half-plane(scene 무관). compositional
+= **한 mission act 내부 multi-clause**까지 — cross-dialogue-act conjunction(REPORT+UPDATE 한
+문장)은 범위 밖.
+
+**resolver 출력**: `ResolvedReconClause{zone_ids}` / `ResolvedResponseClause{incident_ids,
+response_up_to}` / `ResolvedMissionIR{recon, responses}`. cardinality는 selector가 결정
+(`RANGE`/`REGION`/`ALL_KNOWN` ≥1, `RECENT_INCIDENTS(n)` = n, `DEIXIS` singular, `SPATIAL_PICK`
+→1·동률 clarify). 0개 또는 under-determined singular → `CLARIFICATION_REQUIRED`.
+
 `context_for_llm()`은 원문 대화 전체가 아니라 structured session에서 매번 생성한 요약
 (scene + 현재 상태 + `recent_referents` + 최근 등록 incident)만 넘긴다.
 
