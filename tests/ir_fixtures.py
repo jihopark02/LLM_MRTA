@@ -50,3 +50,31 @@ def mission_ir(*, recon=(), responses=(), incident_policy=None) -> SemanticMissi
 
 def policy(response_up_to) -> ConditionalPolicy:
     return ConditionalPolicy(trigger="FIRE_DETECTED", response_up_to=response_up_to)
+
+
+def recon_ir(**zone_kw) -> SemanticMissionIR:
+    """A one-recon-clause mission IR (name only the zone operator under test)."""
+    return mission_ir(recon=(recon(**zone_kw),))
+
+
+def response_ir(response_up_to="GROUND_SUPPRESSION", **incident_kw) -> SemanticMissionIR:
+    """A one-response-clause mission IR."""
+    return mission_ir(responses=(response(response_up_to, **incident_kw),))
+
+
+def new_mission_wire(mission: SemanticMissionIR | None = None, **slots):
+    """Wire envelope for NEW_MISSION. Default mission = suppress FIRE_SITE_1 —
+    the D-076 equivalent of the old ``wire_intent("NEW_MISSION")`` default."""
+    from interaction.schemas import wire_intent
+
+    return wire_intent(
+        "NEW_MISSION",
+        mission=mission or response_ir("GROUND_SUPPRESSION", explicit=("FIRE_SITE_1",)),
+        **slots,
+    )
+
+
+def update_mission_wire(mission: SemanticMissionIR, **slots):
+    from interaction.schemas import wire_intent
+
+    return wire_intent("UPDATE_MISSION", mission=mission, **slots)

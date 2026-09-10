@@ -21,11 +21,10 @@ from interaction.orchestrator import handle_turn
 from interaction.schemas import IntentWireEnvelope, wire_intent
 from interaction.session import MissionSession
 from llm.backend import MockBackend
-from llm.schemas import LLMEdge, LLMTask, Step1Output, Step2Output
 from scenarios.scene import load_scene
+from tests.ir_fixtures import response_ir
 
 SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
-CHAIN = ["GROUND_INSPECTION", "GROUND_SUPPRESSION"]
 
 
 @pytest.fixture
@@ -48,22 +47,19 @@ class _Boom:
 def seven_turn_session(scene):
     """The §18 worked dialogue, plus a failing turn so the error path is in it."""
     s = MissionSession(session_id="DEMO", scene=scene)
-    steps = CHAIN[:2]
     turns = [
         ("FIRE_SITE_1 대응 시작", MockBackend([
-            intent("NEW_MISSION"),
-            Step1Output(tasks=[LLMTask(task_type=t, target="FIRE_SITE_1") for t in steps]),
-            Step2Output(edges=[LLMEdge(
-                predecessor="GROUND_INSPECTION:FIRE_SITE_1",
-                successor="GROUND_SUPPRESSION:FIRE_SITE_1",
-            )]),
+            intent("NEW_MISSION",
+                   mission=response_ir("GROUND_SUPPRESSION", explicit=("FIRE_SITE_1",))),
         ])),
         ("그 화재 진압까지", MockBackend([
-            intent("UPDATE_MISSION", target_phrase="그 화재")
+            intent("UPDATE_MISSION",
+                   mission=response_ir("GROUND_SUPPRESSION", deixis="그 화재"))
         ])),
         ("A 구역에 화재", MockBackend([intent("REPORT_INCIDENT", zone_ref="A 구역")])),
         ("거기부터 꺼줘", MockBackend([
-            intent("UPDATE_MISSION", target_phrase="거기", up_to_step="GROUND_SUPPRESSION")
+            intent("UPDATE_MISSION",
+                   mission=response_ir("GROUND_SUPPRESSION", deixis="거기"))
         ])),
         ("거기 로봇 누구야", MockBackend([
             intent("QUERY_STATUS", about="agents", target_phrase="거기")
@@ -121,11 +117,15 @@ def test_grounding_and_patch_detail_survive(seven_turn_session):
 
     clarified = events[1]
     assert clarified["grounding"]["status"] == "CLARIFICATION_REQUIRED"
-    assert clarified["grounding"]["candidates"] == ["FIRE_SITE_1", "FIRE_SITE_2"]
+    assert clarified["grounding"]["reason"] == "AMBIGUOUS_ENTITY"
+    # S8: a mission-edit clarification does not offer a candidate list
+    assert clarified["grounding"]["candidates"] == []
+    assert clarified["semantic_ir"]["clarification_reason"] == "AMBIGUOUS_ENTITY"
 
     extended = events[3]
-    assert extended["grounding"]["via"] == "referent"
-    assert extended["grounding"]["entity_kind"] == "incident"
+    # D-076: a mission edit's grounding lives per-clause in semantic_ir
+    assert extended["semantic_ir"]["responses"][0]["targets"] == ["FIRE_SITE_3"]
+    assert extended["semantic_ir"]["responses"][0]["operator"].startswith("DEIXIS(거기)")
     assert extended["patch"]["accepted"] and extended["patch"]["added_tasks"]
     assert len(extended["patch_hash"]) == 64 and len(extended["pre_state_hash"]) == 64
     assert extended["pre_graph_hash"] != extended["post_graph_hash"]
