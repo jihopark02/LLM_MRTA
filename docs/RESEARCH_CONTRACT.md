@@ -1,14 +1,28 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.70 (D-075). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
+버전 v1.71 (D-076). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
 `docs/DECISIONS.md`에 이유를 append한다.
+
+- v1.71 (D-076): **Semantic Mission IR**. LLM은 어느 경로에서도 task instance·target ID·
+  dependency edge·좌표·priority·capability·agent·allocation·MissionPatch op·lifecycle
+  operation을 생성하지 않고 **generic language operator**만 출력한다(RANGE / REGION / EXCLUDE
+  / RECENT_INCIDENTS / SPATIAL_PICK / UNVISITED_ONLY / RECON / INCIDENT_RESPONSE). 결정론적
+  Clause Resolver가 현재 `Scene`·`MissionState`·`event_log`로 실제 target set을 계산하고,
+  결정론적 Mission Compiler가 canonical graph/patch를 만든다. `NEW_MISSION`/`UPDATE_MISSION`은
+  별도 lifecycle act로 유지하되 동일한 `SemanticMissionIR` payload를 쓴다. **`generate_mission`
+  (§12)은 runtime에서 제거 — `evaluation/`의 legacy graph-generator ablation으로만 보존.
+  D-076이 D-075의 runtime graph-synthesis 결정을 supersede한다.** D-072/D-074/D-075 artifact는
+  불변 historical evidence. RQ 재정의는 D-077로 분리(그때까지 §1 RQ1은 stale). §18.2·§18.3·
+  §18.7 재작성. Validator·CBBA·selective release·P3/P4/P9 golden·scene loader 불변.
 
 > 브랜치 주의: `feature/demo-scene-scaleup`이 D-073을 v1.67로 병렬 진행 중. 이 브랜치는
 > D-071(v1.67)·D-072(v1.68)·D-074(v1.69)·D-075(v1.70). 결정 번호는 전역 순번이라 충돌하지
 > 않고, 계약 버전 라벨은 두 브랜치를 main에 합칠 때 재정렬한다.
 
 - v1.70 (D-075): §12 — runtime NEW_MISSION의 기본 graph-generation 경로를 **single-call로
-  전환**한다(intent classification 단계는 불변). D-074는 수정하지 않는다: pre-registered
+  전환**한다(intent classification 단계는 불변). **D-076이 이 graph-generation 경로 자체를
+  runtime에서 제거하므로 supersede됨 — 이 결정과 D-072/D-074 artifact는 legacy ablation
+  evidence로만 유지.** D-074는 수정하지 않는다: pre-registered
   gate 결과는 그대로 **NOT ALL PASS**로 보존되고 explicit-reject 0/2 == 0/2도 실패로 남는다.
   단 그 criterion은 **non-discriminative**였다 — 두 generator 모두 의도한 invalid candidate를
   만들지 않아 Validator reject 경로가 자극되지 않았고, 따라서 두 아키텍처를 구분하지 못했다.
@@ -390,10 +404,16 @@ output, CBBA, 결정론적 Validator)를 통합하고 재현 가능하게 시연
 
 ## 1. 연구 질문
 
-**RQ1 (필수)**: LLM이 고수준 복합 재난 대응 명령과 semantic scene으로부터 실행 가능한 task
-graph의 **구조**(어떤 task_type을 어떤 target에, 그리고 task 간 dependency edge)를 생성할 수
-있는가? 좌표·priority·capability·duration은 LLM이 만들지 않고 결정론적 compiler가 semantic
-scene과 고정 매핑에서 resolve한다(§7) — RQ1은 그 구조 생성 능력을 §12 지표로 측정한다.
+> **D-076 주의**: 아래 RQ1은 D-075 이전 구조(LLM이 graph 구조를 직접 생성) 기준이다. D-076에서
+> LLM 역할이 "generic language operator 추출"로 바뀌고 graph 구조는 결정론적 Resolver/Compiler가
+> 만든다(§18.3). RQ1/RQ2/RQ3 재정의는 구현·평가 후 **D-077**에서 별도로 확정하며, 그때까지 이
+> RQ1 문구는 stale이다. "동적 재할당" 주장 규칙(RQ3 아래 문단)은 그대로 유효하다.
+
+**RQ1 (필수, D-076 이후 stale)**: LLM이 고수준 복합 재난 대응 명령과 semantic scene으로부터
+실행 가능한 task graph의 **구조**(어떤 task_type을 어떤 target에, 그리고 task 간 dependency
+edge)를 생성할 수 있는가? 좌표·priority·capability·duration은 LLM이 만들지 않고 결정론적
+compiler가 semantic scene과 고정 매핑에서 resolve한다(§7) — RQ1은 그 구조 생성 능력을 §12
+지표로 측정한다.
 
 **RQ2 (필수)**: 결정론적으로 검증된 task graph를 CBBA가 UAV/UGV의 capability와 플랫폼별
 이동비용을 고려하여 이종 무인체계에 실행 가능하게 할당할 수 있는가?
@@ -897,7 +917,14 @@ CBBA를 새로운 알고리즘 기여로 표현하지 않는다.
 
 ## 12. LLM 파이프라인과 평가
 
-**파이프라인**:
+> **D-076: `generate_mission`은 runtime dialogue 경로에서 제거됨.** 아래 파이프라인은 이제
+> `evaluation/`(P6 harness, `graph_gen_ablation`)에서만 실행되는 **legacy graph-generator
+> ablation**이다 — 초기 graph-generation architecture를 검토한 설계 과정의 증거이며, 현재
+> 배포되는 시스템의 성능이 아니다. runtime NEW_MISSION/UPDATE_MISSION은 §18.3의 Semantic
+> Mission IR → 결정론적 Resolver/Compiler 경로를 쓴다. `llm/pipeline.py` 코드와
+> D-072/D-074/D-075 artifact는 불변으로 보존한다.
+
+**파이프라인 (legacy ablation, D-076 이전 runtime)**:
 
 ```
 자연어 명령 → Step 1(task 목록: task_type/target만) → schema validation
@@ -1318,28 +1345,62 @@ checkpoint/resume 게이트를 모두 통과한 경우에만 선택 확장 결�
 고정 5종 task 어휘에서는 어떤 유효 patch도 기존 task의 predecessor 집합을 바꾸지 못하므로
 (D-006), 정상 대화에서 기존 assignment의 release·재할당은 발생하지 않는다.
 
-### 18.2 지원 대화 행위 (5종 고정)
+### 18.2 지원 대화 행위 (5종 + P13 `UPDATE_RESOURCES`)
 
-`NEW_MISSION` / `REPORT_INCIDENT` / `UPDATE_MISSION` / `QUERY_STATUS` / `UNSUPPORTED`.
+`NEW_MISSION` / `UPDATE_MISSION` / `REPORT_INCIDENT` / `QUERY_STATUS` / `UNSUPPORTED`
+(+ §23 `UPDATE_RESOURCES`). `NEW_MISSION`과 `UPDATE_MISSION`은 **별도 lifecycle act**로
+유지하되(전자는 새/빈 graph, 후자는 현재 graph에 additive patch — lifecycle mutation은
+결정론적 계층이 kind로 결정, LLM이 아님), **동일한 `SemanticMissionIR` payload**를 쓴다(D-076).
 미지원(→ `UNSUPPORTED`, 고정 템플릿 응답): 자유 채팅, task/incident 취소·삭제, 재우선순위,
 agent 지정 할당, 비-canonical graph 편집, incident 위치 변경, 임의 mid/post-execution patch.
 단 §19의 paused canonical patch와 §18.1/D-055의 completed-online follow-on incident workflow는
 명시된 예외다.
 
-### 18.3 파이프라인
+### 18.3 파이프라인 (D-076)
 
 ```
-LLM intent classifier (API-compatible flat wire schema로 kind + slot 추출)
+자유 자연어
+→ LLM Semantic Interpreter — kind + Semantic Mission IR (generic language operator만)
 → strict discriminated OperatorIntent로 결정론적 변환
-→ 결정론적 grounder (referent 해석, slot 완전성 → RESOLVED | CLARIFICATION_REQUIRED)
-→ NEW: generate_mission(raw utterance) / REPORT: register_incident /
-  UPDATE: canonical patch builder → apply_patch / QUERY: MissionState·Result 읽기
-→ graph 변경 턴이면 allocate() plan-time re-analysis
+→ 결정론적 grounder + Clause Resolver
+     (현재 Scene · MissionState · event_log → 각 selector를 concrete target set으로)
+     resolve 불가·중의 → CLARIFICATION_REQUIRED (fail-closed, 불변)
+→ 결정론적 Mission Compiler (resolved clause → canonical (task_type,target) + workflow edge)
+     NEW_MISSION: compile_reference_graph 로 새 graph
+     UPDATE_MISSION: additive atomic MissionPatch
+     REPORT_INCIDENT: register_incident / UPDATE_RESOURCES: resource resolver / QUERY: 읽기
+→ whole-graph Validator
+→ graph 변경 턴이면 allocate() / §19 online이면 selective release + CBBA
 → TurnResult + 감사 로그
 ```
 
+**Semantic Mission IR** (`interaction/mission_ir.py`): `clauses: tuple[MissionClause, ...]`
+(+ P12 `incident_policy`). `operation` 필드 없음. `MissionClause` = `ReconClause(zones)` |
+`IncidentResponseClause(incidents, response_up_to)`. selector operator:
+
+| operator | LLM 출력 | 결정론적 Resolver |
+|---|---|---|
+| `EXPLICIT(원문구)` | `["A", "A 구역"]` | `_zone_aliases` / incident 정규화 |
+| `RANGE(from, to)` | `from="A", to="H"` | `Scene.zones` 키 lexical 순서 슬라이스 |
+| `REGION(N/S/E/W)` | `region="WEST"` | Scene bbox 중심 기준 **total half-plane** (`WEST: x<cx` …). 경계선 clarify 안 함 |
+| `EXCLUDE(원문구)` | `exclude=["C","F"]` | 집합 차 |
+| `UNVISITED_ONLY` | `unvisited_only=true` | 현재 MissionState의 `AREA_RECON` COMPLETED 제외 |
+| `RECENT_INCIDENTS(n)` | `recency="MOST_RECENT_DETECTED", recent_count=2` | 실행 시점 `event_log` 최신순 스캔 → distinct incident_id n개. 특정 `FIRE_SITE_n` 매핑 없음 |
+| `DEIXIS(원문구)` | `deixis="거기"` | 기존 `resolve_incident` referent-window |
+| `SPATIAL_PICK` | `spatial_pick="EASTMOST"` | candidate 집합에서 `position.x` 최대. **동률 → clarify** |
+
+Resolver 기본 반환형 = **target set**. set selector는 ≥1개 정상(`RECENT(2)` → 2개).
+`SPATIAL_PICK`만 1개로 축약. LLM은 확정 zone/incident ID·좌표·edge·priority·capability·agent·
+allocation·MissionPatch op·lifecycle operation을 **생성하지 않는다**(§18.7).
+
+**불변식 (D-076)**: IR = generic language operators only(mission template·scene/fire 리터럴·
+명령문 리터럴 없음). Resolver = current-world-dependent(production path에
+`if "<phrase>" in utterance` 류 branch·scenario-specific mapping **금지**; 테스트 fixture의
+고정 입력→기대출력 매칭은 runtime에 존재하면 안 됨). 같은 IR + 다른 world state → 다른
+concrete graph. latent fire = world event source, mission scenario 아님.
+
 `context_for_llm()`은 원문 대화 전체가 아니라 structured session에서 매번 생성한 요약
-(scene + 현재 상태 + `recent_referents`)만 넘긴다.
+(scene + 현재 상태 + `recent_referents` + 최근 등록 incident)만 넘긴다.
 
 ### 18.4 session lifecycle
 
@@ -1412,9 +1473,15 @@ CLARIFICATION을 낸 뒤 운용자가 후보를 클릭하면, 선택된 `entity_
 
 ### 18.7 LLM / 결정론 경계
 
-**interaction intent classifier**의 LLM 역할은 kind 분류와 slot 추출로 제한한다 —
-state·scene·graph 미변경, task_id·agent·priority·좌표·MissionPatch·CLARIFICATION 미생성.
-내부 schema의 진실 원천은 `kind` discriminator를 가진 strict `OperatorIntent` 5종이다.
+> **D-076**: LLM 역할이 "kind 분류 + slot 추출"에서 "**kind 분류 + Semantic Mission IR 추출**
+> (generic language operator만)"로 바뀐다. 아래 문단의 "slot"은 이제 IR operator를 뜻하고,
+> "`NEW_MISSION`으로 확정되면 `generate_mission()`이 task/target/edge를 생성" 규칙은
+> **삭제된다** — graph 구조는 §18.3의 결정론적 Resolver/Compiler가 만든다.
+
+**interaction Semantic Interpreter**의 LLM 역할은 kind 분류와 Semantic Mission IR(§18.3의
+generic operator) 추출로 제한한다 — state·scene·graph 미변경, 확정 task_id·target ID·edge·
+agent·priority·좌표·MissionPatch·CLARIFICATION·lifecycle operation 미생성.
+내부 schema의 진실 원천은 `kind` discriminator를 가진 strict `OperatorIntent`다.
 다만 OpenAI structured-output API는 이 union이 생성하는 중첩 `oneOf`를 받지 않으므로(D-034),
 API 호출에는 평면 `IntentWireEnvelope`를 쓴다. wire 출력은 `kind`와 모든 slot 키를 갖고 쓰지
 않는 slot은 `null`이어야 한다. `extra="forbid"`·`strict=True`와 kind별 cross-field 검증으로
@@ -1426,12 +1493,11 @@ repair도 동일한 `IntentWireEnvelope`와 cross-field 검증을 통과해야 �
 삭제·세탁하지 않는다. 두 번째 schema 오류, network/auth/cache miss 등 다른 예외는 재시도하지
 않고 기존 `TURN_ERROR` 경계로 보낸다. mock은 고정 script의 불일치를 숨기지 않도록 이 repair를
 사용하지 않는다. repair prompt/cache 의미가 바뀌면 prompt schema version을 함께 올린다.
-단 `NEW_MISSION`으로 확정된 경우에는 기존 **RQ1 `generate_mission()`**(§12)이 별도로
-task_type·target·dependency edge를 생성한다(이건 P5/P6에서 이미 검증된 경로이며 그대로
-재사용).
 
-결정론적 코드: grounder(referent — scene zone_id + name alias 매칭), canonical patch builder,
-`register_incident`(response point는 zone 사전 정의값), `apply_patch`, `allocate`.
+결정론적 코드: grounder(referent — scene zone_id + name alias 매칭), **Clause Resolver**
+(§18.3 — selector → concrete target set), **Mission Compiler**(§18.3 — resolved clause →
+canonical graph/patch), `register_incident`(response point는 zone 사전 정의값), `apply_patch`,
+`allocate`.
 clarification·NO_CHANGE·거부·UNSUPPORTED 응답은 전부 결정론적 코드의 결과다. 운용자가
 미지원 graph 변경을 요구하면 intent classifier/grounder 단계에서 `UNSUPPORTED` 또는
 clarification으로 끝나야지, invalid patch를 만들어 Validator에 전달하지 않는다.

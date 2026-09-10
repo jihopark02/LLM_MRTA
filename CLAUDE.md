@@ -19,7 +19,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-075, 계약 v1.70)
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-076, 계약 v1.71 (구현 중))
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
@@ -27,7 +27,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P13.4 + D-059~D-070 완료. `main`은 이제 여기(D-070)까지 fast-forward됐고 태그
 `v0.13.4-baseline`이 review·재현 기준점이다** (직전 baseline은 `v0.6.5-baseline` = P6.5).
-계약 v1.70, 최신 결정 D-075. pytest 954개 통과, ruff clean.
+계약 v1.71, 최신 결정 D-076. D-075 시점 pytest 954 green; D-076 구현 중.
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
 (D-027), `λ = 0.999`.
@@ -61,8 +61,17 @@ D-070 시스템을 고정해 둔다). 진행 중:
   classification 불변. two-stage generator는 evaluation baseline으로 유지, P6 harness도
   two-stage(`tests/conftest.py`가 mock 회귀를 two-stage 고정). 용어: "deterministic invariant
   validation"(정형검증 아님). single-call은 main contribution 아님 — online responsiveness용
-  구현 결정. **이후 single-call 구조 변경 종료**, 메인 축(online interaction / selective CBBA /
-  시뮬레이션)으로 복귀. 한국어 조사 robustness는 별도 후속(로드맵 Phase 3).
+  구현 결정.
+- `feature/semantic-mission-ir` — **D-076 (계약 v1.71, 진행 중)**: LLM 역할을 "generic
+  language operator 추출"로 한정. `generate_mission`(§12)을 runtime에서 제거 → `evaluation/`
+  legacy ablation으로만 보존, **D-076이 D-075 runtime graph-synthesis 결정을 supersede**
+  (D-072/D-074/D-075 artifact는 불변 historical evidence). 신규 `interaction/mission_ir.py`
+  (Semantic Mission IR — RANGE/REGION/EXCLUDE/RECENT_INCIDENTS/SPATIAL_PICK/UNVISITED_ONLY/
+  RECON/INCIDENT_RESPONSE) + `interaction/resolve.py`(현재 Scene·MissionState·event_log로
+  concrete target set 계산) + `interaction/compile_clauses.py`(canonical graph/patch).
+  `NEW_MISSION`/`UPDATE_MISSION`은 별도 lifecycle act 유지하되 동일 `SemanticMissionIR`
+  payload. **불변식: IR = generic operator only, Resolver = current-world-dependent, production
+  path에 command/scenario-specific branch 금지.** RQ 재정의는 구현·평가 후 D-077.
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.

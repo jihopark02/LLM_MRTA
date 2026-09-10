@@ -2343,3 +2343,92 @@ runtime default, while two-stage generation is retained as the experimental base
   `tests/conftest.py`(신규, mock 회귀 two-stage 고정), `tests/test_interaction_orchestrator.py`
   (default 검증 테스트).
 - P6 harness·integration·golden·Validator·CBBA·two-stage generator: 불변.
+
+## D-076: Semantic Mission IR — LLM은 언어 정규화만, mission structure는 결정론적 (계약 v1.71)
+
+> 병렬 브랜치: D-073은 `feature/demo-scene-scaleup`(v1.67). D-071~D-076은
+> `feature/latency-profiling` 계열(v1.67~v1.71). `feature/semantic-mission-ir`에서 진행.
+> 버전 라벨은 main 병합 시 재정렬.
+
+**배경** "task 어휘가 3종이고 workflow가 고정이면 rule-based parser로도 되지 않나?"라는
+질문에 현재 구조는 강하게 답하지 못한다. D-075 runtime은 LLM이 `AREA_RECON:ZONE_A` 같은
+task instance와 edge를 직접 생성하고 Validator가 뒤에서 검사하는 구조다. D-072/D-074는
+two-stage와 single-call의 graph 품질이 동일함을 보였는데, 이는 이 도메인에서 graph 생성이
+사실상 결정론적이기 때문이다 — 즉 LLM이 그 자리에 있을 이유가 약하다.
+
+rule-based가 못 하는 건 "정형 명령을 실행 규칙으로 바꾸는 것"이 아니라 "사람이 정형화해서
+말하지 않는 것"이다. 그래서 LLM의 책임을 **자유롭고 맥락적인 운용자 언어를 bounded semantic
+representation으로 정규화**하는 것으로 한정하고, 실제 실행 의미는 전부 결정론적으로 만든다.
+
+**결정**
+1. **`generate_mission`을 runtime dialogue 경로에서 제거한다.** `llm/pipeline.py`에 코드는
+   남기되 `evaluation/`(P6 harness, `graph_gen_ablation`)만 import한다 — legacy
+   graph-generator ablation. **D-076이 D-075의 runtime graph-synthesis 결정을 supersede한다.**
+   D-072/D-074/D-075 artifact는 수정하지 않고 **불변 historical design evidence**로 유지한다.
+   D-076 이후 P6/D-072 수치를 "현재 deployed pipeline 성능"으로 발표하면 안 되고 "초기
+   graph-generation architecture 검토(legacy ablation)"로만 인용한다.
+
+2. **Semantic Mission IR** (`interaction/mission_ir.py`, 신규): LLM은 이제 어느 경로에서도
+   task_type instance · target ID · dependency edge · 좌표 · priority · capability · agent ·
+   allocation · release policy · MissionPatch op · lifecycle operation을 생성하지 않는다.
+   대신 **generic language operator만** 출력한다.
+   - `SemanticMissionIR = { clauses: tuple[MissionClause,...], incident_policy: ...|None }`.
+     `operation`(NEW/EXTEND) 필드 없음 — lifecycle mutation은 dialogue-act kind로 결정론적
+     계층이 정한다.
+   - `MissionClause` = `ReconClause(zones: ZoneSelector)` | `IncidentResponseClause(incidents:
+     IncidentSelector, response_up_to: GROUND_INSPECTION|GROUND_SUPPRESSION)`.
+   - `ZoneSelector`: `explicit`(원문구) · `range_from/range_to` · `region`(NORTH|SOUTH|EAST|WEST)
+     · `exclude`(원문구) · `unvisited_only`.
+   - `IncidentSelector`: `explicit` · `deixis`(원문구) · `recency`(MOST_RECENT_DETECTED|
+     PREVIOUS_DETECTED|ALL_KNOWN) · `recent_count` · `spatial_pick`(EASTMOST|WESTMOST|
+     NORTHMOST|SOUTHMOST).
+   - 전부 `extra="forbid"` · `strict=True`. `NewMissionIntent`/`UpdateMissionIntent`가 동일한
+     `mission: SemanticMissionIR` payload를 갖는다.
+
+3. **Clause Resolver** (`interaction/resolve.py`, 신규) — 결정론적, 현재 world/state 의존:
+   - `RANGE(from,to)` → `Scene.zones` 키의 lexical 순서 슬라이스.
+   - `REGION` → Scene bbox 중심 기준 **total half-plane**: `WEST: x < cx` / `EAST: x >= cx` /
+     `SOUTH: y < cy` / `NORTH: y >= cy`. 경계선에서 clarify하지 않는다(분할이 total).
+   - `EXCLUDE` → 집합 차. `unvisited_only` → 현재 MissionState에서 `AREA_RECON` COMPLETED 제외.
+   - `RECENT_INCIDENTS(n)` → 실행 시점 `session.event_log`를 최신순으로 스캔해 incident 등록
+     event(`IncidentActionAudit`/`IncidentObservationAudit`)에서 distinct incident_id n개.
+     **특정 `FIRE_SITE_n`에 매핑하지 않는다.**
+   - `deixis` → 기존 `resolve_incident` referent-window 경로 재사용.
+   - `SPATIAL_PICK(EASTMOST)` → candidate 집합에서 `incident.position.x` 최대. **동률 → clarify.**
+   - resolver 기본 반환형 = **target set**. set selector는 정상적으로 ≥1개 반환(`RECENT(2)`는
+     2개가 정상). `SPATIAL_PICK`만 1개로 축약. 0개 또는 under-determined singular pick →
+     `CLARIFICATION_REQUIRED`(fail-closed, 불변).
+
+4. **Mission Compiler** (`interaction/compile_clauses.py`, 신규) — 결정론적:
+   resolved recon zone → `AREA_RECON:zone`, resolved incident + up_to → canonical
+   `GROUND_INSPECTION [→ GROUND_SUPPRESSION]` chain + edge(`WORKFLOW_CHAIN` 재사용). 복수
+   clause → 하나의 spec 목록으로 병합. `NEW_MISSION` → `compile_reference_graph`로 새 graph.
+   `UPDATE_MISSION` → **additive** atomic `MissionPatch`(AddTask + AddEdge, task 제거 없음).
+   Validator 한 번, atomic commit/rollback(`apply_patch` 불변).
+
+5. **불변식**:
+   - Semantic IR = generic language operators only. mission template · scene/fire 리터럴 ·
+     명령문 리터럴 없음.
+   - Resolver = current-world-dependent interpretation. **production path에
+     `if "<phrase>" in utterance` 류 branch, scenario-specific mapping 금지.** 테스트 fixture는
+     고정 입력→기대출력을 써도 되지만 그 매칭 로직이 runtime에 존재하면 안 된다.
+   - 같은 IR + 다른 world state → 다른 concrete graph.
+   - latent fire = world event source, mission scenario 아님.
+   - `REPORT_INCIDENT` / `UPDATE_RESOURCES` / `QUERY_STATUS` / `UNSUPPORTED` 유지.
+   - Validator · CBBA · selective release · P3/P4/P9 golden · scene loader 불변.
+
+6. **RQ 재정의는 D-076에 넣지 않는다.** 구현·평가(Explicit / Compositional / Contextual
+   3-level held-out set, 결과 보기 전 커밋) 안정화 후 **D-077**에서 별도로 결정한다. 그때까지
+   §1 RQ1의 "LLM이 graph 구조를 생성"은 stale이며, "동적 재할당" 주장 규칙(§1 RQ3)은 그대로
+   유효하다.
+
+**영향**
+- 계약: §12(generate_mission → legacy), §18.2/§18.3/§18.7 재작성, 버전 v1.71.
+- 코드(신규): `interaction/mission_ir.py` · `interaction/resolve.py` ·
+  `interaction/compile_clauses.py`.
+- 코드(변경): `interaction/schemas.py`(NEW/UPDATE payload = IR, wire 평면화),
+  `interaction/orchestrator.py`(`_do_new_mission`/`_do_update_mission` 재작성 — IR → resolve →
+  compile → validate → graph/patch), `llm/prompts.py`(IR prompt), `interaction/ground.py`
+  (referent 경로 resolver에서 재사용).
+- 광범위한 테스트 갱신: 모든 `NEW_MISSION`/`UPDATE_MISSION` mock이 `SemanticMissionIR` script로.
+- 불변: `llm/pipeline.py` 코드, D-072/D-074/D-075 artifact, P6 harness, golden.
