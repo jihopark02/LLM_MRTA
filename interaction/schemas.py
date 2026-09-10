@@ -1,29 +1,26 @@
 """Operator intent schemas for the planning session (RESEARCH_CONTRACT.md §18).
 
-The interaction LLM classifies the utterance into one of the six supported
-dialogue acts (§18.2) and extracts bounded slots. P13 permits agent-class,
-count, include and exclude constraints on ``NEW_MISSION``; these are not
-task-to-agent assignments. It never emits a clarification, MissionPatch,
-task list, priority or coordinate. For ``NEW_MISSION`` task/edge generation is the existing RQ1
-``llm.pipeline.generate_mission`` on the raw utterance (§12). P12 adds one
-mission-level slot beside that graph: the canonical response step for a future
-detected or reported incident. It cannot name a future target or an agent.
+D-076: in one structured-output call the interaction LLM classifies the
+utterance into a dialogue act and — for ``NEW_MISSION`` / ``UPDATE_MISSION`` —
+emits a ``SemanticMissionIR`` of generic language operators (`interaction/
+mission_ir.py`). It never emits task/edge lists, target ids, coordinates,
+priority, capability, agent, allocation, a MissionPatch, or a clarification;
+the deterministic Resolver + Compiler build the graph/patch and the grounder
+owns clarification (§18.5). ``REPORT_INCIDENT`` keeps its ``zone_ref`` /
+``response_up_to`` slots and P13 keeps the resource slots.
 
-Slot extraction may be partial: every slot is optional, so "불이 났어" with no
-location is a ``REPORT_INCIDENT`` with ``zone_ref=None``. Turning a missing or
-ambiguous slot into ``CLARIFICATION_REQUIRED`` is the deterministic grounder's
-job (§18.5), never the model's — there is deliberately no clarification member
-in this union.
-
-``extra="forbid"`` + ``strict=True`` on every model, as in ``llm/schemas.py``:
-a model-invented ``tasks``/``priority``/``label``/``urgent`` key must fail here
-rather than be silently dropped.
+Slot extraction may be partial: "불이 났어" with no location is a
+``REPORT_INCIDENT`` with ``zone_ref=None``; the grounder turns that into a
+clarification. ``extra="forbid"`` + ``strict=True`` on every model, no field
+defaults on the wire form (OpenAI strict structured output — as in
+``llm/schemas.py``).
 """
 
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from interaction.mission_ir import SemanticMissionIR
 from interaction.resources import ResourceRequest
 
 
@@ -40,10 +37,13 @@ UpToStep = Literal[
 
 
 class NewMissionIntent(_StrictModel):
-    """Create the first mission and optionally retain its incident policy."""
+    """Create the first mission (D-076). ``mission`` is the Semantic Mission IR —
+    generic language operators only; the deterministic Resolver/Compiler build
+    the graph. A future-incident policy, if any, rides inside
+    ``mission.incident_policy``."""
 
     kind: Literal["NEW_MISSION"]
-    incident_response_up_to: UpToStep | None = None
+    mission: SemanticMissionIR
     resources: "ResourceRequestSchema | None" = None
 
 
@@ -87,11 +87,13 @@ class UpdateResourcesIntent(_StrictModel):
 
 
 class UpdateMissionIntent(_StrictModel):
-    """Extend one incident's planned response up to a workflow step."""
+    """Edit the running mission (D-076). Same ``SemanticMissionIR`` payload as
+    ``NEW_MISSION`` — the deterministic layer compiles it into an *additive*
+    patch against the current graph instead of a fresh graph. Multi-clause: one
+    utterance may add recon and several incident responses at once."""
 
     kind: Literal["UPDATE_MISSION"]
-    target_phrase: str | None = None  # raw referent, e.g. "거기" / "FIRE_SITE_1"
-    up_to_step: UpToStep | None = None
+    mission: SemanticMissionIR
 
 
 class QueryStatusIntent(_StrictModel):
@@ -145,10 +147,10 @@ class IntentWireEnvelope(_StrictModel):
         "QUERY_STATUS",
         "UNSUPPORTED",
     ]
+    # D-076: non-null iff kind in {NEW_MISSION, UPDATE_MISSION}
+    mission: SemanticMissionIR | None
     zone_ref: str | None
-    target_phrase: str | None
-    up_to_step: UpToStep | None
-    incident_response_up_to: UpToStep | None
+    target_phrase: str | None             # QUERY_STATUS referent, e.g. "그 화재"
     response_up_to: UpToStep | None
     about: Literal["agents", "tasks", "incidents", "mission"] | None
     note: str | None
@@ -163,49 +165,19 @@ class IntentWireEnvelope(_StrictModel):
 
     @model_validator(mode="after")
     def _kind_owns_non_null_slots(self):
+        _RES = {"uav_exact", "uav_min", "uav_max", "ugv_exact", "ugv_min", "ugv_max",
+                "required_agents", "excluded_agents"}
         allowed = {
-            "NEW_MISSION": {
-                "incident_response_up_to",
-                "uav_exact",
-                "uav_min",
-                "uav_max",
-                "ugv_exact",
-                "ugv_min",
-                "ugv_max",
-                "required_agents",
-                "excluded_agents",
-            },
-            "REPORT_INCIDENT": {
-                "zone_ref",
-                "response_up_to",
-                "uav_exact",
-                "uav_min",
-                "uav_max",
-                "ugv_exact",
-                "ugv_min",
-                "ugv_max",
-                "required_agents",
-                "excluded_agents",
-            },
-            "UPDATE_RESOURCES": {
-                "uav_exact",
-                "uav_min",
-                "uav_max",
-                "ugv_exact",
-                "ugv_min",
-                "ugv_max",
-                "required_agents",
-                "excluded_agents",
-            },
-            "UPDATE_MISSION": {"target_phrase", "up_to_step"},
+            "NEW_MISSION": {"mission", *_RES},
+            "UPDATE_MISSION": {"mission"},
+            "REPORT_INCIDENT": {"zone_ref", "response_up_to", *_RES},
+            "UPDATE_RESOURCES": set(_RES),
             "QUERY_STATUS": {"target_phrase", "about"},
             "UNSUPPORTED": {"note"},
         }[self.kind]
         values = {
             "zone_ref": self.zone_ref,
             "target_phrase": self.target_phrase,
-            "up_to_step": self.up_to_step,
-            "incident_response_up_to": self.incident_response_up_to,
             "response_up_to": self.response_up_to,
             "about": self.about,
             "note": self.note,
@@ -223,16 +195,22 @@ class IntentWireEnvelope(_StrictModel):
         )
         if unexpected:
             raise ValueError(f"{self.kind} cannot populate slots: {', '.join(unexpected)}")
+        # D-076 S1: the two mission-editing acts require the IR; no one else may carry it.
+        mission_act = self.kind in {"NEW_MISSION", "UPDATE_MISSION"}
+        if mission_act and self.mission is None:
+            raise ValueError(f"{self.kind} requires a mission (Semantic Mission IR)")
+        if not mission_act and self.mission is not None:
+            raise ValueError(f"{self.kind} cannot carry a mission")
         if self.kind in {"NEW_MISSION", "REPORT_INCIDENT", "UPDATE_RESOURCES"}:
             ResourceRequest.from_flat_slots(values)
         return self
 
     def to_internal(self) -> IntentEnvelope:
         allowed = {
-            "NEW_MISSION": ("incident_response_up_to",),
+            "NEW_MISSION": ("mission",),
+            "UPDATE_MISSION": ("mission",),
             "REPORT_INCIDENT": ("zone_ref", "response_up_to"),
             "UPDATE_RESOURCES": (),
-            "UPDATE_MISSION": ("target_phrase", "up_to_step"),
             "QUERY_STATUS": ("target_phrase", "about"),
             "UNSUPPORTED": ("note",),
         }[self.kind]
@@ -272,13 +250,15 @@ class IntentWireEnvelope(_StrictModel):
 
 
 def wire_intent(kind: str, **slots) -> IntentWireEnvelope:
-    """Test/demo helper that still crosses the exact live wire boundary."""
+    """Test/demo helper that still crosses the exact live wire boundary.
+
+    D-076: for NEW_MISSION / UPDATE_MISSION pass ``mission=<SemanticMissionIR>``
+    (build one with ``tests.ir_fixtures``)."""
     payload = {
         "kind": kind,
+        "mission": None,
         "zone_ref": None,
         "target_phrase": None,
-        "up_to_step": None,
-        "incident_response_up_to": None,
         "response_up_to": None,
         "about": None,
         "note": None,
