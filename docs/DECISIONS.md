@@ -2494,8 +2494,46 @@ LLM 호출은 **1회**다. kind + `SemanticMissionIR`를 하나의 semantic-inte
   옮긴다. D-076 evaluation은 **신규** Explicit / Compositional / Contextual gold set(별도
   annotation, 결과 실행 전 freeze) — D-077 RQ 재정의와 함께.
 
+**확정 추가 — S12. D-076 held-out evaluation 프로토콜 (계약 v1.72, §18.15)**
+
+D-076의 주장은 "자유로운 언어가 Semantic IR로 정규화되고 → 현재 world/state에 따라 resolve되고
+→ deterministic graph/patch로 **안전하게** 이어진다"이다. 이를 계층별로 분해 측정한다.
+
+- **Set 구성** (`data/d076_eval/{explicit,compositional,contextual}/`, 각 15개, 총 45):
+  - *Explicit* — 기본 semantic normalization: 명시 zone 집합/명시 incident, 단순 NEW/UPDATE.
+  - *Compositional* — 한 발화 내 operator 조합: `RANGE+EXCLUDE`, `REGION+UNVISITED_ONLY`,
+    복수 response clause, recon+response 혼합.
+  - *Contextual* — 현재 world/state/event에 의존: `RECENT_INCIDENTS`(SENSOR/OPERATOR source),
+    `DEIXIS`, `SPATIAL_PICK`, `UNVISITED_ONLY`.
+  - 각 set에 **fail-closed case 포함**(unknown zone, 없는 최근 incident, spatial tie, 동일
+    incident inspection/suppression 충돌 등) — expected outcome이 `CLARIFICATION`/`REJECTED`.
+  - Contextual에 **world-counterfactual pair** ≥ 3쌍: 동일 utterance + 다른 world/state/event
+    → 다른 resolved targets. "미리 정한 시나리오 호출이 아니다"의 코드 수준 증거.
+- **평가 레코드** (per YAML): `id`, `level`, `world`(고정 scene fixture — runtime 하드코딩이
+  아니라 재현용 world snapshot), `initial_graph`(UPDATE용, compact spec), `event_history`
+  (incident 등록 event), `utterance`, `expected.{kind, semantic_ir(compact DSL), outcome,
+  clarification_reason?, resolved?}`. `final_graph`/`patch`는 **hand-author하지 않고** 로드
+  시 expected IR을 resolve→compile해 파생 + Validator self-check(P6 `load_annotation` 철학).
+- **주 지표**: ① Semantic IR exact-match ② Resolved target-set exact-match ③ Final graph/patch
+  exact-match ④ Clarification/rejection correctness(outcome + reason) ⑤ **Unsafe commit rate**
+  (expected가 clarify/reject인데 commit된 비율 — 0이어야 함).
+- **보조 지표**: structured-output validity, intent repair rate, LLM latency, total turn latency.
+- **Failure attribution**: ①~③을 독립 계산해 "IR 틀림 / IR 맞고 resolver 틀림 / IR·resolver
+  맞고 compile 틀림"을 분리 보고(D-076이 audit까지 바꾼 목적).
+- **rule-based baseline은 이 단계에 넣지 않는다.** 목적은 "LLM > rule" 증명이 아니라 위 파이프라인
+  정상 동작 확인. baseline은 D-077 이후 필요 시.
+- **freeze 규약**: annotation + protocol + harness를 **결과 보기 전에** commit하고 그 hash를
+  freeze point로 기록한다. 이후 live smoke 1회 → (infra/API 실패가 아니면) held-out 전체 실행.
+  **결과가 나빠도 annotation/prompt 수정 금지** — 수정은 D-077 이후 새 버전/새 evaluation으로
+  분리. API schema probe와 달리 이 시점 live 호출은 실제 semantic behavior를 노출하므로 D-074
+  "결과 전 고정" 원칙을 그대로 적용.
+- 코드: `evaluation/d076_eval.py`(loader + compact IR DSL + gold/live/cached harness + 지표 +
+  report + CLI `python3 -m evaluation.d076_eval [--mock] [--out P]`), `tests/test_d076_eval.py`
+  (loader strict + gold self-test 45/45 + counterfactual 발산 + fail-closed no-commit).
+
 **영향**
-- 계약: §12(generate_mission → legacy), §18.2/§18.3/§18.7 재작성, 버전 v1.71.
+- 계약: §12(generate_mission → legacy), §18.2/§18.3/§18.7 재작성, §18.15 신규(S12), 버전
+  v1.71 → v1.72.
 - 코드(신규): `interaction/mission_ir.py` · `interaction/resolve.py` ·
   `interaction/compile_clauses.py`.
 - 코드(변경): `interaction/schemas.py`(NEW/UPDATE payload = IR, wire 평면화),

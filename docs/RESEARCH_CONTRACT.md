@@ -1,8 +1,13 @@
 # RESEARCH_CONTRACT.md — 단일 진실 원천
 
-버전 v1.71 (D-076). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저 고치고
-`docs/DECISIONS.md`에 이유를 append한다.
+버전 v1.72 (D-076 S12). 이 문서와 코드가 충돌하면 이 문서가 우선한다. 변경 시 이 문서를 먼저
+고치고 `docs/DECISIONS.md`에 이유를 append한다.
 
+- v1.72 (D-076 S12): **D-076 held-out evaluation 프로토콜** (§18.15). Explicit /
+  Compositional / Contextual 각 15개(총 45), 각 set에 fail-closed case 포함, Contextual에
+  world-counterfactual pair. 주 지표 = Semantic IR exact / resolved target-set exact / final
+  graph·patch exact / clarification·rejection correctness / **unsafe commit rate**. annotation +
+  harness를 결과 보기 전 commit(freeze point), 이후 수정 금지. `evaluation/d076_eval.py`.
 - v1.71 (D-076): **Semantic Mission IR**. LLM은 어느 경로에서도 task instance·target ID·
   dependency edge·좌표·priority·capability·agent·allocation·MissionPatch op·lifecycle
   operation을 생성하지 않고 **generic language operator**만 출력한다(RANGE / REGION / EXCLUDE
@@ -1847,6 +1852,35 @@ top-level에서 import하고 그 모듈이 top-level에서 matplotlib을 import�
 
 **발표 그림.** 슬라이드용 PNG/PDF는 이 렌더러가 생성한다. UI와 발표 자료가 서로 다른 그리기
 경로를 갖지 않게 하려는 것이며, 이는 §14 재현성의 연장이다.
+
+### 18.15 D-076 held-out evaluation (S12, v1.72)
+
+D-076의 파이프라인 — 자유 언어 → Semantic IR 정규화 → 현재 world/state 기반 resolve →
+deterministic graph/patch → 동일 Validator — 이 **계층별로** 옳게 동작하는지 측정한다.
+§18.11(P8.4)은 이전 flat-slot architecture의 frozen artifact이고(D-076 S11), 이 절이 D-076의
+평가다.
+
+- **Set** (`data/d076_eval/{explicit,compositional,contextual}/`, 각 15, 총 45):
+  Explicit = 기본 정규화(명시 zone/incident, 단순 NEW/UPDATE); Compositional = 한 발화 내
+  operator 조합(RANGE+EXCLUDE, REGION+UNVISITED_ONLY, 복수 clause); Contextual = world/state/
+  event 의존(RECENT_INCIDENTS·source, DEIXIS, SPATIAL_PICK, UNVISITED_ONLY). 각 set에
+  **fail-closed case**(unknown zone / 없는 최근 incident / spatial tie / inspection·suppression
+  충돌 → expected `CLARIFICATION`|`REJECTED`) 포함. Contextual에 **world-counterfactual pair**
+  ≥ 3쌍: 동일 utterance + 다른 fixture → 다른 resolved targets.
+- **레코드**: `id, level, world`(고정 scene fixture — 재현용 world snapshot, runtime 하드코딩
+  아님), `initial_graph?`(compact spec), `event_history?`, `utterance`,
+  `expected.{kind, semantic_ir(compact DSL), outcome, clarification_reason?, resolved?}`.
+  `final_graph`/`patch`는 hand-author하지 않고 로드 시 파생 + Validator self-check(§12 P6 방식).
+- **주 지표**: Semantic IR exact / resolved target-set exact / final graph·patch exact /
+  clarification·rejection correctness / **unsafe commit rate**(0이어야 함). **보조**:
+  structured-output validity, intent repair rate, LLM latency, total turn latency.
+  IR·resolved·graph exact를 독립 계산해 failure를 LLM / resolver / compiler로 attribution한다.
+- **rule-based baseline은 이 단계에 없다.** 목적은 "LLM > rule"이 아니라 파이프라인 정상 동작
+  확인.
+- **freeze**: annotation + protocol + harness를 결과 보기 전 commit(그 hash가 freeze point).
+  이후 live smoke 1회 → held-out 전체. **결과가 나빠도 수정 금지** — D-077 이후 새 버전으로
+  분리(§14 재현성, D-074 "결과 전 고정" 연장). `evaluation/d076_eval.py` +
+  `python3 -m evaluation.d076_eval [--mock|--cached|--live] [--out PREFIX]`.
 
 
 ## 19. Online command injection and selective reallocation (P9, D-039)
