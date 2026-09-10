@@ -2463,6 +2463,37 @@ LLM 호출은 **1회**다. kind + `SemanticMissionIR`를 하나의 semantic-inte
   `UPDATE_MISSION`을 한 문장에 섞는 **cross-dialogue-act conjunction은 범위 밖** — top-level
   kind는 하나. "1번은 진압까지, 2번은 점검까지, D~H도 정찰"처럼 전부 mission edit인 경우만 지원.
 
+**확정 추가 (구현 중 — 8단계 test migration 전 고정)**
+
+- **S8. compositional clarification은 non-resumable + atomic fail-closed (1차 범위)**:
+  NEW/UPDATE의 Clause Resolver가 clause 하나라도 `CLARIFICATION_REQUIRED`를 내면 **전체 IR을
+  원자적으로 거부**하고 어떤 clause도 부분 commit하지 않는다(resolver가 첫 실패에서 즉시 반환 —
+  partial resolution 없음). 이 clarification은 **후보 선택으로 재개되지 않는다**:
+  `_store_pending_if_resumable`은 grounder 단일 슬롯 모호성(`REPORT_INCIDENT` zone_ref /
+  `QUERY_STATUS` target_phrase)만 pending으로 저장하고, orchestrator는 resolver의 문구를
+  `_restate_clarification`으로 감싸 "부분 적용되지 않음 · 전체 요청을 구체적으로 재진술"로
+  안내한다(후보 pick UX 금지). **resumable compositional clarification**(pending IR + clause
+  index + unresolved selector path 저장)은 **후속 결정**으로 남긴다.
+- **S9. NEW graph는 UPDATE와 동일한 whole-graph Validator boundary를 통과한다**: `_do_new_mission`은
+  compile된 graph를 `validate_candidate`(= raw-list consistency #2/#5-edge/#6/#7 +
+  `validate_structure` #4/#8/#9/#10/#11/#12 — reference/workflow/capability/cross-incident/
+  reachability/acyclicity)로 검증한다. compiler가 canonical-by-construction이라 실패 = compiler
+  버그지만, "NEW와 UPDATE 모두 동일한 deterministic correctness boundary"가 D-076 서사의
+  핵심이므로 guardrail로 유지하고 위반 시 `REJECTED`.
+- **S10. audit provenance**: `TurnAudit.generation`(`GenerationAudit`)은 legacy
+  `generate_mission` ablation 전용. 새 runtime provenance는 `TurnAudit.semantic_ir`
+  (`SemanticIRAudit`) — 방출된 IR(`model_dump`) + clause별 `ResolvedClauseAudit`
+  (operator label `"RANGE(A..H) EXCLUDE(C,F)"` / `"RECENT(n=2, SENSOR) EASTMOST -> GROUND_SUPPRESSION"`
+  + resolved target ids). 실패가 LLM semantic error인지 resolver error인지 분리 가능.
+- **S11. P8.4 12-dialogue는 frozen legacy artifact**: `data/reference_annotations`의 P8.4
+  gold와 `docs/P8_4_RESULTS.md` / `data/eval_results/p8_4_*`는 **이전 flat-slot architecture의
+  historical evaluation**이므로 SemanticMissionIR schema에 맞춰 **수정 금지**. 기존 명령이
+  regression에 유용하면 원본을 건드리지 말고 test-only adapter(옛 `target_phrase=FIRE_SITE_1`
+  + `up_to_step=GROUND_SUPPRESSION` → `ResponseClause(explicit=["FIRE_SITE_1"],
+  response_up_to="GROUND_SUPPRESSION")`)로 **최종 행동 동일성만** 보는 behavioral regression으로
+  옮긴다. D-076 evaluation은 **신규** Explicit / Compositional / Contextual gold set(별도
+  annotation, 결과 실행 전 freeze) — D-077 RQ 재정의와 함께.
+
 **영향**
 - 계약: §12(generate_mission → legacy), §18.2/§18.3/§18.7 재작성, 버전 v1.71.
 - 코드(신규): `interaction/mission_ir.py` · `interaction/resolve.py` ·
