@@ -24,13 +24,18 @@ from core.enums import TaskType
 from interaction.audit import IncidentObservationAudit
 from interaction.audit_io import session_audit_payload
 from interaction.ground import chain_prefix
+from interaction.mission_ir import (
+    ConditionalPolicy,
+    ReconClause,
+    SemanticMissionIR,
+    ZoneSelector,
+)
 from interaction.observe import apply_fire_observation
 from interaction.online_execute import advance_online_session
 from interaction.orchestrator import TurnOutcome, handle_turn
 from interaction.schemas import UpToStep, wire_intent
 from interaction.session import MissionSession, SessionPhase
 from llm.backend import DEFAULT_MODEL, MockBackend
-from llm.schemas import LLMTask, Step1Output, Step2Output
 from scenarios.latent import SimulatedFireSource, load_latent_incident_fixture
 from scenarios.scene import load_scene
 from validator.hashing import VALIDATOR_VERSION, scene_hash
@@ -136,31 +141,42 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _initial_tasks(annotation: CounterfactualAnnotation) -> list[LLMTask]:
-    return [
-        LLMTask(task_type=task.split(":", 1)[0], target=task.split(":", 1)[1])
-        for task in annotation.expected_initial_tasks
-    ]
+def _patrol_mission(
+    annotation: CounterfactualAnnotation, policy: UpToStep | None
+) -> SemanticMissionIR:
+    """D-076: an explicit-zone recon over exactly the annotation's initial tasks
+    (all AREA_RECON), optionally with a FIRE_DETECTED response policy."""
+    zones = [task.split(":", 1)[1] for task in annotation.expected_initial_tasks]
+    return SemanticMissionIR(
+        recon=[
+            ReconClause(
+                zones=ZoneSelector(
+                    explicit=zones, range_from=None, range_to=None, region=None,
+                    exclude=[], unvisited_only=False,
+                )
+            )
+        ],
+        responses=[],
+        incident_policy=(
+            None
+            if policy is None
+            else ConditionalPolicy(trigger="FIRE_DETECTED", response_up_to=policy)
+        ),
+    )
 
 
 def mock_backend_factory(annotation: CounterfactualAnnotation) -> BackendFactory:
-    tasks = _initial_tasks(annotation)
-
     def factory(_case_id: str, case: object) -> MockBackend:
         if isinstance(case, PolicyCase):
             script = [
                 wire_intent(
                     "NEW_MISSION",
-                    incident_response_up_to=case.expected_policy,
+                    mission=_patrol_mission(annotation, case.expected_policy),
                 ),
-                Step1Output(tasks=tasks),
-                Step2Output(edges=[]),
             ]
         elif isinstance(case, ReportCase):
             script = [
-                wire_intent("NEW_MISSION"),
-                Step1Output(tasks=tasks),
-                Step2Output(edges=[]),
+                wire_intent("NEW_MISSION", mission=_patrol_mission(annotation, None)),
                 wire_intent(
                     "REPORT_INCIDENT",
                     zone_ref=case.expected_zone,
