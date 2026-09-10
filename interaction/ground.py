@@ -78,6 +78,7 @@ class ClarificationReason(str, Enum):
     ACTIVE_MISSION = "ACTIVE_MISSION"
     PENDING_SELECTION = "PENDING_SELECTION"
     INVALID_SELECTION = "INVALID_SELECTION"
+    SEMANTIC_CONFLICT = "SEMANTIC_CONFLICT"    # D-076 S4: same incident, two response depths
 
 
 class ResolutionVia(str, Enum):
