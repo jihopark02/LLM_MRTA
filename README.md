@@ -15,9 +15,18 @@ Unmanned Systems
 **`main` = 태그 `v0.13.4-baseline` (계약 v1.66 / D-070).** 이 baseline 이후는 병렬 feature
 branch:
 - `feature/latency-profiling` — D-071 턴별 latency 계측 → D-072 single-call graph 생성 ablation
-  → D-074 pre-registered stress eval(Stress-L 19 + Stress-S 15, gpt-5-mini) → **D-075**:
-  runtime NEW_MISSION 기본 graph-gen을 single-call로 전환. two-stage는 evaluation baseline으로
-  유지. 계약 v1.70. pytest 954, ruff clean.
+  → D-074 pre-registered stress eval(Stress-L 19 + Stress-S 15, gpt-5-mini) → D-075:
+  runtime NEW_MISSION 기본 graph-gen을 single-call로 전환. 계약 v1.70.
+- `feature/semantic-mission-ir` — **D-076 (계약 v1.71)**: LLM 역할을 "generic language
+  operator 정규화"로 한정. `generate_mission`은 runtime에서 제거(evaluation legacy
+  ablation으로만 보존, D-075 supersede). 신규 `interaction/mission_ir.py`(Semantic Mission
+  IR) + `interaction/resolve.py`(현재 world → concrete target set) +
+  `interaction/compile_clauses.py`(canonical graph/patch). `_do_new_mission`/
+  `_do_update_mission` 재작성 — IR → resolve → compile → **동일 whole-graph Validator**
+  (S9) → allocate. `TurnAudit.semantic_ir` provenance. 1회 LLM 호출(kind + IR). S8
+  compositional clarification은 non-resumable atomic fail-closed. pytest 982 green
+  (+3 skip = P8.4 harness frozen legacy, S11), ruff clean. 남은 것: D-076 held-out
+  eval set(Explicit/Compositional/Contextual, 결과 전 freeze), RQ 재정의 D-077.
 - `feature/demo-scene-scaleup` — D-073 발표 데모 확대 (15-zone `demo_grid` + world 지도).
 - 계약 버전 라벨은 main 병합 시 재정렬한다.
 

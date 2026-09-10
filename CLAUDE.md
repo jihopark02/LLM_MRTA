@@ -19,7 +19,7 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 1. `docs/RESEARCH_CONTRACT.md` 통독 — 특히 §1(연구질문), §9(Validator invariant),
    §10(MissionPatch/reconciliation), §11(CBBA epoch/scoring), §15(구현 순서/게이트)
-2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-076, 계약 v1.71 (구현 중))
+2. `docs/DECISIONS.md`에서 최신 항목 확인 (현재 D-076 (S1–S11), 계약 v1.71)
 3. `docs/PROVENANCE.md`에서 지금까지 이식된 코드가 있는지 확인
 4. `README.md`의 "현재 단계" 확인
 
@@ -27,7 +27,9 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 
 **P1~P13.4 + D-059~D-070 완료. `main`은 이제 여기(D-070)까지 fast-forward됐고 태그
 `v0.13.4-baseline`이 review·재현 기준점이다** (직전 baseline은 `v0.6.5-baseline` = P6.5).
-계약 v1.71, 최신 결정 D-076. D-075 시점 pytest 954 green; D-076 구현 중.
+계약 v1.71, 최신 결정 D-076 (S1–S11). D-076 코어 구현 완료 (schema·resolver·compiler·
+orchestrator·prompt·전체 테스트 마이그레이션), pytest 982 green + 3 skip(P8.4 harness
+frozen legacy, S11). 남은 것: D-076 held-out eval set, RQ 재정의 D-077.
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
 (D-027), `λ = 0.999`.
@@ -62,16 +64,27 @@ D-070 시스템을 고정해 둔다). 진행 중:
   two-stage(`tests/conftest.py`가 mock 회귀를 two-stage 고정). 용어: "deterministic invariant
   validation"(정형검증 아님). single-call은 main contribution 아님 — online responsiveness용
   구현 결정.
-- `feature/semantic-mission-ir` — **D-076 (계약 v1.71, 진행 중)**: LLM 역할을 "generic
-  language operator 추출"로 한정. `generate_mission`(§12)을 runtime에서 제거 → `evaluation/`
+- `feature/semantic-mission-ir` — **D-076 (계약 v1.71, S1–S11)**: LLM 역할을 "generic
+  language operator 정규화"로 한정. `generate_mission`(§12)을 runtime에서 제거 → `evaluation/`
   legacy ablation으로만 보존, **D-076이 D-075 runtime graph-synthesis 결정을 supersede**
   (D-072/D-074/D-075 artifact는 불변 historical evidence). 신규 `interaction/mission_ir.py`
   (Semantic Mission IR — RANGE/REGION/EXCLUDE/RECENT_INCIDENTS/SPATIAL_PICK/UNVISITED_ONLY/
-  RECON/INCIDENT_RESPONSE) + `interaction/resolve.py`(현재 Scene·MissionState·event_log로
-  concrete target set 계산) + `interaction/compile_clauses.py`(canonical graph/patch).
-  `NEW_MISSION`/`UPDATE_MISSION`은 별도 lifecycle act 유지하되 동일 `SemanticMissionIR`
-  payload. **불변식: IR = generic operator only, Resolver = current-world-dependent, production
-  path에 command/scenario-specific branch 금지.** RQ 재정의는 구현·평가 후 D-077.
+  DEIXIS/EXPLICIT) + `interaction/resolve.py`(현재 Scene·MissionState·event_log로
+  concrete target set, fail-closed) + `interaction/compile_clauses.py`(canonical graph /
+  additive patch). `interaction/schemas.py` wire에 `mission: SemanticMissionIR | None`
+  nested, S1 strict 결속. `_do_new_mission`/`_do_update_mission`가 IR → `resolve_mission_ir`
+  → `compile_new_graph`/`compile_patch` → **NEW·UPDATE 동일 whole-graph Validator**
+  (`validate_candidate`, S9) → allocate/selective CBBA. `NEW_MISSION`/`UPDATE_MISSION`은
+  별도 lifecycle act 유지하되 동일 `SemanticMissionIR` payload, 1회 LLM 호출(kind + IR).
+  **S8: NEW/UPDATE의 resolver clarification은 non-resumable + atomic fail-closed**(부분
+  clause commit 없음, 후보 pick UX 금지 — resumable compositional clarification은 후속).
+  `TurnAudit.semantic_ir`(`SemanticIRAudit`)에 방출된 IR + clause별 operator label +
+  resolved ids provenance. `llm/prompts.py` IR prompt(좌표·id·edge·priority·assignment
+  금지 반복, world 좌표 미주입). **S11: P8.4 12-dialogue gold·결과는 frozen legacy**
+  (`test_interaction_harness` module-skip, `evaluation/interaction_annotations`가 legacy
+  intent shape만 검사). **불변식: IR = generic operator only, Resolver =
+  current-world-dependent, production path에 command/scenario-specific branch 금지.**
+  RQ 재정의는 held-out eval 안정화 후 D-077.
 
 **발표 시각화 (진행 중)**:
 - `d3ad6d1` — `render_mission_map(minimal=True)` + native simulator `minimal` 뷰 = MP4MR-clean 할당 스캐터.
