@@ -2523,11 +2523,26 @@ D-076의 주장은 "자유로운 언어가 Semantic IR로 정규화되고 → �
 - **rule-based baseline은 이 단계에 넣지 않는다.** 목적은 "LLM > rule" 증명이 아니라 위 파이프라인
   정상 동작 확인. baseline은 D-077 이후 필요 시.
 - **freeze 규약**: annotation + protocol + harness를 **결과 보기 전에** commit하고 그 hash를
-  freeze point로 기록한다. **freeze point = `8b274fd`** (D-076 S12 held-out evaluation harness +
-  45-case set). 이후 live smoke 1회 → (infra/API 실패가 아니면) held-out 전체 실행.
-  **결과가 나빠도 annotation/prompt 수정 금지** — 수정은 D-077 이후 새 버전/새 evaluation으로
-  분리. API schema probe와 달리 이 시점 live 호출은 실제 semantic behavior를 노출하므로 D-074
-  "결과 전 고정" 원칙을 그대로 적용.
+  freeze point로 기록한다. **freeze point = `8b274fd`** (harness + 45-case set), execution
+  rules는 `8b274fd`에 뒤이은 commit에서 harness에 고정. **결과가 나빠도 annotation/prompt 수정
+  금지** — 수정은 D-077 이후 새 버전/새 evaluation으로 분리. API schema probe와 달리 이 시점
+  live 호출은 실제 semantic behavior를 노출하므로 D-074 "결과 전 고정" 원칙을 그대로 적용.
+- **실험 실행 규칙 (live 실행 전 고정)**:
+  1. **smoke = infrastructure gate only.** held-out 45개에 없는 별도 sacrificial 입력 1건으로
+     API reachable → structured schema accepted → response parseable → runtime end-to-end
+     완료만 확인. semantic 해석이 틀려도 infra 정상이면 45개 전체 실행 계속.
+  2. **retry는 infrastructure failure에만.** API timeout / 429 / 5xx / connection만 최대
+     `MAX_INFRA_RETRIES=3` 재시도(`_InfraRetryBackend`, SDK `max_retries=0`으로 위임 차단).
+     schema-valid하지만 의미가 틀린 응답은 **절대 재호출하지 않고** 1회 채점. D-052 intent
+     repair(schema-invalid 1회)는 기존대로 유지하되 `intent_repair` 지표로 보고.
+  3. **run config를 artifact에 기록.** resolved model id, temperature(None), request timeout,
+     retry policy, 총 호출 수, 재시도 수, 실행 시각 — `run_config` 블록. API key 제외.
+  4. **raw 먼저 저장.** case별 raw structured output(`session_audits[<id>]`의 `semantic_ir.ir`
+     / `extracted_slots`) → parsed IR → resolved → graph/patch → outcome → latency →
+     attribution을 `<out>_raw.json`에 먼저 쓰고 summary는 그 뒤 `<out>.json`/`.txt`로 파생.
+  - `python3 -m evaluation.d076_eval --smoke --live` → PASS면 `--live --out ...` 로 전체.
+  - **unsafe commit rate는 45/45 exact보다 우선하는 안전 지표** — 자연어 해석 실패가 잘못된
+    mission execution으로 넘어가지 않는가가 architecture의 핵심.
 - 코드: `evaluation/d076_eval.py`(loader + compact IR DSL + gold/live/cached harness + 지표 +
   report + CLI `python3 -m evaluation.d076_eval [--mock] [--out P]`), `tests/test_d076_eval.py`
   (loader strict + gold self-test 45/45 + counterfactual 발산 + fail-closed no-commit).

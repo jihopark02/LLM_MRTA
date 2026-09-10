@@ -30,6 +30,7 @@ import argparse
 import json
 import statistics
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -550,6 +551,66 @@ def _graph_matches(case: Case, result, session: MissionSession) -> bool:
 # -- aggregate ------------------------------------------------------
 
 
+# -- experiment execution rules (frozen before the live run, S12) -------
+#
+# 1. The smoke run is an INFRASTRUCTURE gate only (see `smoke`): a semantic
+#    error there does not stop the held-out run.
+# 2. Retry is for infrastructure failure only — API timeout / 429 / 5xx /
+#    connection. A schema-valid response is scored once and NEVER re-requested,
+#    whatever it says. (`_InfraRetryBackend`.)
+# 3. The run config — resolved model ids, temperature, timeout, retry policy,
+#    call count, timestamp — is written into the artifact (`run_config`).
+# 4. Raw per-case output (structured output -> IR -> resolved -> graph/patch ->
+#    outcome -> latency -> attribution) is saved before the summary is derived
+#    (`main` writes `<out>_raw.json` first).
+
+MAX_INFRA_RETRIES = 3
+REQUEST_TIMEOUT_S = 60.0
+_BACKOFF_S = 2.0
+
+
+class _InfraRetryBackend:
+    """Retries ``complete`` only on OpenAI infrastructure errors. A ``ValidationError``
+    (schema-invalid output) or any other exception propagates unchanged, and a
+    successful parse is returned as-is — no 'retry until the answer is good'."""
+
+    def __init__(self, inner, *, max_retries: int = MAX_INFRA_RETRIES):
+        self._inner = inner
+        self._max = max_retries
+        self.retried_calls = 0
+
+    @property
+    def mode(self):
+        return self._inner.mode
+
+    @property
+    def resolved_models(self):
+        return getattr(self._inner, "resolved_models", [])
+
+    def complete(self, system, user, schema):
+        try:
+            import openai
+
+            infra = (
+                openai.APITimeoutError,
+                openai.APIConnectionError,
+                openai.RateLimitError,
+                openai.InternalServerError,
+            )
+        except Exception:  # noqa: BLE001 - openai not importable => no infra retry
+            infra = ()
+        attempt = 0
+        while True:
+            try:
+                return self._inner.complete(system, user, schema)
+            except infra:
+                if attempt >= self._max:
+                    raise
+                attempt += 1
+                self.retried_calls += 1
+                time.sleep(_BACKOFF_S * attempt)
+
+
 @dataclass
 class EvalRun:
     scores: list[CaseScore]
@@ -557,6 +618,7 @@ class EvalRun:
     resolved_models: list[str] = field(default_factory=list)
     audits: dict[str, dict] = field(default_factory=dict)
     generated_at: str = ""
+    run_config: dict = field(default_factory=dict)
 
 
 def _rate(values: list[bool]) -> dict:
@@ -637,23 +699,70 @@ def _counterfactual_report(scores: list[CaseScore]) -> dict:
     return {"pairs": pairs, "diverged": diverged, "total": len(pairs)}
 
 
-def run_eval(cases: list[Case], backend_for, mode: str) -> EvalRun:
+def run_eval(cases: list[Case], backend_for, mode: str, *, model: str = "-") -> EvalRun:
     scores: list[CaseScore] = []
     audits: dict[str, dict] = {}
     models: list[str] = []
+    retried = 0
     for case in cases:
         backend = backend_for(case)
         score, session = score_case(case, backend)
         scores.append(score)
         audits[case.id] = session_audit_payload(session)
         models += list(getattr(backend, "resolved_models", ()))
+        retried += getattr(backend, "retried_calls", 0)
     return EvalRun(
         scores=scores,
         mode=mode,
         resolved_models=sorted(set(models)),
         audits=audits,
         generated_at=datetime.now(timezone.utc).isoformat(),
+        run_config={
+            "mode": mode,
+            "requested_model": model,
+            "resolved_models": sorted(set(models)),
+            "temperature": None,  # gpt-5-mini is a reasoning model
+            "request_timeout_s": REQUEST_TIMEOUT_S,
+            "retry_policy": (
+                f"infrastructure only (timeout / 429 / 5xx / connection), "
+                f"max {MAX_INFRA_RETRIES}; schema-valid output is scored once, never re-requested"
+            ),
+            "retried_calls": retried,
+            "total_llm_calls": len(cases),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        },
     )
+
+
+def smoke(backend, *, world: str = "scenarios/industrial_park.yaml") -> dict:
+    """Infrastructure gate only (S12 rule 1). One sacrificial utterance that is
+    NOT in the held-out set. Checks: API reachable -> structured schema accepted
+    -> response parseable -> runtime end-to-end completes. Semantic correctness
+    is irrelevant — a wrong reading here still passes."""
+    utterance = "북동쪽 구역 두어 곳만 살펴보고 제일 오래된 화재는 점검만 해줘"
+    scene = load_scene(_ROOT / world)
+    session = MissionSession("d076-smoke", scene)
+    try:
+        result = handle_turn(session, utterance, backend)
+    except Exception as exc:  # noqa: BLE001 - the whole point is to report infra failure
+        return {"pass": False, "stage": "api_or_runtime", "detail": f"{type(exc).__name__}: {exc}"}
+    audit = result.audit
+    checks = {
+        "api_reachable": result.outcome.value != "TURN_ERROR" or "schema" in (result.error or ""),
+        "schema_accepted": audit.intent_kind is not None,
+        "response_parseable": audit.intent_kind is not None,
+        "runtime_completed": result.outcome.value != "TURN_ERROR",
+    }
+    return {
+        "pass": all(checks.values()),
+        "checks": checks,
+        "utterance": utterance,
+        "intent_kind": audit.intent_kind,
+        "outcome": result.outcome.value,
+        "resolved_models": list(getattr(backend, "resolved_models", ())),
+        "llm_latency_s": round(audit.timing.llm_total_s, 3) if audit.timing else None,
+        "error": result.error,
+    }
 
 
 # -- report ---------------------------------------------------------
@@ -694,32 +803,53 @@ def text_report(run: EvalRun) -> str:
     return "\n".join(lines)
 
 
+def _case_rows(run: EvalRun) -> list[dict]:
+    return [
+        {
+            "id": s.id,
+            "level": s.level,
+            "counterfactual_of": s.counterfactual_of,
+            "ir_valid": s.ir_valid,
+            "ir_repair": s.ir_repair,
+            "ir_exact": s.ir_exact,
+            "resolved_exact": s.resolved_exact,
+            "graph_exact": s.graph_exact,
+            "outcome_correct": s.outcome_correct,
+            "unsafe_commit": s.unsafe_commit,
+            "actual_outcome": s.actual_outcome,
+            "actual_resolved": s.actual_resolved,
+            "llm_latency_s": round(s.llm_latency_s, 3),
+            "turn_latency_s": round(s.turn_latency_s, 3),
+            "error": s.error,
+        }
+        for s in run.scores
+    ]
+
+
+def raw_json(run: EvalRun) -> str:
+    """Per-case raw output + full session audits + run config. Written BEFORE
+    the summary is derived (S12 rule 4) — the emitted structured output lives in
+    ``session_audits[<id>]`` as ``semantic_ir.ir`` / ``extracted_slots``."""
+    return json.dumps(
+        {
+            "run_config": run.run_config,
+            "cases": _case_rows(run),
+            "session_audits": run.audits,
+        },
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    )
+
+
 def to_json(run: EvalRun) -> str:
     payload = {
         "mode": run.mode,
         "generated_at": run.generated_at,
+        "run_config": run.run_config,
         "resolved_models": run.resolved_models,
         "summary": summarise(run),
-        "cases": [
-            {
-                "id": s.id,
-                "level": s.level,
-                "counterfactual_of": s.counterfactual_of,
-                "ir_valid": s.ir_valid,
-                "ir_repair": s.ir_repair,
-                "ir_exact": s.ir_exact,
-                "resolved_exact": s.resolved_exact,
-                "graph_exact": s.graph_exact,
-                "outcome_correct": s.outcome_correct,
-                "unsafe_commit": s.unsafe_commit,
-                "actual_outcome": s.actual_outcome,
-                "actual_resolved": s.actual_resolved,
-                "llm_latency_s": round(s.llm_latency_s, 3),
-                "turn_latency_s": round(s.turn_latency_s, 3),
-                "error": s.error,
-            }
-            for s in run.scores
-        ],
+        "cases": _case_rows(run),
         "session_audits": run.audits,
     }
     return json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
@@ -734,18 +864,35 @@ def _build_argparser() -> argparse.ArgumentParser:
     grp.add_argument("--mock", action="store_true", help="gold-backend self-test")
     grp.add_argument("--live", action="store_true", help="OpenAI backend (records the cache)")
     grp.add_argument("--cached", action="store_true", help="replay a recorded cache")
+    p.add_argument("--smoke", action="store_true",
+                   help="one sacrificial infrastructure-gate call, then stop")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--cache-dir", default="data/llm_cache/d076")
-    p.add_argument("--out", default=None, help="write <out>.txt and <out>.json")
+    p.add_argument("--out", default=None, help="write <out>.txt / <out>.json / <out>_raw.json")
     return p
+
+
+def _live_backend(model: str, cache_dir: str):
+    from llm.backend import OpenAIBackend
+    from llm.cache import RecordingBackend
+
+    client = None
+    try:
+        from openai import OpenAI
+
+        from llm.backend import _load_dotenv
+
+        _load_dotenv()
+        client = OpenAI(timeout=REQUEST_TIMEOUT_S, max_retries=0)  # this module owns retry
+    except Exception:  # noqa: BLE001 - fall back to the SDK default client
+        client = None
+    inner = RecordingBackend(OpenAIBackend(model, client=client), cache_dir)
+    return _InfraRetryBackend(inner)
 
 
 def _backend_factory(args):
     if args.live:
-        from llm.backend import OpenAIBackend
-        from llm.cache import RecordingBackend
-
-        return lambda _case: RecordingBackend(OpenAIBackend(args.model), args.cache_dir)
+        return lambda _case: _live_backend(args.model, args.cache_dir)
     if args.cached:
         from llm.cache import CachedBackend
 
@@ -756,13 +903,30 @@ def _backend_factory(args):
 def main(argv: list[str] | None = None) -> int:
     args = _build_argparser().parse_args(argv)
     mode = "live" if args.live else "cached" if args.cached else "mock"
+    factory = _backend_factory(args)
+
+    if args.smoke:
+        result = smoke(factory(None))
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.out:
+            Path(args.out).with_suffix(".smoke.json").write_text(
+                json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
+        return 0 if result["pass"] else 2
+
     cases = load_all()
-    run = run_eval(cases, _backend_factory(args), mode)
-    report = text_report(run)
-    print(report)
+    run = run_eval(cases, factory, mode, model=args.model)
+
     if args.out:
         prefix = Path(args.out)
         prefix.parent.mkdir(parents=True, exist_ok=True)
+        # rule 4: raw first, summary after
+        prefix.with_name(prefix.name + "_raw").with_suffix(".json").write_text(
+            raw_json(run) + "\n", encoding="utf-8"
+        )
+    report = text_report(run)
+    print(report)
+    if args.out:
         prefix.with_suffix(".txt").write_text(report + "\n", encoding="utf-8")
         prefix.with_suffix(".json").write_text(to_json(run) + "\n", encoding="utf-8")
     return 0 if run.scores and all(not s.unsafe_commit for s in run.scores) else 1
