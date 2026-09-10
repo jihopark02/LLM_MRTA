@@ -23,6 +23,7 @@ build_*/
 .agents/
 .claude/
 
-# generated presentation figures (build with presentation/render_scene_figures.py)
+# generated presentation figures / decks (rebuild: deck_figures.py + build_deck_d075.py)
 presentation/*.png
 presentation/*.pptx
+presentation/fig/
