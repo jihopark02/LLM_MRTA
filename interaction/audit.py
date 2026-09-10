@@ -77,19 +77,31 @@ class GenerationAudit:
 
 
 @dataclass(frozen=True, slots=True)
+class ResolvedClauseAudit:
+    """One recon / response clause: the compact operator label the model's IR
+    carried, and the concrete zone / incident ids it resolved to against the
+    current world (D-076)."""
+
+    operator: str
+    targets: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
 class SemanticIRAudit:
     """D-076: the utterance's Semantic Mission IR and its deterministic
     resolution against the current world — the utterance → IR → target sets →
-    graph/patch trace that makes a failed NEW/UPDATE turn attributable.
+    graph/patch trace that makes a failed NEW/UPDATE turn attributable to the
+    LLM's semantic reading vs the deterministic resolver.
 
     ``ir`` is ``SemanticMissionIR.model_dump()`` exactly as the model emitted
-    it. ``resolved_recon`` / ``resolved_responses`` are populated only when the
-    resolver succeeded; ``clarification_reason`` only when it fell back.
+    it. ``recon`` / ``responses`` carry the per-clause provenance and are
+    populated only when the resolver succeeded; ``clarification_reason`` only
+    when it fell back (fail-closed, no partial resolution).
     """
 
     ir: dict
-    resolved_recon: list[list[str]] = field(default_factory=list)
-    resolved_responses: list[list] = field(default_factory=list)
+    recon: list[ResolvedClauseAudit] = field(default_factory=list)
+    responses: list[ResolvedClauseAudit] = field(default_factory=list)
     clarification_reason: str | None = None
 
 
@@ -304,6 +316,7 @@ __all__ = [
     "GroundingAudit",
     "PatchAudit",
     "GenerationAudit",
+    "ResolvedClauseAudit",
     "SemanticIRAudit",
     "ResourceResolutionAudit",
     "RuntimeAssignmentChanges",

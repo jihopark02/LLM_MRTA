@@ -61,7 +61,11 @@ from interaction.audit import (
     TimingAudit,
     TurnAudit,
 )
-from interaction.audit_builders import online_reallocation_audit, patch_audit
+from interaction.audit_builders import (
+    online_reallocation_audit,
+    patch_audit,
+    semantic_ir_audit,
+)
 from interaction.compile_clauses import compile_new_graph, compile_patch
 from interaction.directive import MissionDirective
 from interaction.ground import (
@@ -82,7 +86,7 @@ from interaction.incident_response import (
 from interaction.interpret import IntentRepairTrace, classify
 from interaction.mission_ir import SemanticMissionIR
 from interaction.mode import mode_of_backend, require_mode
-from interaction.resolve import ResolvedMissionIR, resolve_mission_ir
+from interaction.resolve import resolve_mission_ir
 from interaction.resources import ResourceRequest, ResourceRequestError
 from interaction.session import (
     MissionSession,
@@ -93,10 +97,12 @@ from interaction.session import (
 )
 from llm.backend import TimedBackend
 from llm.pipeline import GenerationResult  # legacy generate_mission ablation type only
+from validator.candidate import CandidateEdge, CandidateTask, MissionCandidate
 from validator.hashing import scene_hash
 from validator.patch import AddTask, graph_edge_keys, graph_task_keys
 from validator.patch_apply import PatchResult, apply_patch
-from validator.whole_graph import validate_structure
+from validator.result import ValidationResult
+from validator.validate import validate_candidate
 
 _UNSUPPORTED_TEMPLATE = (
     "이 세션은 임무 생성·화재 보고·대응 단계 확장·상태 질문만 지원합니다. "
@@ -225,34 +231,24 @@ def _generation_audit(gen: GenerationResult | None) -> GenerationAudit | None:
     )
 
 
-def _semantic_ir_audit(
-    ir: SemanticMissionIR, resolved: "ResolvedMissionIR | GroundingOutcome"
-) -> SemanticIRAudit:
-    """D-076 trace: the IR the model emitted and what it resolved to (§18.3)."""
-    if isinstance(resolved, GroundingOutcome):
-        return SemanticIRAudit(
-            ir=ir.model_dump(),
-            clarification_reason=resolved.reason.value if resolved.reason else None,
-        )
-    return SemanticIRAudit(
-        ir=ir.model_dump(),
-        resolved_recon=[list(c.zone_ids) for c in resolved.recon],
-        resolved_responses=[
-            [list(c.incident_ids), c.response_up_to] for c in resolved.responses
+def _validate_compiled_graph(graph, scene) -> ValidationResult:
+    """Run the SAME deterministic whole-graph Validator that the LLM-pipeline
+    candidate and every post-patch graph go through (§9): raw-list consistency
+    (#2/#5-edge/#6/#7) + whole-graph invariants (#4/#8/#9/#10/#11/#12 —
+    reference, workflow, capability, cross-incident, reachability, acyclicity).
+
+    The compiler is canonical by construction, so this is a guardrail rather
+    than a repair loop, but D-076 requires NEW and UPDATE to clear the same
+    correctness boundary — any error here is a compiler bug, surfaced as a
+    REJECTED turn, not a committed graph.
+    """
+    candidate = MissionCandidate(
+        tasks=[CandidateTask(tt, tgt) for tt, tgt in sorted(graph_task_keys(graph))],
+        edges=[
+            CandidateEdge(p, s) for p, s in sorted(graph_edge_keys(graph))
         ],
     )
-
-
-def _compiled_graph_errors(graph, scene) -> list[str]:
-    """Deterministic invariant validation of a compiled NEW_MISSION graph.
-
-    The compiler is canonical by construction, so this is a guardrail, not a
-    repair loop: any error here is a compiler/Validator bug, surfaced as a
-    REJECTED turn rather than a committed graph (§18.3, D-076 decision 4).
-    """
-    nodes = sorted(graph_task_keys(graph))
-    edges = sorted(graph_edge_keys(graph))
-    return [e.code.value for e in validate_structure(nodes, edges, scene)]
+    return validate_candidate(candidate, scene)
 
 
 def _turn_timing(turn: _Turn) -> TimingAudit:
@@ -330,6 +326,24 @@ def _clarify(turn: _Turn, outcome: GroundingOutcome) -> TurnResult:
     turn.grounding = outcome
     _store_pending_if_resumable(turn, outcome)
     return _finish(turn, TurnOutcome.CLARIFICATION, outcome.clarification or "")
+
+
+def _restate_clarification(outcome: GroundingOutcome) -> GroundingOutcome:
+    """D-076: a Semantic Mission IR resolver clarification is fail-closed and
+    non-resumable in this scope — the whole IR is rejected atomically and no
+    clause is committed. Keep the reason for the audit but drop the candidate
+    list and phrase the message as "restate the request", never as a pick, so
+    the UI does not offer a selection that would not resume anything
+    (resumable compositional clarification is a later decision)."""
+    detail = (outcome.clarification or "").rstrip()
+    return GroundingOutcome(
+        GroundingStatus.CLARIFICATION_REQUIRED,
+        reason=outcome.reason,
+        clarification=(
+            f"{detail} 이 명령은 부분 적용되지 않습니다. 전체 요청을 구체적으로 "
+            "다시 말씀해 주세요."
+        ),
+    )
 
 
 def _store_pending_if_resumable(turn: _Turn, outcome: GroundingOutcome) -> None:
@@ -466,17 +480,18 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
     # mechanically compile the canonical graph.
     ir = SemanticMissionIR.model_validate(turn.slots["mission"])
     resolved = resolve_mission_ir(ir, session)
-    turn.semantic_ir = _semantic_ir_audit(ir, resolved)
+    turn.semantic_ir = semantic_ir_audit(ir, resolved)
     if isinstance(resolved, GroundingOutcome):
-        return _clarify(turn, resolved)
+        return _clarify(turn, _restate_clarification(resolved))
 
     graph = compile_new_graph(resolved, session.scene)
-    invariant_errors = _compiled_graph_errors(graph, session.scene)
-    if invariant_errors:
+    validation = _validate_compiled_graph(graph, session.scene)
+    if not validation.accepted:
+        codes = ", ".join(sorted({e.code.value for e in validation.errors}))
         return _finish(
             turn,
             TurnOutcome.REJECTED,
-            f"컴파일된 graph가 불변식을 위반했습니다 ({', '.join(invariant_errors)}).",
+            f"컴파일된 graph가 Validator invariant를 위반했습니다 ({codes}).",
         )
 
     # Build state and plan as candidates, then swap both in one step.
@@ -784,9 +799,9 @@ def _do_update_mission(turn: _Turn) -> TurnResult:
     # incident responses at once.
     ir = SemanticMissionIR.model_validate(turn.slots["mission"])
     resolved = resolve_mission_ir(ir, session)
-    turn.semantic_ir = _semantic_ir_audit(ir, resolved)
+    turn.semantic_ir = semantic_ir_audit(ir, resolved)
     if isinstance(resolved, GroundingOutcome):
-        return _clarify(turn, resolved)
+        return _clarify(turn, _restate_clarification(resolved))
 
     touched_incidents = tuple(
         iid for clause in resolved.responses for iid in clause.incident_ids
