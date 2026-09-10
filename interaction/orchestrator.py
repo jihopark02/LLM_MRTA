@@ -35,7 +35,6 @@ and exact live-response caching remain separate in ``interaction.execute`` and
 ``llm.cache`` so neither concern changes turn semantics.
 """
 
-import os
 import time
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -58,17 +57,18 @@ from interaction.audit import (
     PlanAssignmentChanges,
     ResourceResolutionAudit,
     RuntimeAssignmentChanges,
+    SemanticIRAudit,
     TimingAudit,
     TurnAudit,
 )
 from interaction.audit_builders import online_reallocation_audit, patch_audit
+from interaction.compile_clauses import compile_new_graph, compile_patch
 from interaction.directive import MissionDirective
 from interaction.ground import (
     ClarificationReason,
     GroundingOutcome,
     GroundingStatus,
     ResolutionVia,
-    build_chain_patch,
     resolve_incident,
     resolve_zone,
 )
@@ -80,7 +80,9 @@ from interaction.incident_response import (
     publish_incident_transaction,
 )
 from interaction.interpret import IntentRepairTrace, classify
+from interaction.mission_ir import SemanticMissionIR
 from interaction.mode import mode_of_backend, require_mode
+from interaction.resolve import ResolvedMissionIR, resolve_mission_ir
 from interaction.resources import ResourceRequest, ResourceRequestError
 from interaction.session import (
     MissionSession,
@@ -90,21 +92,11 @@ from interaction.session import (
     fresh_session_state,
 )
 from llm.backend import TimedBackend
-from llm.pipeline import GenerationResult, generate_mission
+from llm.pipeline import GenerationResult  # legacy generate_mission ablation type only
 from validator.hashing import scene_hash
+from validator.patch import AddTask, graph_edge_keys, graph_task_keys
 from validator.patch_apply import PatchResult, apply_patch
-
-_WORKFLOW_STEPS = "GROUND_INSPECTION, GROUND_SUPPRESSION"
-
-
-def _single_call_graph_gen() -> bool:
-    """Runtime NEW_MISSION graph generation is single-call by default (D-075):
-    one ``GraphOutput`` call for tasks + dependencies, then the unchanged
-    deterministic Validator + bounded repair. ``LLM_MRTA_GRAPH_GEN=two-stage``
-    opts back into the Step1 -> Step2 generator, which is retained as the
-    evaluation / ablation baseline. The P6 harness and integration tests never
-    read this — they stay two-stage so the frozen goldens do not move."""
-    return os.environ.get("LLM_MRTA_GRAPH_GEN", "").strip().lower() != "two-stage"
+from validator.whole_graph import validate_structure
 
 _UNSUPPORTED_TEMPLATE = (
     "이 세션은 임무 생성·화재 보고·대응 단계 확장·상태 질문만 지원합니다. "
@@ -165,6 +157,7 @@ class _Turn:
     slots: dict = field(default_factory=dict)
     grounding: GroundingOutcome | None = None
     generation: GenerationResult | None = None
+    semantic_ir: SemanticIRAudit | None = None
     patch_result: PatchResult | None = None
     referent_noted: str | None = None
     answer: str | None = None
@@ -232,6 +225,36 @@ def _generation_audit(gen: GenerationResult | None) -> GenerationAudit | None:
     )
 
 
+def _semantic_ir_audit(
+    ir: SemanticMissionIR, resolved: "ResolvedMissionIR | GroundingOutcome"
+) -> SemanticIRAudit:
+    """D-076 trace: the IR the model emitted and what it resolved to (§18.3)."""
+    if isinstance(resolved, GroundingOutcome):
+        return SemanticIRAudit(
+            ir=ir.model_dump(),
+            clarification_reason=resolved.reason.value if resolved.reason else None,
+        )
+    return SemanticIRAudit(
+        ir=ir.model_dump(),
+        resolved_recon=[list(c.zone_ids) for c in resolved.recon],
+        resolved_responses=[
+            [list(c.incident_ids), c.response_up_to] for c in resolved.responses
+        ],
+    )
+
+
+def _compiled_graph_errors(graph, scene) -> list[str]:
+    """Deterministic invariant validation of a compiled NEW_MISSION graph.
+
+    The compiler is canonical by construction, so this is a guardrail, not a
+    repair loop: any error here is a compiler/Validator bug, surfaced as a
+    REJECTED turn rather than a committed graph (§18.3, D-076 decision 4).
+    """
+    nodes = sorted(graph_task_keys(graph))
+    edges = sorted(graph_edge_keys(graph))
+    return [e.code.value for e in validate_structure(nodes, edges, scene)]
+
+
 def _turn_timing(turn: _Turn) -> TimingAudit:
     """The turn's wall clock, split into LLM calls and the deterministic rest (D-071)."""
     total = time.perf_counter() - turn.t_start
@@ -270,6 +293,7 @@ def _finish(
         patch_hash=turn.patch_result.patch_hash if turn.patch_result else None,
         patch=patch_audit(turn.patch_result),
         generation=_generation_audit(turn.generation),
+        semantic_ir=turn.semantic_ir,
         plan_assignment_changes=PlanAssignmentChanges.between(turn.pre_plan, post_plan),
         online_reallocation=turn.online_reallocation,
         incident_action=turn.incident_action,
@@ -317,11 +341,12 @@ def _store_pending_if_resumable(turn: _Turn, outcome: GroundingOutcome) -> None:
     ):
         return
 
+    # D-076: NEW_MISSION / UPDATE_MISSION clarifications come from the Semantic
+    # Mission IR resolver and are fail-closed (the operator restates), so only
+    # the grounder's single-slot ambiguities are resumable by candidate pick.
     unresolved_slot: str | None = None
     if turn.intent_kind == "REPORT_INCIDENT":
         unresolved_slot = "zone_ref"
-    elif turn.intent_kind == "UPDATE_MISSION" and turn.slots.get("up_to_step") is not None:
-        unresolved_slot = "target_phrase"
     elif turn.intent_kind == "QUERY_STATUS" and turn.slots.get("target_phrase") is not None:
         unresolved_slot = "target_phrase"
     if unresolved_slot is None:
@@ -436,19 +461,26 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
         else {}
     )
 
-    gen = generate_mission(
-        turn.utterance, session.scene, backend, single_call=_single_call_graph_gen()
-    )
-    turn.generation = gen
-    if not gen.approved or gen.graph is None:
+    # D-076: the LLM emitted a Semantic Mission IR (generic language operators),
+    # not a graph. Resolve every operator against the current world, then
+    # mechanically compile the canonical graph.
+    ir = SemanticMissionIR.model_validate(turn.slots["mission"])
+    resolved = resolve_mission_ir(ir, session)
+    turn.semantic_ir = _semantic_ir_audit(ir, resolved)
+    if isinstance(resolved, GroundingOutcome):
+        return _clarify(turn, resolved)
+
+    graph = compile_new_graph(resolved, session.scene)
+    invariant_errors = _compiled_graph_errors(graph, session.scene)
+    if invariant_errors:
         return _finish(
             turn,
             TurnOutcome.REJECTED,
-            f"임무 생성이 거부됐습니다 ({gen.failure_category}).",
+            f"컴파일된 graph가 불변식을 위반했습니다 ({', '.join(invariant_errors)}).",
         )
 
     # Build state and plan as candidates, then swap both in one step.
-    candidate_state = fresh_session_state(gen.graph, session.scene)
+    candidate_state = fresh_session_state(graph, session.scene)
     for aid, position in inherited_uav.items():
         if aid in candidate_state.agents:
             candidate_state.agents[aid].position = position
@@ -476,7 +508,7 @@ def _do_new_mission(turn: _Turn, backend) -> TurnResult:
         candidates_tested=resolved.candidates_tested,
     )
     candidate_directive = MissionDirective.from_slot(
-        turn.slots.get("incident_response_up_to")
+        ir.incident_policy.response_up_to if ir.incident_policy is not None else None
     )
     (
         session.state,
@@ -727,9 +759,14 @@ def _do_report_incident(
     )
 
 
-def _do_update_mission(
-    turn: _Turn, resolved_incident: GroundingOutcome | None = None
-) -> TurnResult:
+def _note_incidents(turn: _Turn, incident_ids: tuple[str, ...]) -> None:
+    """Note every incident an accepted UPDATE touched (§18.5). A multi-clause
+    edit may reference several; the window (K=3) keeps the most recent."""
+    for incident_id in incident_ids:
+        _note(turn, ReferentKind.INCIDENT, incident_id)
+
+
+def _do_update_mission(turn: _Turn) -> TurnResult:
     session = turn.session
     if session.state is None:
         return _clarify(
@@ -741,31 +778,27 @@ def _do_update_mission(
             ),
         )
 
-    incident = resolved_incident or resolve_incident(
-        session, turn.slots.get("target_phrase")
+    # D-076: same Semantic Mission IR payload as NEW_MISSION — the deterministic
+    # layer compiles it into an *additive* patch against the current graph
+    # (AddTask / AddEdge only), one utterance possibly adding recon and several
+    # incident responses at once.
+    ir = SemanticMissionIR.model_validate(turn.slots["mission"])
+    resolved = resolve_mission_ir(ir, session)
+    turn.semantic_ir = _semantic_ir_audit(ir, resolved)
+    if isinstance(resolved, GroundingOutcome):
+        return _clarify(turn, resolved)
+
+    touched_incidents = tuple(
+        iid for clause in resolved.responses for iid in clause.incident_ids
     )
-    turn.grounding = incident
-    if not incident.resolved:
-        return _clarify(turn, incident)
+    patch = compile_patch(resolved, session.state.graph)
+    if not patch.operations:
+        # Grounded correctly, nothing to commit: keep the referents, skip allocate.
+        _note_incidents(turn, touched_incidents)
+        return _finish(turn, TurnOutcome.NO_CHANGE, "이미 반영된 내용이라 변경이 없습니다.")
 
-    up_to_step = turn.slots.get("up_to_step")
-    if up_to_step is None:
-        return _clarify(
-            turn,
-            GroundingOutcome(
-                GroundingStatus.CLARIFICATION_REQUIRED,
-                clarification=(
-                    f"{incident.entity_id}을(를) 어느 단계까지 처리할까요? ({_WORKFLOW_STEPS})"
-                ),
-                reason=ClarificationReason.MISSING_STEP,
-            ),
-        )
-
-    plan = build_chain_patch(session.state.graph, incident.entity_id, up_to_step)
-    if plan.no_change:
-        # Grounded correctly, nothing to commit: keep the referent, skip allocate.
-        _note(turn, ReferentKind.INCIDENT, incident.entity_id)
-        return _finish(turn, TurnOutcome.NO_CHANGE, plan.note)
+    added = sum(1 for op in patch.operations if isinstance(op, AddTask))
+    note = f"task {added}개를 추가했습니다."
 
     if session.phase in {SessionPhase.EXECUTION_PAUSED, SessionPhase.EXECUTED}:
         if session.runtime is None:
@@ -773,7 +806,7 @@ def _do_update_mission(
         follow_on = session.phase is SessionPhase.EXECUTED
         online = apply_online_patch(
             session.runtime,
-            plan.patch,
+            patch,
             session.scene,
             policy=ReleasePolicy.SELECTIVE,
         )
@@ -785,7 +818,7 @@ def _do_update_mission(
         # note_referent performs the only remaining session validation; publish
         # the candidate runtime/state together only after it succeeds (§19.4).
         online_audit = online_reallocation_audit(online)
-        _note(turn, ReferentKind.INCIDENT, incident.entity_id)
+        _note_incidents(turn, touched_incidents)
         turn.online_reallocation = online_audit
         session.runtime = online.executor
         session.state = online.executor.work
@@ -798,10 +831,10 @@ def _do_update_mission(
         return _finish(
             turn,
             TurnOutcome.COMMITTED,
-            f"{plan.note} 미시작 task {len(online.released_tasks)}개를 release/rebid했습니다.",
+            f"{note} 미시작 task {len(online.released_tasks)}개를 release/rebid했습니다.",
         )
 
-    committed, patch_result = apply_patch(session.state, plan.patch, session.scene)
+    committed, patch_result = apply_patch(session.state, patch, session.scene)
     turn.patch_result = patch_result
     if not patch_result.accepted:
         codes = ", ".join(c.value for c in patch_result.error_codes)
@@ -809,8 +842,8 @@ def _do_update_mission(
 
     candidate_plan = _plan_for(committed, session.scene)
     session.state, session.plan = committed, candidate_plan
-    _note(turn, ReferentKind.INCIDENT, incident.entity_id)
-    return _finish(turn, TurnOutcome.COMMITTED, plan.note)
+    _note_incidents(turn, touched_incidents)
+    return _finish(turn, TurnOutcome.COMMITTED, note)
 
 
 def _describe_status(session: MissionSession, incident_id: str | None, about: str) -> str:
@@ -1061,8 +1094,6 @@ def select_clarification_candidate(
     try:
         if pending.intent_kind == "REPORT_INCIDENT":
             result = _do_report_incident(turn, resolved)
-        elif pending.intent_kind == "UPDATE_MISSION":
-            result = _do_update_mission(turn, resolved)
         else:
             result = _do_query_status(turn, resolved)
     except Exception as exc:  # noqa: BLE001 - same session isolation as a natural turn

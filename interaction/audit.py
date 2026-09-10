@@ -77,6 +77,23 @@ class GenerationAudit:
 
 
 @dataclass(frozen=True, slots=True)
+class SemanticIRAudit:
+    """D-076: the utterance's Semantic Mission IR and its deterministic
+    resolution against the current world — the utterance → IR → target sets →
+    graph/patch trace that makes a failed NEW/UPDATE turn attributable.
+
+    ``ir`` is ``SemanticMissionIR.model_dump()`` exactly as the model emitted
+    it. ``resolved_recon`` / ``resolved_responses`` are populated only when the
+    resolver succeeded; ``clarification_reason`` only when it fell back.
+    """
+
+    ir: dict
+    resolved_recon: list[list[str]] = field(default_factory=list)
+    resolved_responses: list[list] = field(default_factory=list)
+    clarification_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeAssignmentChanges:
     """Assignment delta produced by an in-execution CBBA epoch (§19.4)."""
 
@@ -202,7 +219,8 @@ class TurnAudit:
     patch_hash: str | None = None               # None on a field-schema failure
 
     patch: PatchAudit | None = None
-    generation: GenerationAudit | None = None
+    generation: GenerationAudit | None = None       # legacy generate_mission ablation only
+    semantic_ir: SemanticIRAudit | None = None      # D-076: NEW_MISSION / UPDATE_MISSION
     plan_assignment_changes: PlanAssignmentChanges | None = None
     online_reallocation: OnlineReallocationAudit | None = None
     incident_action: IncidentActionAudit | None = None
@@ -286,6 +304,7 @@ __all__ = [
     "GroundingAudit",
     "PatchAudit",
     "GenerationAudit",
+    "SemanticIRAudit",
     "ResourceResolutionAudit",
     "RuntimeAssignmentChanges",
     "OnlineReallocationAudit",
