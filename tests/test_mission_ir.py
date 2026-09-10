@@ -7,33 +7,22 @@ tests/test_resolve.py; compilation is tests/test_compile_clauses.py.
 import pytest
 from pydantic import ValidationError
 
-from interaction.mission_ir import (
-    ConditionalPolicy,
-    IncidentSelector,
-    ReconClause,
-    ResponseClause,
-    SemanticMissionIR,
-    ZoneSelector,
-)
+from interaction.mission_ir import IncidentSelector, SemanticMissionIR, ZoneSelector
+from tests.ir_fixtures import isel, mission_ir, policy, recon, response, zsel
 
 
 def test_a_range_recon_with_exclusions_parses():
-    ir = SemanticMissionIR(
-        recon=(ReconClause(zones=ZoneSelector(
-            range_from="A", range_to="H", exclude=("C", "F"))),),
-    )
+    ir = mission_ir(recon=(recon(range_from="A", range_to="H", exclude=("C", "F")),))
     assert ir.recon[0].zones.range_from == "A"
-    assert ir.recon[0].zones.exclude == ("C", "F")
+    assert ir.recon[0].zones.exclude == ["C", "F"]
 
 
 def test_multi_clause_one_utterance():
-    ir = SemanticMissionIR(
-        recon=(ReconClause(zones=ZoneSelector(explicit=("D",), region=None)),),
+    ir = mission_ir(
+        recon=(recon(explicit=("D",)),),
         responses=(
-            ResponseClause(incidents=IncidentSelector(explicit=("FIRE_SITE_1",)),
-                           response_up_to="GROUND_SUPPRESSION"),
-            ResponseClause(incidents=IncidentSelector(explicit=("2번",)),
-                           response_up_to="GROUND_INSPECTION"),
+            response("GROUND_SUPPRESSION", explicit=("FIRE_SITE_1",)),
+            response("GROUND_INSPECTION", explicit=("2번",)),
         ),
     )
     assert len(ir.responses) == 2
@@ -42,51 +31,63 @@ def test_multi_clause_one_utterance():
 
 
 def test_recent_incidents_with_spatial_pick():
-    sel = IncidentSelector(recency="MOST_RECENT_DETECTED", recent_count=2,
-                           spatial_pick="EASTMOST")
+    sel = isel(recency="MOST_RECENT_DETECTED", recent_count=2, spatial_pick="EASTMOST")
     assert sel.recent_count == 2 and sel.spatial_pick == "EASTMOST"
 
 
 def test_zone_selector_needs_exactly_one_base():
-    ZoneSelector(explicit=("A",))                       # ok
-    ZoneSelector(range_from="A", range_to="H")          # ok
-    ZoneSelector(region="WEST")                         # ok
+    zsel(explicit=("A",))
+    zsel(range_from="A", range_to="H")
+    zsel(region="WEST")
     with pytest.raises(ValidationError):
-        ZoneSelector(explicit=("A",), region="WEST")    # two bases
+        zsel(explicit=("A",), region="WEST")
     with pytest.raises(ValidationError):
-        ZoneSelector(exclude=("C",))                    # only a modifier, no base
+        zsel(exclude=("C",))                 # only a modifier, no base
     with pytest.raises(ValidationError):
-        ZoneSelector(range_from="A")                    # half a range
+        zsel(range_from="A")                 # half a range
 
 
 def test_incident_selector_needs_exactly_one_base():
-    IncidentSelector(explicit=("FIRE_SITE_1",))
-    IncidentSelector(deixis="거기")
-    IncidentSelector(recency="ALL_KNOWN")
+    isel(explicit=("FIRE_SITE_1",))
+    isel(deixis="거기")
+    isel(recency="ALL_KNOWN")
     with pytest.raises(ValidationError):
-        IncidentSelector(deixis="거기", recency="ALL_KNOWN")
+        isel(deixis="거기", recency="ALL_KNOWN")
     with pytest.raises(ValidationError):
-        IncidentSelector(spatial_pick="EASTMOST")            # no base
+        isel(spatial_pick="EASTMOST")
     with pytest.raises(ValidationError):
-        IncidentSelector(explicit=("FIRE_SITE_1",), recent_count=2)  # count w/o recency
+        isel(explicit=("FIRE_SITE_1",), recent_count=2)
 
 
 def test_empty_ir_is_rejected():
     with pytest.raises(ValidationError):
-        SemanticMissionIR()
+        mission_ir()
 
 
 def test_incident_policy_alone_is_a_valid_ir():
-    ir = SemanticMissionIR(incident_policy=ConditionalPolicy(
-        response_up_to="GROUND_INSPECTION"))
+    ir = mission_ir(incident_policy=policy("GROUND_INSPECTION"))
     assert ir.incident_policy.trigger == "FIRE_DETECTED"
+
+
+def test_no_field_defaults_openai_strict_safe():
+    from openai.lib._pydantic import to_strict_json_schema
+
+    schema = to_strict_json_schema(SemanticMissionIR)
+    import json
+    text = json.dumps(schema)
+    assert '"default"' not in text
+    assert '"oneOf"' not in text
+    for obj in [schema, *schema.get("$defs", {}).values()]:
+        if obj.get("type") == "object":
+            assert set(obj["properties"]) == set(obj["required"])
 
 
 def test_extra_keys_and_loose_types_are_rejected():
     with pytest.raises(ValidationError):
-        ZoneSelector(explicit=("A",), priority=9)            # extra=forbid
+        ZoneSelector(explicit=["A"], range_from=None, range_to=None, region=None,
+                     exclude=[], unvisited_only=False, priority=9)
     with pytest.raises(ValidationError):
-        ResponseClause(incidents=IncidentSelector(explicit=("FIRE_SITE_1",)),
-                       response_up_to="AREA_RECON")          # not a workflow depth
+        response("AREA_RECON", explicit=("FIRE_SITE_1",))
     with pytest.raises(ValidationError):
-        IncidentSelector(recency="MOST_RECENT_DETECTED", recent_count="2")  # strict int
+        IncidentSelector(explicit=[], deixis=None, recency="MOST_RECENT_DETECTED",
+                         recent_count="2", recent_source=None, spatial_pick=None)

@@ -10,17 +10,11 @@ import pytest
 
 from interaction.audit import IncidentObservationAudit
 from interaction.ground import ClarificationReason, GroundingStatus
-from interaction.mission_ir import (
-    IncidentSelector,
-    ReconClause,
-    ResponseClause,
-    SemanticMissionIR,
-    ZoneSelector,
-)
 from interaction.resolve import ResolvedMissionIR, resolve_mission_ir
 from interaction.session import MissionSession, fresh_session_state
 from scenarios.compiler import compile_reference_graph
 from scenarios.scene import load_scene
+from tests.ir_fixtures import mission_ir, recon, response
 
 SCENE = Path(__file__).parents[1] / "scenarios" / "industrial_park.yaml"
 
@@ -35,7 +29,7 @@ def sess(scene, **kw):
 
 
 def _recon_ir(**zone_kw):
-    return SemanticMissionIR(recon=(ReconClause(zones=ZoneSelector(**zone_kw)),))
+    return mission_ir(recon=(recon(**zone_kw),))
 
 
 def _resolved(ir, session) -> ResolvedMissionIR:
@@ -111,8 +105,7 @@ def test_backwards_range_clarifies(scene):
 
 
 def _resp_ir(depth="GROUND_INSPECTION", **incident_kw):
-    return SemanticMissionIR(responses=(ResponseClause(
-        incidents=IncidentSelector(**incident_kw), response_up_to=depth),))
+    return mission_ir(responses=(response(depth, **incident_kw),))
 
 
 def test_all_known_incidents(scene):
@@ -177,11 +170,9 @@ def test_recent_count_more_than_available_clarifies(scene):
 
 
 def test_same_incident_two_depths_is_a_semantic_conflict(scene):
-    ir = SemanticMissionIR(responses=(
-        ResponseClause(incidents=IncidentSelector(explicit=("FIRE_SITE_1",)),
-                       response_up_to="GROUND_INSPECTION"),
-        ResponseClause(incidents=IncidentSelector(explicit=("FIRE_SITE_1",)),
-                       response_up_to="GROUND_SUPPRESSION"),
+    ir = mission_ir(responses=(
+        response("GROUND_INSPECTION", explicit=("FIRE_SITE_1",)),
+        response("GROUND_SUPPRESSION", explicit=("FIRE_SITE_1",)),
     ))
     out = resolve_mission_ir(ir, sess(scene))
     assert out.status is GroundingStatus.CLARIFICATION_REQUIRED
@@ -189,11 +180,9 @@ def test_same_incident_two_depths_is_a_semantic_conflict(scene):
 
 
 def test_same_incident_same_depth_is_fine(scene):
-    ir = SemanticMissionIR(responses=(
-        ResponseClause(incidents=IncidentSelector(explicit=("FIRE_SITE_1",)),
-                       response_up_to="GROUND_INSPECTION"),
-        ResponseClause(incidents=IncidentSelector(recency="ALL_KNOWN"),
-                       response_up_to="GROUND_INSPECTION"),
+    ir = mission_ir(responses=(
+        response("GROUND_INSPECTION", explicit=("FIRE_SITE_1",)),
+        response("GROUND_INSPECTION", recency="ALL_KNOWN"),
     ))
     out = _resolved(ir, sess(scene))
     assert {i for r in out.responses for i in r.incident_ids} == {
@@ -201,10 +190,9 @@ def test_same_incident_same_depth_is_fine(scene):
 
 
 def test_compositional_recon_plus_response(scene):
-    ir = SemanticMissionIR(
-        recon=(ReconClause(zones=ZoneSelector(range_from="A", range_to="C")),),
-        responses=(ResponseClause(incidents=IncidentSelector(explicit=("FIRE_SITE_2",)),
-                                  response_up_to="GROUND_SUPPRESSION"),),
+    ir = mission_ir(
+        recon=(recon(range_from="A", range_to="C"),),
+        responses=(response("GROUND_SUPPRESSION", explicit=("FIRE_SITE_2",)),),
     )
     out = _resolved(ir, sess(scene))
     assert out.recon[0].zone_ids == ("ZONE_A", "ZONE_B", "ZONE_C")
