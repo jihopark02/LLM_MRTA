@@ -28,10 +28,12 @@ DECISIONS), task 어휘, UAV dataclass, domain invariant, prompt, scenario, worl
 **P1~P13.4 + D-059~D-070 완료. `main`은 이제 여기(D-070)까지 fast-forward됐고 태그
 `v0.13.4-baseline`이 review·재현 기준점이다** (직전 baseline은 `v0.6.5-baseline` = P6.5).
 계약 v1.72, 최신 결정 D-076 (S1–S12). D-076 코어 구현 완료 (schema·resolver·compiler·
-orchestrator·prompt·전체 테스트 마이그레이션) + held-out evaluation harness/45-case set
-(§18.15, freeze point `8b274fd`, gold self-test 45/45·unsafe-commit 0). pytest 991 green +
-3 skip(P8.4 harness frozen legacy, S11). 남은 것: live smoke 1회 → held-out 전체 실행 →
-결과 문서화, RQ 재정의 D-077.
+orchestrator·prompt·전체 테스트 마이그레이션) + held-out evaluation (§18.15, freeze `8b274fd`).
+**live 결과**(`gpt-5-mini-2025-08-07`, `docs/D076_EVAL_RESULTS.md`): unsafe commit 1/45,
+IR exact 34/45, resolved 40/45, graph 41/45, counterfactual 3/3, attribution LLM 11 /
+resolver 0 / compiler 0. 유일한 unsafe(C13)는 자기모순 발화를 LLM이 스스로 정리해 결정론적
+conflict 검사 우회 — D-077 과제. pytest 991 green + 3 skip. 다음: D-077 RQ 재정의
+(지도교수·Codex 리뷰 후).
 `validator/`(P2) + `allocation/`(P3) + `execution/`(P4) + `llm/`(P5) + `evaluation/`
 (P6 + P6.5) + `interaction/`(P8) + `desktop/`(P11 + P13.4). `VALIDATOR_VERSION = "1.4"`
 (D-027), `λ = 0.999`.

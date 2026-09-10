@@ -2543,6 +2543,15 @@ D-076의 주장은 "자유로운 언어가 Semantic IR로 정규화되고 → �
   - `python3 -m evaluation.d076_eval --smoke --live` → PASS면 `--live --out ...` 로 전체.
   - **unsafe commit rate는 45/45 exact보다 우선하는 안전 지표** — 자연어 해석 실패가 잘못된
     mission execution으로 넘어가지 않는가가 architecture의 핵심.
+
+**결과** (`gpt-5-mini-2025-08-07`, 2026-09-10, freeze `8b274fd` 기준 무수정,
+`docs/D076_EVAL_RESULTS.md` / `data/eval_results/d076_heldout.*`): **unsafe commit 1/45**,
+IR exact 34/45, resolved 40/45, graph 41/45, outcome 41/45, counterfactual pair 3/3 발산,
+attribution LLM 11 / resolver 0 / compiler 0. 유일한 unsafe(C13)는 자기모순 발화를 LLM이
+IR에 두 clause로 남기지 않고 스스로 하나로 정리해 결정론적 `SEMANTIC_CONFLICT` 검사를 우회한
+경우 — fail-closed 보장이 "LLM이 모호성을 IR에 충실히 표현할 때"에만 성립함을 보여준다(D-077
+과제). IR miss 11개 중 ~6개는 한국어 조사가 slot에 붙거나 implicit default를 명시한 것으로
+resolve·compile·commit은 annotation과 동일(benign), ~5개가 실제 semantic miss.
 - 코드: `evaluation/d076_eval.py`(loader + compact IR DSL + gold/live/cached harness + 지표 +
   report + CLI `python3 -m evaluation.d076_eval [--mock] [--out P]`), `tests/test_d076_eval.py`
   (loader strict + gold self-test 45/45 + counterfactual 발산 + fail-closed no-commit).

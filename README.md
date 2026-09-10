@@ -27,9 +27,10 @@ branch:
   compositional clarification은 non-resumable atomic fail-closed. **S12**: held-out
   evaluation (§18.15) — Explicit/Compositional/Contextual 각 15개, fail-closed +
   world-counterfactual pair 포함. `evaluation/d076_eval.py` + `data/d076_eval/`, freeze
-  point `8b274fd`, gold self-test 45/45·unsafe-commit 0. 계약 v1.72. pytest 991 green
-  (+3 skip = P8.4 harness frozen legacy, S11), ruff clean. 남은 것: live smoke → held-out
-  전체 실행, RQ 재정의 D-077.
+  point `8b274fd`. **live 결과**(`gpt-5-mini-2025-08-07`, `docs/D076_EVAL_RESULTS.md`):
+  unsafe commit 1/45, IR exact 34/45, resolved 40/45, graph 41/45, counterfactual 3/3,
+  attribution LLM 11 / resolver 0 / compiler 0. 계약 v1.72. pytest 991 green (+3 skip = P8.4
+  harness frozen legacy, S11), ruff clean. 남은 것: RQ 재정의 D-077.
 - `feature/demo-scene-scaleup` — D-073 발표 데모 확대 (15-zone `demo_grid` + world 지도).
 - 계약 버전 라벨은 main 병합 시 재정렬한다.
 
